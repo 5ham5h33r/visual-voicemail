@@ -9,3 +9,5 @@
 - Keep original implementation separate from vendor decompilation. Document protocol observations and uncertainty in plain language.
 - Tests against the user's phone must preserve voicemail, greetings, forwarding settings, and the user's default dialer unless the user specifically authorizes a change.
 - Distinguish static code findings, live app observations, and independently reproduced behavior.
+- Apply the shared `AppMotion` policy to new app controls: brief, interruptible press feedback, immediate actions, and support for both app Reduce motion and Android animation settings. Keep native switch/seek gestures and navigation behavior. See `docs/motion.md` for the Apple-guided interaction rules.
+- Keep transcription choices in plain language with the model name available: Standard (Whisper Tiny) and Enhanced (Whisper Base). The recording transcript and Settings use the same selection. Changing quality must preserve saved transcripts until the user requests an update.

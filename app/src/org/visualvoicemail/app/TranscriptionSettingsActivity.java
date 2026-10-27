@@ -126,7 +126,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
             card.setFocusable(true);
             card.setClickable(true);
             card.setContentDescription(
-                    q.title + ". " + q.summary + ". " + q.sizeLabel() + ". " + q.description);
+                    q.label() + ". " + q.summary + ". " + q.sizeLabel() + ". " + q.description);
             card.setOnClickListener(
                     v -> {
                         if (!Transcription.select(this, q.key)) {
@@ -199,6 +199,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                                         })
                                                 .setNegativeButton("Cancel", null)
                                                 .create()));
+        remove.setBackgroundColor(0);
         ui.add(content, remove, 10);
         TextView note =
                 ui.label(

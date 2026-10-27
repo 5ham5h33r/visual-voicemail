@@ -1,12 +1,12 @@
-# App settings in version 0.13
+# App settings in version 0.14
 
 Open the gear at the top-right of the inbox. Settings uses the same light/dark/AMOLED palette as the inbox, remembers its scroll position, and keeps preferences after reopening.
 
 ## Available controls
 
-- **Appearance:** device default, Light, Dark, and AMOLED (true black). Changing the theme updates Settings and the inbox.
+- **Appearance:** device default, Light, Dark, and AMOLED (true black). Changing the theme updates Settings and the inbox. Reduce motion disables custom scaling/reveals and app window animations; Android's animation setting is also respected.
 - **Help & tutorial:** replay the short introduction, optional permission setup, and spotlights on actual controls. See [the tutorial](tutorial.md).
-- **Transcription:** choose whether opened recordings are transcribed automatically once the model is ready, clear saved transcripts, or remove the speech model. Audio and carrier messages are preserved. See [transcription](transcription.md).
+- **Transcription:** choose Standard (Whisper Tiny) or Enhanced (Whisper Base), download/remove the selected model, choose whether opened recordings are transcribed automatically, or clear saved transcripts. The quality control is also directly on each recording's transcript page. Audio and carrier messages are preserved. See [transcription](transcription.md).
 - **Inbox and contacts:** optional local contact-name lookup and newest/oldest message ordering. Unknown dates sort last in either order. The Contacts permission explanation and enable/disable controls now live here.
 - **Playback:** 0.75×, 1×, 1.25×, 1.5×, and 2× speed; 5/10/15/30-second skips; follow-device, phone speaker, or phone earpiece output. Preferences apply when playback starts. The player displays its actual output route and stops if a requested route cannot be used. Leaving the app always pauses playback.
 - **Mailbox and sync:** last successful update, refresh on open, refresh now, reconnect, and connection help. Refresh on open defaults on for an already-connected mailbox, checks stale data on returning, and is limited to one attempt per five minutes. It does not initiate first-time authentication or run in the background. Reconnect renews carrier authentication using Mint mobile data and preserves the saved inbox/downloads.
