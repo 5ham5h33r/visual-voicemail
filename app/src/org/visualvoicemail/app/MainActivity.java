@@ -14,12 +14,6 @@ import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.media.AudioAttributes;
-import android.media.AudioFocusRequest;
-import android.media.AudioManager;
-import android.media.AudioDeviceInfo;
-import android.media.PlaybackParams;
-import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -37,7 +31,6 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.SeekBar;
 import android.widget.TextView;
 import java.io.File;
 import java.time.OffsetDateTime;
@@ -54,7 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
-/** Original native inbox. No dialer role or transcription. */
+/** Native carrier inbox with local transcript search; no dialer role. */
 public final class MainActivity extends Activity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ExecutorService contactWorker = Executors.newSingleThreadExecutor();
@@ -62,13 +55,15 @@ public final class MainActivity extends Activity {
     private CancellationSignal contactSignal;
     private int contactGeneration;
     private boolean contactsLoading;
-    private int displayedAppearance, pendingSettingsAction, requestedOutput;
+    private final Map<String, Transcript> transcripts = new HashMap<>();
+    private int displayedAppearance, pendingSettingsAction;
     private boolean clearingDownloads;
     private static final int SETTINGS_REQUEST = 42;
     private static final int DOWNLOAD_FOLDER_REQUEST = 44;
     private static final int ALERT_PERMISSION = 45;
     private static final int TUTORIAL_REQUEST = 46;
-    private boolean tutorialOpen;
+    private boolean tutorialOpen, guidePending;
+    private View settingsControl, filterControl;
     private String pendingSaveId = "";
     private boolean savingCopy;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -76,9 +71,6 @@ public final class MainActivity extends Activity {
     private List<JSONObject> inbox = new ArrayList<>();
     private CarrierClient carrier;
     private MessageMarks marks;
-    private AudioManager audio;
-    private AudioFocusRequest focus;
-    private MediaPlayer player;
     private LinearLayout messages;
     private TextView status;
     private Button refresh;
@@ -89,16 +81,8 @@ public final class MainActivity extends Activity {
     private final Button[] filters = new Button[3];
     private String query = "";
     private int filter;
-    private String activeId = "";
-    private int generation;
-    private boolean loading, prepared, visible, syncing, destroyed, updatingRead;
+    private boolean visible, syncing, destroyed, updatingRead;
     private int background, surface, primary, secondary, accent, accentSurface, divider, error;
-    private final Runnable ticker = new Runnable() {
-        @Override public void run() {
-            updatePlayback();
-            if (visible && !destroyed) handler.postDelayed(this, 250);
-        }
-    };
 
     @Override protected void attachBaseContext(Context base) {
         super.attachBaseContext(AppAppearance.context(base));
@@ -115,12 +99,6 @@ public final class MainActivity extends Activity {
         carrier = CarrierClient.get(this);
         marks = new MessageMarks(this);
         if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); pendingSettingsAction = state.getInt("settings_action", 0); pendingSaveId=state.getString("pending_save",""); }
-        audio = getSystemService(AudioManager.class);
-        setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-            .setAudioAttributes(attributes()).setOnAudioFocusChangeListener(change -> {
-                if (change < 0) pause("focus_lost");
-            }, handler).build();
         buildLayout();
         inbox = carrier.cachedInbox();
         render();
@@ -129,6 +107,7 @@ public final class MainActivity extends Activity {
         else status.setText("Connect to your Mint Mobile mailbox");
         refresh.setText(carrier.hasSession() ? "Refresh" : "Connect");
         openNotification(getIntent());
+        guidePending=getIntent().getBooleanExtra("guide",false);
     }
 
     private void buildLayout() {
@@ -159,6 +138,7 @@ public final class MainActivity extends Activity {
         updateCarrierName();
         top.addView(carrierName, new LinearLayout.LayoutParams(0, -2, 1));
         IconButton settings = new IconButton("settings", false);
+        settingsControl=settings;
         settings.setContentDescription("Settings");
         settings.setOnClickListener(v -> startActivityForResult(new Intent(this, SettingsActivity.class), SETTINGS_REQUEST));
         top.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
@@ -173,7 +153,7 @@ public final class MainActivity extends Activity {
         searchBox.setBackground(shape(surface, 16));
         search = new EditText(this);
         search.setSingleLine(true); search.setTextSize(15); search.setTextColor(primary); search.setHintTextColor(secondary);
-        search.setHint("Search contacts, numbers, dates"); search.setContentDescription("Search voicemail by contact name, number, or date");
+        search.setHint("Search voicemail"); search.setContentDescription("Search contacts, numbers, dates, and saved transcripts");
         search.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         search.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
         search.setBackgroundColor(android.graphics.Color.TRANSPARENT); search.setPadding(dp(16), 0, 0, 0);
@@ -198,7 +178,7 @@ public final class MainActivity extends Activity {
             return false;
         });
         add(root, searchBox, 20);
-        LinearLayout filterRow = row();
+        LinearLayout filterRow = row(); filterControl=filterRow;
         for (int i = 0; i < filters.length; i++) {
             final int choice = i;
             filters[i] = button("", false); filters[i].setMinWidth(0); filters[i].setMinimumWidth(0);
@@ -236,10 +216,7 @@ public final class MainActivity extends Activity {
                 List<JSONObject> result = reconnect ? carrier.reconnect() : carrier.sync();
                 runOnUiThread(() -> {
                     if (destroyed) return;
-                    syncing = false; inbox = result;
-                    boolean found = false;
-                    for (JSONObject item : inbox) if (activeId.equals(item.optString("objectid"))) found = true;
-                    if (!found && !activeId.isEmpty()) { release(); activeId = ""; }
+                    syncing = false; inbox = result; loadTranscripts();
                     render();
                     reloadContactNames();
                     status.setTextColor(secondary); status.setText(summary() + " · Just updated");
@@ -267,7 +244,7 @@ public final class MainActivity extends Activity {
             if (marked) markedCount++;
             if (filter == 1 && InboxQuery.isRead(message.optString("flag"))) continue;
             if (filter == 2 && !marked) continue;
-            if (InboxQuery.matches(query, message.optString("returnnumber"), caller(message), message.optString("date"), date(message))) shown.add(message);
+            if (InboxQuery.matches(query, message.optString("returnnumber"), caller(message), message.optString("date"), date(message)) || (transcripts.containsKey(message.optString("objectid")) && transcripts.get(message.optString("objectid")).matches(query))) shown.add(message);
         }
         boolean oldestFirst = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("oldest_first", false);
         shown.sort((a,b) -> InboxQuery.compareDates(a.optString("date"),b.optString("date"),oldestFirst));
@@ -278,9 +255,6 @@ public final class MainActivity extends Activity {
             filters[i].setContentDescription(labels[i] + " voicemails" + (filter == i ? ", selected" : ""));
         }
         section.setText(query.trim().isEmpty() && filter == 0 ? "INBOX" : shown.size() + (shown.size() == 1 ? " RESULT" : " RESULTS"));
-        boolean activeShown = false;
-        for (JSONObject message : shown) if (activeId.equals(message.optString("objectid"))) activeShown = true;
-        if (!activeShown && player != null && prepared && player.isPlaying()) pause("filtered_out");
         try {
             carrier.diagnostics().put("search_result_count", shown.size());
             carrier.diagnostics().put("search_active", !query.trim().isEmpty());
@@ -305,23 +279,16 @@ public final class MainActivity extends Activity {
             MessageRow card = new MessageRow(message);
             rows.put(id, card); add(messages, card.root, 12);
         }
-        TextView foot = text("Downloaded recordings are available offline.", 13, secondary, false);
+        TextView foot = text(query.trim().isEmpty() ? "Saved recordings and transcripts are available offline." : "Search includes saved transcripts. Open a recording to transcribe it.", 13, secondary, false);
         foot.setGravity(Gravity.CENTER); foot.setPadding(dp(16), dp(8), dp(16), 0);
         add(messages, foot, 16);
-        updatePlayback();
     }
 
     private final class MessageRow {
         final LinearLayout root = column();
-        final LinearLayout transport = column();
         final IconButton play = new IconButton("play", true);
-        final SeekBar seek = new SeekBar(MainActivity.this);
-        final TextView elapsed = text("0:00", 13, secondary, false);
-        final TextView length;
         final TextView saved;
-        final TextView output = text("", 13, secondary, false);
         final String caller;
-        boolean seeking;
         MessageRow(JSONObject message) {
             caller = caller(message);
             root.setPadding(dp(20), dp(20), dp(20), dp(20));
@@ -337,10 +304,24 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams playSize = new LinearLayout.LayoutParams(dp(52), dp(52)); playSize.setMarginStart(dp(12));
             heading.addView(play, playSize);
             play.setContentDescription("Play voicemail from " + caller);
-            play.setOnClickListener(v -> toggle(message)); root.addView(heading);
+            play.setOnClickListener(v -> openRecording(message, true)); root.addView(heading);
+            root.setOnClickListener(v -> openRecording(message, false));
+            root.setFocusable(true);
+            root.setContentDescription("Open voicemail from " + caller + ", " + date(message));
             String state = marks.contains(message.optString("objectid")) ? "Marked for deletion"
                 : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
-            saved = text(state + " · " + (carrier.cachedAudio(message) == null ? "Tap play to download" : "Saved on this phone"), 13, secondary, false);
+            saved = text(state + " · " + (transcripts.containsKey(message.optString("objectid")) ? "Transcript available" : carrier.cachedAudio(message) == null ? "Open to listen" : "Saved on this phone"), 13, secondary, false);
+            Transcript transcript = transcripts.get(message.optString("objectid"));
+            if (transcript != null && !transcript.text().isEmpty()) {
+                String excerpt = transcript.text();
+                if (!query.trim().isEmpty()) {
+                    java.util.List<int[]> found = TranscriptSearch.find(excerpt, query);
+                    if (!found.isEmpty()) excerpt = excerpt.substring(Math.max(0, found.get(0)[0]-30));
+                }
+                TextView preview = text(excerpt, 15, secondary, false);
+                preview.setMaxLines(2); preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                add(root, preview, 12);
+            }
             LinearLayout details = row(); details.setGravity(Gravity.CENTER_VERTICAL);
             details.addView(saved, new LinearLayout.LayoutParams(0, -2, 1));
             IconButton more = new IconButton("more", false);
@@ -349,37 +330,26 @@ public final class MainActivity extends Activity {
             more.setOnClickListener(v -> showActions(message));
             details.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48))); add(root, details, 8);
             root.setOnLongClickListener(v -> { showActions(message); return true; });
-            seek.setProgressTintList(ColorStateList.valueOf(accent));
-            seek.setThumbTintList(ColorStateList.valueOf(accent));
-            seek.setProgressBackgroundTintList(ColorStateList.valueOf(divider));
-            seek.setContentDescription("Voicemail playback position");
-            seek.setKeyProgressIncrement(1000);
-            transport.addView(seek, new LinearLayout.LayoutParams(-1, dp(48)));
-            LinearLayout time = row();
-            time.addView(elapsed, new LinearLayout.LayoutParams(0, -2, 1));
-            length = text(duration((int)(message.optDouble("duration", 0) * 1000)), 13, secondary, false);
-            time.addView(length); transport.addView(time);
-            add(transport, output, 8);
-            LinearLayout skip = row(); skip.setGravity(Gravity.CENTER);
-            int seconds = getSharedPreferences("settings", MODE_PRIVATE).getInt("skip_seconds", 10);
-            Button back = button("−"+seconds+" sec", true), ahead = button("+"+seconds+" sec", true);
-            back.setContentDescription("Skip back "+seconds+" seconds"); ahead.setContentDescription("Skip forward "+seconds+" seconds");
-            back.setOnClickListener(v -> skip(-seconds*1000)); ahead.setOnClickListener(v -> skip(seconds*1000));
-            skip.addView(back);
-            LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(-2, -2); gap.setMarginStart(dp(8));
-            skip.addView(ahead, gap); add(transport, skip, 8);
-            seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                @Override public void onStartTrackingTouch(SeekBar bar) { seeking = true; }
-                @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                    if (fromUser) elapsed.setText(duration(progress));
-                }
-                @Override public void onStopTrackingTouch(SeekBar bar) {
-                    seeking = false; seekTo(bar.getProgress());
-                }
-            });
-            transport.setVisibility(activeId.equals(message.optString("objectid")) ? View.VISIBLE : View.GONE);
-            add(root, transport, 8);
+
         }
+    }
+
+    private void openRecording(JSONObject message, boolean play) {
+        startActivity(new Intent(this, RecordingActivity.class).putExtra("id", message.optString("objectid"))
+            .putExtra("caller", caller(message)).putExtra("find", query).putExtra("play", play));
+    }
+
+    private void loadTranscripts() {
+        final List<JSONObject> snapshot = new ArrayList<>(inbox);
+        worker.execute(() -> {
+            Map<String, Transcript> loaded = new HashMap<>();
+            for (JSONObject item : snapshot) {
+                String id = item.optString("objectid");
+                Transcript value = Transcription.cached(this, id);
+                if (value != null) loaded.put(id, value);
+            }
+            runOnUiThread(() -> { if (!destroyed) { transcripts.clear(); transcripts.putAll(loaded); render(); } });
+        });
     }
 
     private void showActions(JSONObject message) {
@@ -456,153 +426,6 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void toggle(JSONObject message) {
-        if(clearingDownloads) { status.setText("Wait for the playback cache to finish clearing."); return; }
-        String id = message.optString("objectid");
-        if (activeId.equals(id) && player != null && prepared) {
-            if (player.isPlaying()) pause("paused"); else start();
-            updatePlayback(); return;
-        }
-        if (activeId.equals(id) && loading) return;
-        release(); activeId = id; loading = true;
-        int request = generation;
-        render();
-        File cached = carrier.cachedAudio(message);
-        if (cached != null) {
-            record("audio_from_cache", true); prepare(cached, request); return;
-        }
-        worker.execute(() -> {
-            try {
-                File file = carrier.audio(message);
-                runOnUiThread(() -> { if (!destroyed && request == generation) prepare(file, request); });
-            } catch (Exception exception) {
-                runOnUiThread(() -> { if (!destroyed && request == generation) playbackError(safeMessage(exception)); });
-            }
-        });
-    }
-
-    private void prepare(File file, int request) {
-        try {
-            MediaPlayer next = new MediaPlayer(); player = next;
-            next.setAudioAttributes(attributes()); next.setDataSource(file.getAbsolutePath());
-            next.addOnRoutingChangedListener(routing -> { if (player == next) verifyOutput(); }, handler);
-            next.setOnPreparedListener(ready -> {
-                if (destroyed || request != generation || player != ready) return;
-                loading = false; prepared = true;
-                record("playback_duration_ms", ready.getDuration());
-                if (visible) start();
-                render();
-            });
-            next.setOnCompletionListener(done -> {
-                if (player != done) return;
-                audio.abandonAudioFocusRequest(focus);
-                record("playback_completed", true); record("playback_state", "completed"); updatePlayback();
-            });
-            next.setOnErrorListener((failed, what, extra) -> {
-                if (player == failed) playbackError("This recording couldn't be played. Refresh your inbox and try again.");
-                return true;
-            });
-            next.setOnSeekCompleteListener(seeked -> {
-                if (player == seeked) { record("playback_position_ms", seeked.getCurrentPosition()); updatePlayback(); }
-            });
-            next.prepareAsync();
-        } catch (Exception exception) { playbackError("This recording couldn't be opened. Refresh and try again."); }
-    }
-
-    private void start() {
-        if (!prepared || player == null || !visible) return;
-        if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            status.setTextColor(error); status.setText("Audio is in use. Try playing again when it's available."); return;
-        }
-        int output = getSharedPreferences("settings", MODE_PRIVATE).getInt("audio_output",0);
-        requestedOutput = output==1 ? AudioDeviceInfo.TYPE_BUILTIN_SPEAKER : output==2 ? AudioDeviceInfo.TYPE_BUILTIN_EARPIECE : 0;
-        AudioDeviceInfo preferred = null;
-        if (requestedOutput != 0) for (AudioDeviceInfo device : audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS))
-            if (device.getType() == requestedOutput) { preferred = device; break; }
-        if ((requestedOutput != 0 && preferred == null) || !player.setPreferredDevice(preferred)) {
-            audio.abandonAudioFocusRequest(focus); status.setTextColor(error);
-            status.setText("Selected audio output isn't available. Choose another output in Settings."); return;
-        }
-        if (player.getCurrentPosition() >= player.getDuration() - 100) player.seekTo(0);
-        try { player.setPlaybackParams(new PlaybackParams().setSpeed(SettingsActivity.speed(this)).setPitch(1f)); }
-        catch (RuntimeException unsupported) {
-            getSharedPreferences("settings",MODE_PRIVATE).edit().putInt("playback_speed",1).apply();
-            status.setTextColor(secondary); status.setText("This recording uses normal playback speed.");
-        }
-        try {
-            player.start(); record("playback_started", true); record("playback_state", "playing");
-            record("playback_speed", player.getPlaybackParams().getSpeed());
-        } catch(RuntimeException failed) { playbackError("Playback couldn't start. Choose another output or speed in Settings and retry."); }
-    }
-
-    private void verifyOutput() {
-        if (player == null || !prepared || !player.isPlaying()) return;
-        AudioDeviceInfo actual = player.getRoutedDevice();
-        if (actual == null) return;
-        record("audio_output_type", actual.getType());
-        if (requestedOutput != 0 && actual.getType() != requestedOutput
-                && !(requestedOutput == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER && actual.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE)) {
-            pause("output_unavailable"); status.setTextColor(error);
-            status.setText("Playback paused because the selected audio output couldn't be used. Check Settings.");
-        }
-    }
-
-    private void pause(String reason) {
-        if (player != null && prepared && player.isPlaying()) {
-            player.pause(); record("playback_state", reason); record("playback_position_ms", player.getCurrentPosition());
-        }
-        if (audio != null && focus != null) audio.abandonAudioFocusRequest(focus);
-        updatePlayback();
-    }
-
-    private void skip(int delta) {
-        if (player != null && prepared) seekTo(player.getCurrentPosition() + delta);
-    }
-
-    private void seekTo(int position) {
-        if (player != null && prepared) {
-            player.seekTo(Math.max(0, Math.min(position, player.getDuration())), MediaPlayer.SEEK_CLOSEST);
-        }
-    }
-
-    private void updatePlayback() {
-        for (Map.Entry<String, MessageRow> entry : rows.entrySet()) {
-            MessageRow row = entry.getValue(); boolean active = entry.getKey().equals(activeId);
-            boolean playing = active && player != null && prepared && player.isPlaying();
-            row.play.symbol = playing ? "pause" : "play"; row.play.invalidate();
-            row.play.setEnabled(!active || !loading);
-            row.play.setContentDescription((playing ? "Pause" : "Play") + " voicemail from " + row.caller);
-            if (active) {
-                row.transport.setVisibility(View.VISIBLE);
-                row.seek.setEnabled(prepared && player != null);
-                if (loading) row.saved.setText("Loading recording…");
-                if (prepared && player != null) {
-                    row.seek.setMax(player.getDuration());
-                    if (!row.seeking) { row.seek.setProgress(player.getCurrentPosition()); row.elapsed.setText(duration(player.getCurrentPosition())); }
-                    row.length.setText(duration(player.getDuration()));
-                    AudioDeviceInfo device = player.getRoutedDevice();
-                    row.output.setText(playing && device != null ? "Output: "+outputName(device.getType())
-                        : player.getCurrentPosition()>=player.getDuration()?"Playback complete":"Playback paused");
-                    if (Build.VERSION.SDK_INT >= 30) row.seek.setStateDescription(
-                        duration(player.getCurrentPosition()) + " of " + duration(player.getDuration()));
-                }
-            }
-        }
-    }
-
-    private void playbackError(String message) {
-        release(); status.setTextColor(error); status.setText(message);
-        MessageRow row = rows.get(activeId);
-        if (row != null) row.saved.setText("Couldn't load recording · Tap play to retry");
-        updatePlayback();
-    }
-
-    private void release() {
-        generation++; loading = false; prepared = false;
-        if (player != null) { player.release(); player = null; }
-        if (audio != null && focus != null) audio.abandonAudioFocusRequest(focus);
-    }
-
     private final class IconButton extends View {
         String symbol; final boolean filled;
         final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -637,17 +460,10 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private AudioAttributes attributes() { return new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(); }
     private String summary() { return inbox.size() + (inbox.size() == 1 ? " voicemail" : " voicemails"); }
     private String freshness() {
         long last=carrier.lastSyncTime();
         return last==0 ? "Saved inbox" : "Updated "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(last));
-    }
-    private String outputName(int type) {
-        if (type==AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) return "phone earpiece";
-        if (type==AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type==AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE) return "phone speaker";
-        if (type==AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || type==AudioDeviceInfo.TYPE_BLUETOOTH_SCO || type==AudioDeviceInfo.TYPE_BLE_HEADSET) return "Bluetooth";
-        return "device audio";
     }
     private String safeMessage(Exception exception) {
         String message = exception.getMessage();
@@ -732,7 +548,7 @@ public final class MainActivity extends Activity {
         });
     }
 
-    @Override protected void onStart() { super.onStart(); visible = true; handler.post(ticker); reloadContactNames(); }
+    @Override protected void onStart() { super.onStart(); visible = true; reloadContactNames(); }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
         if (request==TUTORIAL_REQUEST) tutorialOpen=false;
@@ -749,6 +565,8 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
+        loadTranscripts();
+        if(guidePending)handler.postDelayed(this::showGuide,500);
         if (displayedAppearance!=AppAppearance.mode(this)) { recreate(); return; }
         updateCarrierName();
         // A background check may have updated the persisted inbox while this screen was stopped.
@@ -801,12 +619,25 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent); setIntent(intent); openNotification(intent);
+        if(intent.getBooleanExtra("guide",false)){guidePending=true;handler.postDelayed(this::showGuide,500);}
         if(!syncing && !updatingRead) inbox=carrier.cachedInbox();
         render();
     }
+    private void showGuide() {
+        if(!guidePending || !visible || isFinishing())return;
+        guidePending=false; getIntent().removeExtra("guide");
+        List<GuideOverlay.Tip> tips=new ArrayList<>();
+        tips.add(new GuideOverlay.Tip(search,"Find a message","Search a caller, a date, or words in transcripts already saved on this phone.",false));
+        tips.add(new GuideOverlay.Tip(filterControl,"Keep your place","Unread shows messages you haven't marked read. Marked holds reversible deletion marks.",false));
+        tips.add(new GuideOverlay.Tip(settingsControl,"Make it yours","Themes, contact names, alerts, download location, and this tour live in Settings.",false));
+        View recording=rows.isEmpty()?refresh:rows.values().iterator().next().root;
+        tips.add(new GuideOverlay.Tip(recording,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. The three-dot menu has read status, saving, and deletion marks.",true));
+        GuideOverlay.show(this,tips,()->{});
+    }
+
     private void clearDownloads() {
         if (clearingDownloads) return;
-        clearingDownloads=true; release(); activeId=""; refresh.setEnabled(false); status.setText("Clearing playback cache…");
+        clearingDownloads=true; refresh.setEnabled(false); status.setText("Clearing playback cache…");
         worker.execute(()->{
             try {
                 RecordingCache.clear(new File(getFilesDir(),"audio"));
@@ -822,10 +653,10 @@ public final class MainActivity extends Activity {
         state.putString("pending_save",pendingSaveId);
     }
     @Override protected void onStop() {
-        visible = false; handler.removeCallbacks(ticker); pause("background_paused"); super.onStop();
+        visible = false; super.onStop();
     }
     @Override protected void onDestroy() {
-        destroyed = true; handler.removeCallbacksAndMessages(null); release(); worker.shutdown();
+        destroyed = true; handler.removeCallbacksAndMessages(null); worker.shutdown();
         if (contactSignal != null) contactSignal.cancel(); contactWorker.shutdown(); super.onDestroy();
     }
 }

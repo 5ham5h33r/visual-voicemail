@@ -71,11 +71,8 @@ public final class SettingsActivity extends Activity {
             return insets;
         });
         LinearLayout heading = column();
-        Button back = new Button(this); back.setText("‹ Back"); back.setAllCaps(false); back.setTextColor(accent);
-        back.setTextSize(15); back.setMinHeight(dp(48)); back.setMinimumHeight(dp(48));
-        back.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(background, 24), null));
-        back.setOnClickListener(v -> finish()); back.setContentDescription("Back to voicemail");
-        heading.addView(back, new LinearLayout.LayoutParams(-2, -2));
+        Ui controls = new Ui(this);
+        heading.addView(controls.icon("back","Back to voicemail",false,()->finish()));
         TextView title = text("Settings", 32, primary); title.setTypeface(Typeface.create("sans-serif-medium", 0));
         title.setPadding(0, dp(12), 0, dp(20)); heading.addView(title); root.addView(heading);
         ScrollView scroll = new ScrollView(this); scroll.setVerticalScrollBarEnabled(false); scroll.setClipToPadding(false);
@@ -114,6 +111,17 @@ public final class SettingsActivity extends Activity {
         row(playback,"Audio output",outputs[output], () -> choose("Audio output",outputs,output,
             choice -> { preferences.edit().putInt("audio_output",choice).apply(); build(); }));
         note(playback,"Playback pauses when you leave the app. A selected phone output must be available before playback starts.");
+
+        LinearLayout transcription = group("TRANSCRIPTION");
+        toggle(transcription,"Transcribe on open","Once the English model is ready, transcribe recordings as you open them.","auto_transcribe",true);
+        note(transcription,Transcription.ready(this)?"English model ready · Recognition runs on this phone":"English transcription · One-time 104 MB model download from the recording screen");
+        note(transcription,"Opening a recording generates a transcript once the model is ready. Speech detection supplies approximate phrase anchors. Tap a phrase to play from there; use Find in transcript to search. Check important details against the audio.");
+        row(transcription,"Clear saved transcripts","Keep recordings, carrier messages, and the speech model",()->confirm("Clear saved transcripts?","Transcripts saved on this phone will be removed. Open a recording to generate its transcript again.","Clear transcripts",()->{
+            info("Saved transcripts",Transcription.clear(this,false)?"Saved transcripts cleared.":"Wait for transcription or a model download to finish, then retry.");build();
+        }));
+        row(transcription,"Remove speech model","Free about 104 MB; keep saved transcripts and recordings",()->confirm("Remove speech model?","Existing transcripts remain readable and searchable. A new model download will be needed to transcribe more recordings.","Remove model",()->{
+            info("Speech model",Transcription.clear(this,true)?"Speech model removed.":"Wait for transcription or a model download to finish, then retry.");build();
+        }));
 
         LinearLayout mailbox = group("MAILBOX & SYNC");
         CarrierClient client = CarrierClient.get(this);
@@ -159,7 +167,7 @@ public final class SettingsActivity extends Activity {
         row(privacy,"App permissions","Manage Contacts and other Android app permissions", () ->
             open(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()))));
         row(privacy,"Privacy","How messages, contacts, and downloads are handled", () -> info("Privacy",
-            "Mailbox credentials and inbox metadata are encrypted on this phone using Android Keystore. Playback files use app-private storage. Saved audio copies go to your chosen folder and follow that folder's access and backup rules.\n\nContact names are looked up locally and kept in memory. Names and search queries are not sent to the carrier or a project server.\n\nThere are no analytics or advertising services. Mailbox authentication and message requests communicate with the carrier."));
+            "Mailbox credentials and inbox metadata are encrypted on this phone using Android Keystore. Playback files use app-private storage. Saved audio copies go to your chosen folder and follow that folder's access and backup rules.\n\nContact names are looked up locally and kept in memory. Names and search queries are not sent to the carrier or a project server.\n\nTranscription runs locally. Saved transcripts are encrypted using Android Keystore. The one-time speech model download contacts its public model host; audio and recognized text are never uploaded for transcription.\n\nThere are no analytics or advertising services. Mailbox authentication and message requests communicate with the carrier."));
 
         LinearLayout about = group("ABOUT");
         String version;
@@ -174,7 +182,14 @@ public final class SettingsActivity extends Activity {
                 info("MIT License",new String(bytes.toByteArray(),StandardCharsets.UTF_8));
             } catch (Exception ignored) { info("License","The project is licensed under the MIT License. The full text is available in the source repository."); }
         });
-        note(about,"Transcription and permanent message deletion are not available in this build. Deletion marks are local and reversible.");
+        row(about,"Speech recognition licenses","sherpa-onnx, ONNX Runtime, Whisper, Silero VAD, and Kotlin",()->{
+            try(java.io.InputStream input=getResources().openRawResource(R.raw.third_party_notices)) {
+                java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();byte[] buffer=new byte[4096];int count;
+                while((count=input.read(buffer))!=-1)bytes.write(buffer,0,count);
+                info("Speech recognition licenses",new String(bytes.toByteArray(),StandardCharsets.UTF_8));
+            }catch(Exception ignored){info("Speech recognition licenses","License texts and upstream source links are available in the source repository under docs/licenses.");}
+        });
+        note(about,"Permanent message deletion is not available in this build. Deletion marks are local and reversible.");
         final int restoreScroll=scrollPosition; scroll.post(()->scroll.scrollTo(0,restoreScroll));
     }
 
