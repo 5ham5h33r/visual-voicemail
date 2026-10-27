@@ -4,7 +4,11 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The intended app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-Carrier authentication is being investigated. A working third-party mailbox client has not yet been demonstrated.
+An independently signed Android probe has reproduced cellular-IP subscriber identification on Mint without carrier privileges or a default-dialer role. A working third-party mailbox client has not yet been demonstrated.
+
+- [Carrier protocol and device findings](docs/carrier-research.md)
+- [Independent probe results and limits](docs/independent-probe.md)
+- [Build the diagnostic Android app](probe/README.md)
 
 ## Development
 

@@ -4,9 +4,9 @@ Investigation date: October 26, 2026 (America/Los_Angeles).
 
 ## Current conclusion
 
-A standalone carrier-mailbox app is technically plausible. T-Mobile's installed app works alongside Samsung Phone, uses HTTPS mailbox APIs, and has both SIM-based and cellular-IP authentication implementations. Independent authentication, token refresh, and incoming-message notifications remain to be reproduced under our own app identity.
+A standalone carrier-mailbox app is technically plausible. T-Mobile's installed app works alongside Samsung Phone, uses HTTPS mailbox APIs, and has both SIM-based and cellular-IP authentication implementations. An independently signed probe has now reproduced cellular-IP subscriber identification without carrier privileges or a default-dialer role. Mailbox-token issuance, message retrieval, token refresh, and incoming-message notifications remain to be reproduced.
 
-The official app having carrier privileges does **not** establish that every authentication path needs them. The cellular-IP path is the first candidate for an ordinary app. Its presence in the official app also does **not** prove that a server will accept an independently signed client.
+The official app having carrier privileges does **not** establish that every authentication path needs them. The cellular-IP path accepted the independent probe's identification request, but that alone does **not** prove that the server will issue the mailbox token or accept its push registration. See [the independent probe results](independent-probe.md).
 
 ## Inputs and verification
 
@@ -91,7 +91,7 @@ These paths are evidence locators for this local investigation, not published ve
 
 ## Next validation
 
-1. Use an independently signed, minimal Android probe with Internet/network permissions, no default-dialer role, and no carrier privileges.
-2. Request a cellular network and test only the subscriber-identification part of IP authentication, preserving the existing mailbox provisioning and push registration.
-3. Distinguish unsupported client identity, malformed request, transport failure, and a successful response. A failed exploratory request alone cannot establish that the protocol is inaccessible.
-4. If authentication is reproducible, implement token refresh and read-only mailbox retrieval, then notifications and local transcription on separate feature branches.
+1. Completed: an independently signed, minimal Android probe with Internet/network permissions, no default-dialer role, and no carrier privileges.
+2. Completed: subscriber identification over an explicitly requested cellular network. Both response messages reported success (`1000`); the subscriber number and service fingerprint were nonempty. The Wi-Fi control returned `INVALID_IPAUTH` (`1005`). No provisioning or push-registration requests were sent.
+3. Next: determine whether service-instance token retrieval can be performed without displacing the working official client's registration or changing service provisioning.
+4. Then implement token refresh and read-only mailbox retrieval, followed by notifications and local transcription on separate feature branches. Test each stage before claiming a complete replacement works.
