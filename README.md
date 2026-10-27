@@ -47,6 +47,7 @@ Captured from version 0.11. Caller details and message dates are hidden; system 
 - [App settings and playback preferences](docs/settings.md)
 - [First-use tutorial and replayable help](docs/tutorial.md)
 - [App icon and branding assets](docs/branding/README.md)
+- [LinkedIn promo video and post assets](media/promo/README.md)
 - [New voicemail notifications and background-check limits](docs/notifications.md)
 - [Planned transcription and tap-to-play requirements](docs/transcription-requirements.md)
 - [Five-question UX pressure test and open findings](docs/ux-pressure-test.md)
