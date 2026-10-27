@@ -4,34 +4,32 @@
 
 An investigation and prototype for a free, open-source Android visual voicemail client for Mint Mobile, starting with the Samsung Galaxy S24 Ultra.
 
-The intended app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
+The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Transcription is intentionally deferred until the user has tried playback.
+An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Version 0.13 adds English transcription on the phone, phrase-based tap-to-play, transcript search, and a guided introduction.
 
 ## Screenshots
 
-Captured from version 0.11. Caller details and message dates are hidden; system status icons are omitted. Select an image to view it at full size.
+Captured from version 0.13 on the S24 Ultra. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
 
 <table>
+  <tr><th>Recording · Dark</th><th>Recording · Light</th><th>Recording · AMOLED</th></tr>
   <tr>
-    <th>Dark inbox</th>
-    <th>Playback</th>
-    <th>Light inbox</th>
+    <td><a href="docs/screenshots/recording-dark.png"><img src="docs/screenshots/recording-dark.png" width="230" alt="Dark recording detail with sample transcript and compact media controls"></a></td>
+    <td><a href="docs/screenshots/recording-light.png"><img src="docs/screenshots/recording-light.png" width="230" alt="Light recording detail with sample transcript"></a></td>
+    <td><a href="docs/screenshots/recording-amoled.png"><img src="docs/screenshots/recording-amoled.png" width="230" alt="True-black recording detail with sample transcript"></a></td>
   </tr>
+  <tr><th>Inbox · Dark</th><th>Inbox · Light</th><th>Inbox · AMOLED</th></tr>
   <tr>
-    <td><a href="docs/screenshots/inbox-dark.png"><img src="docs/screenshots/inbox-dark.png" width="230" alt="Dark voicemail inbox with caller details hidden"></a></td>
-    <td><a href="docs/screenshots/playback-dark.png"><img src="docs/screenshots/playback-dark.png" width="230" alt="Paused voicemail playback with seeking and skip controls, caller details hidden"></a></td>
-    <td><a href="docs/screenshots/inbox-light.png"><img src="docs/screenshots/inbox-light.png" width="230" alt="Light voicemail inbox with caller details hidden"></a></td>
+    <td><a href="docs/screenshots/inbox-dark.png"><img src="docs/screenshots/inbox-dark.png" width="230" alt="Dark inbox with personal details hidden"></a></td>
+    <td><a href="docs/screenshots/inbox-light.png"><img src="docs/screenshots/inbox-light.png" width="230" alt="Light inbox with personal details hidden"></a></td>
+    <td><a href="docs/screenshots/inbox-amoled.png"><img src="docs/screenshots/inbox-amoled.png" width="230" alt="True-black inbox with personal details hidden"></a></td>
   </tr>
+  <tr><th>Guided controls</th><th>Interactive introduction</th><th>Settings</th></tr>
   <tr>
-    <th>Settings</th>
-    <th>AMOLED inbox</th>
-    <th>First-use tutorial</th>
-  </tr>
-  <tr>
-    <td><a href="docs/screenshots/settings-light.png"><img src="docs/screenshots/settings-light.png" width="230" alt="Light settings screen with appearance, tutorial, contacts, and playback preferences"></a></td>
-    <td><a href="docs/screenshots/inbox-amoled.png"><img src="docs/screenshots/inbox-amoled.png" width="230" alt="True-black AMOLED voicemail inbox with caller details hidden"></a></td>
-    <td><a href="docs/screenshots/tutorial-amoled.png"><img src="docs/screenshots/tutorial-amoled.png" width="230" alt="Welcome page of the seven-topic tutorial in AMOLED mode"></a></td>
+    <td><a href="docs/screenshots/guided-inbox.png"><img src="docs/screenshots/guided-inbox.png" width="230" alt="A spotlight highlights the real inbox search control"></a></td>
+    <td><a href="docs/screenshots/onboarding-transcript.png"><img src="docs/screenshots/onboarding-transcript.png" width="230" alt="Introduction with a tappable example of transcript navigation"></a></td>
+    <td><a href="docs/screenshots/settings-light.png"><img src="docs/screenshots/settings-light.png" width="230" alt="Light settings with appearance, help, and playback options"></a></td>
   </tr>
 </table>
 
@@ -49,7 +47,7 @@ Captured from version 0.11. Caller details and message dates are hidden; system 
 - [App icon and branding assets](docs/branding/README.md)
 - [LinkedIn promo video and post assets](media/promo/README.md)
 - [New voicemail notifications and background-check limits](docs/notifications.md)
-- [Planned transcription and tap-to-play requirements](docs/transcription-requirements.md)
+- [On-device transcription, search, and validation](docs/transcription.md)
 - [Five-question UX pressure test and open findings](docs/ux-pressure-test.md)
 - [Build the voicemail app](app/README.md)
 - [Build the diagnostic Android app](probe/README.md)

@@ -1,6 +1,6 @@
 # Transcription requirements
 
-Transcription implementation remains deferred until the core voicemail milestone is reviewed and the user gives the go-ahead. These requirements guide that later work; they describe planned behavior, not functionality already present in the app.
+The user authorized transcription after reviewing playback. Version 0.13 implements private English recognition, transcript search, and phrase-based tap-to-play. See [implementation and device checks](transcription.md). These requirements remain the acceptance criteria; word-level alignment and broader device/language coverage remain open.
 
 ## Tap a transcript line to play from there
 
@@ -24,7 +24,7 @@ Inbox search must also be able to match saved transcript text alongside the exis
 - Distinguish a transcript that is unavailable, still being generated, or failed from a completed transcript with no matches. Inbox search should explain when some voicemail has no searchable transcript yet.
 - A result with missing or invalid timing can still reveal its matching text, but must not offer playback from an invented offset. Keep the normal recording player available.
 
-## Acceptance checks for the later implementation
+## Acceptance checks
 
 Check the first, middle, and final segments against their actual spoken audio, including recordings with leading silence. Test taps from paused and playing states, initial preparation, repeated rapid taps, and switching messages while loading. Confirm that no two recordings play together.
 

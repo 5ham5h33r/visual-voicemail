@@ -6,7 +6,7 @@ Version 0.6 follow-up: optional local contact-name display/search now addresses 
 
 Version 0.7 follow-up: Settings adds visible last-sync information, refresh-on-open, connection help/reconnect, actual audio-output selection, speed/skip preferences, and storage/privacy controls. Speaker and earpiece routes were verified on the S24 Ultra. Version 0.8 adds saved audio copies and a folder picker. Version 0.9 adds new-voicemail alerts from scheduled background checks, with permissions, duplicate suppression, notification controls, and explicit timing limits; see [notification validation](notifications.md). Instant carrier push, the permanent-deletion lifecycle, broad accessibility/performance validation, and uncertain read-update recovery remain open. The original findings below describe the earlier milestone.
 
-Verdict: useful playback prototype; the complete everyday voicemail experience is not release-ready. System/light/dark themes, saved playback, explicit read-status verification, and reversible marks are strengths. The unresolved flows below are product gaps, not visual polish requests. Transcription remains outside the current milestone.
+Verdict: useful playback prototype; the complete everyday voicemail experience is not release-ready. System/light/dark themes, saved playback, explicit read-status verification, and reversible marks are strengths. The unresolved flows below are product gaps, not visual polish requests. The version 0.13 update below covers newly implemented transcription and the revised introduction.
 
 Version 0.11 adds the user-requested optional [first-use tutorial](tutorial.md), with Skip, topic selection, saved progress, replay from Settings, Mint setup guidance, and explanations of current feature limits. It postpones the automatic foreground refresh/notification prompt until the guide is acknowledged and does not request permissions itself. This addresses the missing feature introduction without claiming that the remaining setup/error-recovery acceptance criteria or a usability study have passed.
 
@@ -63,3 +63,12 @@ Acceptance: run explicit offline/slow-network scenarios, offer a specific recove
 4. Add expected daily-use capabilities such as notification delivery and contact-name lookup, with explicit permission and privacy behavior.
 
 These findings are open; their acceptance criteria have not passed. Transcription remains deferred.
+
+
+## Version 0.13 review against the five questions
+
+- **Where will people drop off?** A seven-topic reading exercise and an up-front speech download were likely friction. Four brief screens, skippable tips, sample actions, and a model download only when needed reduce those demands. This remains a hypothesis, not measured retention data.
+- **Which assumptions might be wrong?** People may not grant Contacts/notifications, may have no cached messages, and may expect a row to reveal text before audio. Permissions are optional; an empty inbox points to Connect; a row opens transcript/player paused.
+- **Which edge cases remain?** Recognition can mishear numbers/names, a download or process can be interrupted, and a saved transcript may outlive cached audio. Retry/cancel, explicit approximate timing, and an independent player cover recovery without altering voicemail.
+- **How does it fit familiar apps?** A dedicated recording view, prominent play/pause, compact circular skips, visible progress, and grouped settings follow familiar phone/audio controls. Tips point to the controls instead of requiring people to remember a separate explanation.
+- **What breaks with low context or poor Wi-Fi?** Recognition and search work locally after setup; listening does not wait for the model. The setup text explains the download size and notification delays. Broader accessibility, speech-quality, and network-interruption testing remains necessary.
