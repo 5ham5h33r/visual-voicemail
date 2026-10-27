@@ -6,11 +6,13 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Version 0.16 adds the optional full Whisper Large v3 model (1.78 GB download) alongside Tiny and Base. Large runs locally, uses much more memory, and can take minutes; saved transcripts change only when explicitly updated. Version 0.15 added a more compact interface and reliable back navigation for individually opened pages. Standard (Whisper Tiny) and Enhanced (Whisper Base) quality choices remain directly on the transcript page and in Settings, with consistent tap feedback and reduced-motion support. English transcription, phrase-based tap-to-play, transcript search, and the guided introduction work on the phone.
+Version 0.17 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and reversible deletion marks.
+
+English transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
 
 ## Screenshots
 
-Screenshots show the compact version 0.15 interface on the S24 Ultra. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
+Screenshots show the compact interface on the S24 Ultra, including version 0.17 bulk selection and version 0.16 model choices. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
 
 <table>
   <tr><th>Recording · Dark</th><th>Recording · Light</th><th>Recording · AMOLED</th></tr>
@@ -31,9 +33,15 @@ Screenshots show the compact version 0.15 interface on the S24 Ultra. Caller det
     <td><a href="docs/screenshots/onboarding-transcript.png"><img src="docs/screenshots/onboarding-transcript.png" width="230" alt="Introduction with a tappable example of transcript navigation"></a></td>
     <td><a href="docs/screenshots/settings-light.png"><img src="docs/screenshots/settings-light.png" width="230" alt="Light settings with appearance, help, and playback options"></a></td>
   </tr>
+  <tr><th>Bulk actions · Light</th><th>Bulk actions · Dark</th><th>Bulk actions · AMOLED</th></tr>
+  <tr>
+    <td><a href="docs/screenshots/bulk-light.png"><img src="docs/screenshots/bulk-light.png" width="230" alt="Light inbox selection with caller details and transcript hidden"></a></td>
+    <td><a href="docs/screenshots/bulk-dark.png"><img src="docs/screenshots/bulk-dark.png" width="230" alt="Dark inbox selection with bulk transcription, read status, and deletion marks"></a></td>
+    <td><a href="docs/screenshots/bulk-amoled.png"><img src="docs/screenshots/bulk-amoled.png" width="230" alt="AMOLED inbox selection with caller details hidden"></a></td>
+  </tr>
 </table>
 
-<a href="docs/screenshots/transcription-quality.png"><img src="docs/screenshots/transcription-quality.png" width="300" alt="Transcription quality choices: Standard with Whisper Tiny and Enhanced with Whisper Base, download sizes and status"></a>
+<a href="docs/screenshots/transcription-quality.png"><img src="docs/screenshots/transcription-quality.png" width="300" alt="Transcription quality choices: Whisper Tiny, Base, and full Large v3, with download sizes and status"></a>
 
 ## Documentation
 
@@ -44,6 +52,7 @@ Screenshots show the compact version 0.15 interface on the S24 Ultra. Caller det
 - [Protected sessions and offline playback](docs/offline-inbox.md)
 - [Native inbox, light/dark themes, and playback controls](docs/inbox-design.md)
 - [Search, read/unread status, and reversible deletion marks](docs/search-actions.md)
+- [Inbox selection and bulk actions](docs/bulk-actions.md)
 - [App settings and playback preferences](docs/settings.md)
 - [Motion and responsive tap feedback](docs/motion.md)
 - [Compact layout and back navigation](docs/compact-interface.md)

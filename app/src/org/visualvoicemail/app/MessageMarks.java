@@ -14,9 +14,15 @@ final class MessageMarks {
     }
     boolean contains(String id) { return marks.optBoolean(id, false); }
     boolean set(String id, boolean marked) {
+        return setAll(java.util.Collections.singletonList(id), marked);
+    }
+    boolean setAll(java.util.Collection<String> ids, boolean marked) {
         try {
             JSONObject updated = new JSONObject(marks.toString());
-            if (marked) updated.put(id, true); else updated.remove(id);
+            for (String id : ids) {
+                if (id == null || id.isEmpty()) return false;
+                if (marked) updated.put(id, true); else updated.remove(id);
+            }
             if (!store.put("deletion-marks.bin", updated)) return false;
             marks = updated; return true;
         } catch (Exception ignored) { return false; }

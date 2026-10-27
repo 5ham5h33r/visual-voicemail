@@ -249,6 +249,18 @@ public final class CarrierClient {
 
     /** Seen is added with PUT; unread removes that flag, never the voicemail itself. */
     public synchronized List<JSONObject> setRead(String id, boolean read) throws Exception {
+        applyRead(id, read);
+        List<JSONObject> refreshed = sync();
+        for (JSONObject message : refreshed) if (id.equals(message.optString("objectid"))) {
+            boolean verified = InboxQuery.isRead(message.optString("flag")) == read;
+            diagnostics.put("read_update_verified", verified); saveDiagnostics();
+            if (!verified) throw new IOException("Read status hasn't been confirmed by the carrier. Refresh to check.");
+            return refreshed;
+        }
+        throw new IOException("This message is no longer in the mailbox. Refresh to check.");
+    }
+
+    private void applyRead(String id, boolean read) throws Exception {
         if (id.isEmpty()) throw new IOException("This message has no identifier.");
         diagnostics.put("read_update_verified", false);
         stage("updating_read_status");
@@ -263,14 +275,19 @@ public final class CarrierClient {
         JSONArray errors = result.optJSONArray("errors");
         if (errors != null && errors.length() > 0) throw new IOException("The carrier could not change this message's read status.");
         diagnostics.put("read_update_http_status", diagnostics.getOrDefault("mailbox_http_status",0));
-        List<JSONObject> refreshed = sync();
-        for (JSONObject message : refreshed) if (id.equals(message.optString("objectid"))) {
-            boolean verified = InboxQuery.isRead(message.optString("flag")) == read;
-            diagnostics.put("read_update_verified", verified); saveDiagnostics();
-            if (!verified) throw new IOException("Read status hasn't been confirmed by the carrier. Refresh to check.");
-            return refreshed;
-        }
-        throw new IOException("This message is no longer in the mailbox. Refresh to check.");
+    }
+
+    /** Individual flag requests, then one server refresh; only confirmed states count as success. */
+    synchronized int setReadBatch(List<String> ids, boolean read) throws Exception {
+        return ReadBatch.run(ids, read, new ReadBatch.Backend() {
+            @Override public void update(String id, boolean target) throws Exception { applyRead(id, target); }
+            @Override public java.util.Map<String, Boolean> refresh() throws Exception {
+                java.util.Map<String, Boolean> states = new java.util.HashMap<>();
+                for (JSONObject message : sync())
+                    states.put(message.optString("objectid"), InboxQuery.isRead(message.optString("flag")));
+                return states;
+            }
+        });
     }
 
     private File audioFile(JSONObject message) throws Exception {
@@ -347,7 +364,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.16 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.17 Android");
     }
 
     private void disconnect(HttpsURLConnection connection) {

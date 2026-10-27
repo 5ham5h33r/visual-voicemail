@@ -169,124 +169,206 @@ final class Transcription {
                 });
     }
 
+    static volatile boolean batch;
+    static volatile String batchStatus = "";
+    static volatile long batchVersion;
+
     static synchronized void generate(Context context, JSONObject message) {
         if (busy || !ready(context)) return;
         final Context c = context.getApplicationContext();
         final TranscriptionQuality quality = selected(c);
-        final String[] NAMES = quality.names();
-        busy = true;
-        downloading = false;
-        cancelled = false;
-        job = message.optString("objectid");
-        final String id = job;
-        failure = "";
-        status = "Opening recording…";
+        begin(message.optString("objectid"));
         WORK.execute(
                 () -> {
-                    OfflineRecognizer recognizer = null;
-                    Vad vad = null;
                     try {
-                        if (quality == TranscriptionQuality.HIGHEST) {
-                            android.app.ActivityManager manager =
-                                    (android.app.ActivityManager)
-                                            c.getSystemService(Context.ACTIVITY_SERVICE);
-                            android.app.ActivityManager.MemoryInfo memory =
-                                    new android.app.ActivityManager.MemoryInfo();
-                            manager.getMemoryInfo(memory);
-                            if (memory.totalMem < 8_000_000_000L
-                                    || memory.lowMemory
-                                    || memory.availMem < 2L * 1024 * 1024 * 1024)
-                                throw new InsufficientModelMemory();
-                        }
-                        File audio = CarrierClient.get(c).audio(message);
-                        if (cancelled) throw new java.io.InterruptedIOException();
-                        status = "Reading audio on this phone…";
-                        float[] samples = AudioSamples.read(audio);
-                        File root = directory(c, quality);
-                        SileroVadModelConfig silero = new SileroVadModelConfig();
-                        silero.setModel(new File(root, NAMES[3]).getAbsolutePath());
-                        silero.setMinSilenceDuration(.45f);
-                        silero.setMinSpeechDuration(.2f);
-                        silero.setMaxSpeechDuration(12f);
-                        VadModelConfig vc = new VadModelConfig();
-                        vc.setSileroVadModelConfig(silero);
-                        vad = new Vad(null, vc);
-                        List<int[]> ranges = new ArrayList<>();
-                        for (int offset = 0; offset < samples.length; offset += 512) {
-                            if (cancelled) throw new java.io.InterruptedIOException();
-                            vad.acceptWaveform(
-                                    Arrays.copyOfRange(
-                                            samples,
-                                            offset,
-                                            Math.min(offset + 512, samples.length)));
-                            drain(vad, ranges, samples.length);
-                        }
-                        vad.flush();
-                        drain(vad, ranges, samples.length);
-                        vad.release();
-                        vad = null;
-                        Transcript result = new Transcript();
-                        result.quality = quality.key;
-                        if (!ranges.isEmpty()) {
-                            OfflineWhisperModelConfig whisper = new OfflineWhisperModelConfig();
-                            whisper.setEncoder(new File(root, NAMES[0]).getAbsolutePath());
-                            whisper.setDecoder(new File(root, NAMES[1]).getAbsolutePath());
-                            OfflineModelConfig model = new OfflineModelConfig();
-                            model.setWhisper(whisper);
-                            model.setTokens(new File(root, NAMES[2]).getAbsolutePath());
-                            model.setNumThreads(4);
-                            OfflineRecognizerConfig config = new OfflineRecognizerConfig();
-                            config.setModelConfig(model);
-                            status = "Loading " + quality.label() + " on this phone…";
-                            recognizer = new OfflineRecognizer(null, config);
-                            for (int i = 0; i < ranges.size(); i++) {
-                                if (cancelled) throw new java.io.InterruptedIOException();
-                                status =
-                                        "Transcribing on this phone · "
-                                                + (i + 1)
-                                                + " of "
-                                                + ranges.size();
-                                int[] range = ranges.get(i);
-                                OfflineStream stream = recognizer.createStream();
-                                try {
-                                    stream.acceptWaveform(
-                                            Arrays.copyOfRange(samples, range[0], range[1]), 16000);
-                                    recognizer.decode(stream);
-                                    String text = recognizer.getResult(stream).getText().trim();
-                                    if (!text.isEmpty())
-                                        result.segments.add(
-                                                new Transcript.Segment(
-                                                        range[0] / 16, range[1] / 16, text));
-                                } finally {
-                                    stream.release();
-                                }
-                            }
-                        }
-                        if (cancelled) throw new java.io.InterruptedIOException();
-                        if (!new PrivateStore(c).put(key(id), result.json()))
-                            throw new java.io.IOException("storage");
-                        status =
-                                result.segments.isEmpty()
-                                        ? "No speech detected"
-                                        : "Transcript saved on this phone";
+                        transcribe(c, quality, message);
                     } catch (Exception | LinkageError | OutOfMemoryError e) {
-                        failure =
-                                cancelled
-                                        ? "Transcription cancelled. Your recording is unchanged."
-                                        : e instanceof InsufficientModelMemory
-                                                        || e instanceof OutOfMemoryError
-                                                ? "Not enough available memory for this model."
-                                                      + " Choose Standard or Enhanced, or retry"
-                                                      + " after closing other apps. Your saved"
-                                                      + " transcript is kept."
-                                                : "Couldn't transcribe this recording. You can"
-                                                      + " still listen, or try again.";
+                        failure = failureMessage(e);
                     } finally {
-                        if (vad != null) vad.release();
-                        if (recognizer != null) recognizer.release();
                         busy = false;
                     }
                 });
+    }
+
+    /**
+     * A snapshot queue, serialized with single-message work, and independent of Activity lifetime.
+     */
+    static synchronized boolean generateBatch(
+            Context context, List<JSONObject> messages, boolean replace) {
+        if (busy || !ready(context) || messages.isEmpty()) return false;
+        final Context c = context.getApplicationContext();
+        final TranscriptionQuality quality = selected(c);
+        final List<JSONObject> snapshot = new ArrayList<>(messages);
+        begin("batch");
+        batch = true;
+        batchStatus = "Preparing " + snapshot.size() + " transcripts…";
+        WORK.execute(
+                () -> {
+                    int saved = 0, skipped = 0, failed = 0;
+                    try {
+                        for (int i = 0; i < snapshot.size(); i++) {
+                            if (cancelled) break;
+                            JSONObject message = snapshot.get(i);
+                            job = message.optString("objectid");
+                            batchStatus =
+                                    "Transcribing "
+                                            + (i + 1)
+                                            + " of "
+                                            + snapshot.size()
+                                            + " · "
+                                            + quality.title;
+                            if (!replace && cached(c, job) != null) {
+                                skipped++;
+                                continue;
+                            }
+                            try {
+                                transcribe(c, quality, message);
+                                saved++;
+                            } catch (Exception | LinkageError | OutOfMemoryError e) {
+                                if (cancelled) break;
+                                failed++;
+                                // Memory failures are unlikely to improve on the next message.
+                                if (e instanceof InsufficientModelMemory
+                                        || e instanceof OutOfMemoryError) {
+                                    failure = failureMessage(e);
+                                    break;
+                                }
+                            }
+                        }
+                    } finally {
+                        batchStatus =
+                                (cancelled ? "Queue cancelled · " : "Transcripts finished · ")
+                                        + saved
+                                        + " saved · "
+                                        + skipped
+                                        + " kept · "
+                                        + failed
+                                        + " failed"
+                                        + (snapshot.size() > saved + skipped + failed
+                                                ? " · "
+                                                        + (snapshot.size()
+                                                                - saved
+                                                                - skipped
+                                                                - failed)
+                                                        + " not finished"
+                                                : "");
+                        if (!failure.isEmpty()) batchStatus += "\n" + failure;
+                        batchVersion++;
+                        batch = false;
+                        busy = false;
+                    }
+                });
+        return true;
+    }
+
+    private static void begin(String id) {
+        busy = true;
+        downloading = false;
+        cancelled = false;
+        job = id;
+        failure = "";
+        status = "Opening recording…";
+    }
+
+    static synchronized void dismissBatch() {
+        if (!batch) batchStatus = "";
+    }
+
+    private static String failureMessage(Throwable e) {
+        return cancelled
+                ? "Transcription cancelled. Your recording is unchanged."
+                : e instanceof InsufficientModelMemory || e instanceof OutOfMemoryError
+                        ? "Not enough available memory for this model. Choose Standard or Enhanced,"
+                              + " or retry after closing other apps. Your saved transcript is kept."
+                        : "Couldn't transcribe this recording. You can still listen, or try again.";
+    }
+
+    private static void transcribe(Context c, TranscriptionQuality quality, JSONObject message)
+            throws Exception {
+        final String[] NAMES = quality.names();
+        final String id = message.optString("objectid");
+        OfflineRecognizer recognizer = null;
+        Vad vad = null;
+        try {
+            File audio = CarrierClient.get(c).audio(message);
+            if (cancelled) throw new java.io.InterruptedIOException();
+            status = "Reading audio on this phone…";
+            float[] samples = AudioSamples.read(audio);
+            File root = directory(c, quality);
+            SileroVadModelConfig silero = new SileroVadModelConfig();
+            silero.setModel(new File(root, NAMES[3]).getAbsolutePath());
+            silero.setMinSilenceDuration(.45f);
+            silero.setMinSpeechDuration(.2f);
+            silero.setMaxSpeechDuration(12f);
+            VadModelConfig vc = new VadModelConfig();
+            vc.setSileroVadModelConfig(silero);
+            vad = new Vad(null, vc);
+            List<int[]> ranges = new ArrayList<>();
+            for (int offset = 0; offset < samples.length; offset += 512) {
+                if (cancelled) throw new java.io.InterruptedIOException();
+                vad.acceptWaveform(
+                        Arrays.copyOfRange(
+                                samples, offset, Math.min(offset + 512, samples.length)));
+                drain(vad, ranges, samples.length);
+            }
+            vad.flush();
+            drain(vad, ranges, samples.length);
+            vad.release();
+            vad = null;
+            Transcript result = new Transcript();
+            result.quality = quality.key;
+            if (!ranges.isEmpty()) {
+                if (quality == TranscriptionQuality.HIGHEST) {
+                    android.app.ActivityManager manager =
+                            (android.app.ActivityManager) c.getSystemService(Context.ACTIVITY_SERVICE);
+                    android.app.ActivityManager.MemoryInfo memory =
+                            new android.app.ActivityManager.MemoryInfo();
+                    manager.getMemoryInfo(memory);
+                    if (memory.totalMem < 8_000_000_000L
+                            || memory.lowMemory
+                            || memory.availMem < 2L * 1024 * 1024 * 1024)
+                        throw new InsufficientModelMemory();
+                }
+                OfflineWhisperModelConfig whisper = new OfflineWhisperModelConfig();
+                whisper.setEncoder(new File(root, NAMES[0]).getAbsolutePath());
+                whisper.setDecoder(new File(root, NAMES[1]).getAbsolutePath());
+                OfflineModelConfig model = new OfflineModelConfig();
+                model.setWhisper(whisper);
+                model.setTokens(new File(root, NAMES[2]).getAbsolutePath());
+                model.setNumThreads(4);
+                OfflineRecognizerConfig config = new OfflineRecognizerConfig();
+                config.setModelConfig(model);
+                status = "Loading " + quality.label() + " on this phone…";
+                recognizer = new OfflineRecognizer(null, config);
+                for (int i = 0; i < ranges.size(); i++) {
+                    if (cancelled) throw new java.io.InterruptedIOException();
+                    status = "Transcribing on this phone · " + (i + 1) + " of " + ranges.size();
+                    int[] range = ranges.get(i);
+                    OfflineStream stream = recognizer.createStream();
+                    try {
+                        stream.acceptWaveform(
+                                Arrays.copyOfRange(samples, range[0], range[1]), 16000);
+                        recognizer.decode(stream);
+                        String text = recognizer.getResult(stream).getText().trim();
+                        if (!text.isEmpty())
+                            result.segments.add(
+                                    new Transcript.Segment(range[0] / 16, range[1] / 16, text));
+                    } finally {
+                        stream.release();
+                    }
+                }
+            }
+            if (cancelled) throw new java.io.InterruptedIOException();
+            if (!new PrivateStore(c).put(key(id), result.json()))
+                throw new java.io.IOException("storage");
+            status =
+                    result.segments.isEmpty()
+                            ? "No speech detected"
+                            : "Transcript saved on this phone";
+        } finally {
+            if (vad != null) vad.release();
+            if (recognizer != null) recognizer.release();
+        }
     }
 
     private static final class InsufficientModelMemory extends Exception {

@@ -73,3 +73,5 @@ No existing transcript is replaced by selecting or downloading Large. Standard r
 The full Large v3 download passed size/hash verification on the S24 Ultra. The same public speech fixture produced the expected words, a Large v3 engine tag, preserved leading silence, and valid phrase anchors in 18,554 ms. The selected quality was locked during download and restored after the check; the temporary audio/transcript were removed. This one short fixture is a functional check, not an accuracy benchmark or a promise of per-message speed. Both Standard and Enhanced remain downloaded, and Standard remains selected.
 
 Twenty-eight quality/motion device checks passed, including selection of the third model, exclusive selected state, and retaining an existing transcript.
+
+Version 0.17 adds a process-scoped batch queue with Generate missing, explicit Update all, per-recording saves, cancellation, and counts for partial failures. See [bulk actions](bulk-actions.md).
