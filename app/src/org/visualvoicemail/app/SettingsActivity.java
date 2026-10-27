@@ -89,6 +89,9 @@ public final class SettingsActivity extends Activity {
                 preferences.edit().putInt("appearance",choice).apply(); recreate();
             }));
 
+        LinearLayout help = group("HELP & TUTORIAL");
+        row(help,"App tutorial","Replay the guide to setup, messages, playback, saving, and alerts",()->startActivity(TutorialActivity.replay(this)));
+
         LinearLayout inbox = group("INBOX & CONTACTS");
         boolean permitted = checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
         boolean names = permitted && preferences.getBoolean("contact_names",false);

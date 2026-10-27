@@ -67,6 +67,8 @@ public final class MainActivity extends Activity {
     private static final int SETTINGS_REQUEST = 42;
     private static final int DOWNLOAD_FOLDER_REQUEST = 44;
     private static final int ALERT_PERMISSION = 45;
+    private static final int TUTORIAL_REQUEST = 46;
+    private boolean tutorialOpen;
     private String pendingSaveId = "";
     private boolean savingCopy;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -733,6 +735,7 @@ public final class MainActivity extends Activity {
     @Override protected void onStart() { super.onStart(); visible = true; handler.post(ticker); reloadContactNames(); }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if (request==TUTORIAL_REQUEST) tutorialOpen=false;
         if (request==SETTINGS_REQUEST && result==RESULT_OK && data!=null) pendingSettingsAction=data.getIntExtra(SettingsActivity.ACTION,0);
         if(request==DOWNLOAD_FOLDER_REQUEST) {
             String requested=pendingSaveId; pendingSaveId="";
@@ -752,6 +755,11 @@ public final class MainActivity extends Activity {
         if (!syncing && !updatingRead) inbox = carrier.cachedInbox();
         render();
         VoicemailAlerts.ensureScheduled(this);
+        if (TutorialActivity.needed(this)) {
+            if (!tutorialOpen) { tutorialOpen=true; startActivityForResult(new Intent(this,TutorialActivity.class),TUTORIAL_REQUEST); }
+            return;
+        }
+        tutorialOpen=false;
         offerAlerts();
         int action=pendingSettingsAction; pendingSettingsAction=0;
         if (action==SettingsActivity.REFRESH) sync();
@@ -771,7 +779,7 @@ public final class MainActivity extends Activity {
         carrierName.setContentDescription("Carrier: "+name);
     }
     private void offerAlerts() {
-        if (!visible || !carrier.hasSession() || isFinishing() || getSharedPreferences("settings",MODE_PRIVATE).getBoolean("alerts_prompted",false)) return;
+        if (!visible || TutorialActivity.needed(this) || !carrier.hasSession() || isFinishing() || getSharedPreferences("settings",MODE_PRIVATE).getBoolean("alerts_prompted",false)) return;
         getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("alerts_prompted",true).apply();
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("New voicemail alerts")
             .setMessage("Get a notification when a check finds new unread voicemail. Background checks run about every "+VoicemailAlerts.interval(this)+" minutes; Android may delay them to save battery. Caller details stay out of the alert. You can change this in Settings.")
@@ -786,6 +794,8 @@ public final class MainActivity extends Activity {
     }
     private void openNotification(Intent intent) {
         if (intent == null || !VoicemailAlerts.OPEN.equals(intent.getAction())) return;
+        // An explicit notification tap should reach the message, even before the optional tour.
+        TutorialActivity.acknowledge(this);
         query=""; filter=1; if(search!=null)search.setText("");
         VoicemailAlerts.dismiss(this); intent.setAction(null);
     }

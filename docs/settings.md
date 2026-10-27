@@ -1,10 +1,11 @@
-# App settings in version 0.9
+# App settings in version 0.11
 
 Open the gear at the top-right of the inbox. Settings uses the same light/dark/AMOLED palette as the inbox, remembers its scroll position, and keeps preferences after reopening.
 
 ## Available controls
 
 - **Appearance:** device default, Light, Dark, and AMOLED (true black). Changing the theme updates Settings and the inbox.
+- **Help & tutorial:** replay the optional seven-topic guide, with setup and feature explanations, direct topic selection, and Next/Back/swipe navigation. It inherits the selected theme and returns to Settings when closed. See [the tutorial](tutorial.md).
 - **Inbox and contacts:** optional local contact-name lookup and newest/oldest message ordering. Unknown dates sort last in either order. The Contacts permission explanation and enable/disable controls now live here.
 - **Playback:** 0.75×, 1×, 1.25×, 1.5×, and 2× speed; 5/10/15/30-second skips; follow-device, phone speaker, or phone earpiece output. Preferences apply when playback starts. The player displays its actual output route and stops if a requested route cannot be used. Leaving the app always pauses playback.
 - **Mailbox and sync:** last successful update, refresh on open, refresh now, reconnect, and connection help. Refresh on open defaults on for an already-connected mailbox, checks stale data on returning, and is limited to one attempt per five minutes. It does not initiate first-time authentication or run in the background. Reconnect renews carrier authentication using Mint mobile data and preserves the saved inbox/downloads.
