@@ -311,7 +311,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.5 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.6 Android");
     }
 
     private static byte[] read(InputStream input, int maximum) throws IOException {

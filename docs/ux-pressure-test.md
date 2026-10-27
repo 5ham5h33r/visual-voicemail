@@ -2,6 +2,8 @@
 
 Reviewed 2026-10-26 using the user's five questions. This is a heuristic assessment of the current code, the device checks already performed, and official reference flows. It is not a usability study: no abandonment rates or task-success rates have been measured. One real mailbox message on one phone is insufficient evidence for a general usability pass.
 
+Version 0.6 follow-up: optional local contact-name display/search now addresses the contact-lookup gap below. Name access is explained and requested only when enabled; declining permission retains number/date search. The rest of this review records the v0.4 assessment and its still-open acceptance criteria. Transcription remains deferred.
+
 Verdict: useful playback prototype; the complete everyday voicemail experience is not release-ready. System/light/dark themes, saved playback, explicit read-status verification, and reversible marks are strengths. The unresolved flows below are product gaps, not visual polish requests. Transcription remains outside the current milestone.
 
 ## 1. Where would users abandon onboarding?
