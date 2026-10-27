@@ -1,4 +1,5 @@
 <resources>
+    <color name="amoled_background">#000000</color>
     <color name="background">#F3F4F6</color>
     <color name="surface">#FFFFFF</color>
     <color name="primary_text">#161C24</color>
