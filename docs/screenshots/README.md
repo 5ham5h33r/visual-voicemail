@@ -7,3 +7,5 @@ Recording screenshots cover Light, Dark, and true-black AMOLED. The guided-inbox
 `playback-dark.png` is a legacy version 0.11 capture retained only for the paused promo video's existing source script. It is not part of the current app gallery. Promo work remains paused.
 
 Version 0.14 refreshes the recording views in all three themes, shows the quality control directly below Transcript, adds the quality-choice page, and includes Reduce motion in Settings. The quality page contains public model descriptions only.
+
+Version 0.15 refreshes the full current gallery for the compact layout. Every screenshot was visually reviewed; rendered sample transcript timestamps retain the real UI text hierarchy. The legacy promo-only playback image remains separate.

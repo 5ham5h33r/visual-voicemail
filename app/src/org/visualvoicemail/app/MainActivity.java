@@ -113,7 +113,7 @@ public final class MainActivity extends MotionActivity {
     private void buildLayout() {
         LinearLayout root = column();
         root.setBackgroundColor(background);
-        root.setPadding(dp(24), dp(24), dp(24), dp(8));
+        root.setPadding(dp(20), dp(16), dp(20), dp(8));
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int left, top, right, bottom;
             if (Build.VERSION.SDK_INT >= 30) {
@@ -127,12 +127,12 @@ public final class MainActivity extends MotionActivity {
                 left = insets.getSystemWindowInsetLeft(); top = insets.getSystemWindowInsetTop();
                 right = insets.getSystemWindowInsetRight(); bottom = insets.getSystemWindowInsetBottom();
             }
-            view.setPadding(dp(24) + left, dp(16) + top, dp(24) + right, dp(8) + bottom);
+            view.setPadding(dp(20) + left, dp(12) + top, dp(20) + right, dp(8) + bottom);
             return insets;
         });
         LinearLayout top = row(); top.setGravity(Gravity.CENTER_VERTICAL);
         headerBrand = top;
-        carrierName = text("", 13, secondary, true);
+        carrierName = text("", 12, secondary, true);
         carrierName.setLetterSpacing(0.10f); carrierName.setSingleLine(true);
         carrierName.setEllipsize(android.text.TextUtils.TruncateAt.END);
         updateCarrierName();
@@ -143,21 +143,21 @@ public final class MainActivity extends MotionActivity {
         settings.setOnClickListener(v -> startActivityForResult(new Intent(this, SettingsActivity.class), SETTINGS_REQUEST));
         top.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
         root.addView(top);
-        TextView title = text("Voicemail", 36, primary, true);
+        TextView title = text("Voicemail", Ui.PAGE_TITLE, primary, true);
         headerTitle = title;
-        add(root, title, 24);
-        status = text("", 15, secondary, false);
+        add(root, title, 12);
+        status = text("", 13, secondary, false);
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        add(root, status, 8);
+        add(root, status, 6);
         LinearLayout searchBox = row(); searchBox.setGravity(Gravity.CENTER_VERTICAL);
         searchBox.setBackground(shape(surface, 16));
         search = new EditText(this);
-        search.setSingleLine(true); search.setTextSize(15); search.setTextColor(primary); search.setHintTextColor(secondary);
+        search.setSingleLine(true); search.setTextSize(14); search.setTextColor(primary); search.setHintTextColor(secondary);
         search.setHint("Search voicemail"); search.setContentDescription("Search contacts, numbers, dates, and saved transcripts");
         search.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         search.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
         search.setBackgroundColor(android.graphics.Color.TRANSPARENT); search.setPadding(dp(16), 0, 0, 0);
-        search.setMinHeight(dp(52)); search.setText(query);
+        search.setMinHeight(dp(48)); search.setText(query);
         searchBox.addView(search, new LinearLayout.LayoutParams(0, -2, 1));
         IconButton clear = new IconButton("clear", false);
         clear.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(surface, 24), null));
@@ -177,7 +177,7 @@ public final class MainActivity extends MotionActivity {
             }
             return false;
         });
-        add(root, searchBox, 20);
+        add(root, searchBox, 14);
         LinearLayout filterRow = row(); filterControl=filterRow;
         for (int i = 0; i < filters.length; i++) {
             final int choice = i;
@@ -188,18 +188,18 @@ public final class MainActivity extends MotionActivity {
             if (i > 0) item.setMarginStart(dp(8));
             filterRow.addView(filters[i], item);
         }
-        add(root, filterRow, 12);
+        add(root, filterRow, 8);
         LinearLayout tools = row(); tools.setGravity(Gravity.CENTER_VERTICAL);
         section = text("INBOX", 13, secondary, true);
         section.setLetterSpacing(0.08f);
         tools.addView(section, new LinearLayout.LayoutParams(0, -2, 1));
         refresh = button("Refresh", false);
         refresh.setOnClickListener(v -> sync()); tools.addView(refresh);
-        add(root, tools, 24);
+        add(root, tools, 14);
         ScrollView scroll = new ScrollView(this);
         scroll.setClipToPadding(false); scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
-        messages = column(); messages.setPadding(0, dp(8), 0, dp(24));
+        messages = column(); messages.setPadding(0, dp(4), 0, dp(16));
         scroll.addView(messages);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
@@ -277,7 +277,7 @@ public final class MainActivity extends MotionActivity {
         for (JSONObject message : shown) {
             String id = message.optString("objectid");
             MessageRow card = new MessageRow(message);
-            rows.put(id, card); add(messages, card.root, 12);
+            rows.put(id, card); add(messages, card.root, 8);
         }
         TextView foot = text(query.trim().isEmpty() ? "Saved recordings and transcripts are available offline." : "Search includes saved transcripts. Open a recording to transcribe it.", 13, secondary, false);
         foot.setGravity(Gravity.CENTER); foot.setPadding(dp(16), dp(8), dp(16), 0);
@@ -291,17 +291,17 @@ public final class MainActivity extends MotionActivity {
         final String caller;
         MessageRow(JSONObject message) {
             caller = caller(message);
-            root.setPadding(dp(20), dp(20), dp(20), dp(20));
-            root.setBackground(shape(surface, 24));
+            root.setPadding(dp(16), dp(16), dp(16), dp(12));
+            root.setBackground(shape(surface, 18));
             LinearLayout heading = row(); heading.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout info = column();
-            TextView name = text(caller, 18, primary, true);
+            TextView name = text(caller, 16, primary, true);
             info.addView(name);
             if (contactNames.containsKey(ContactNames.number(message)))
-                add(info, text(formattedNumber(message), 13, secondary, false), 4);
-            add(info, text(date(message) + " · " + duration((int)(message.optDouble("duration", 0) * 1000)), 13, secondary, false), 8);
+                add(info, text(formattedNumber(message), 12, secondary, false), 4);
+            add(info, text(date(message) + " · " + duration((int)(message.optDouble("duration", 0) * 1000)), 12, secondary, false), 4);
             heading.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
-            LinearLayout.LayoutParams playSize = new LinearLayout.LayoutParams(dp(52), dp(52)); playSize.setMarginStart(dp(12));
+            LinearLayout.LayoutParams playSize = new LinearLayout.LayoutParams(dp(48), dp(48)); playSize.setMarginStart(dp(12));
             heading.addView(play, playSize);
             play.setContentDescription("Play voicemail from " + caller);
             play.setOnClickListener(v -> openRecording(message, true)); root.addView(heading);
@@ -310,7 +310,7 @@ public final class MainActivity extends MotionActivity {
             root.setContentDescription("Open voicemail from " + caller + ", " + date(message));
             String state = marks.contains(message.optString("objectid")) ? "Marked for deletion"
                 : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
-            saved = text(state + " · " + (transcripts.containsKey(message.optString("objectid")) ? "Transcript available" : carrier.cachedAudio(message) == null ? "Open to listen" : "Saved on this phone"), 13, secondary, false);
+            saved = text(state + " · " + (transcripts.containsKey(message.optString("objectid")) ? "Transcript available" : carrier.cachedAudio(message) == null ? "Open to listen" : "Saved on this phone"), 12, secondary, false);
             Transcript transcript = transcripts.get(message.optString("objectid"));
             if (transcript != null && !transcript.text().isEmpty()) {
                 String excerpt = transcript.text();
@@ -318,17 +318,15 @@ public final class MainActivity extends MotionActivity {
                     java.util.List<int[]> found = TranscriptSearch.find(excerpt, query);
                     if (!found.isEmpty()) excerpt = excerpt.substring(Math.max(0, found.get(0)[0]-30));
                 }
-                TextView preview = text(excerpt, 15, secondary, false);
-                preview.setMaxLines(2); preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                add(root, preview, 12);
+                TextView preview = text(excerpt, 14, secondary, false);
+                preview.setMaxLines(1); preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                add(root, preview, 8);
             }
-            LinearLayout details = row(); details.setGravity(Gravity.CENTER_VERTICAL);
-            details.addView(saved, new LinearLayout.LayoutParams(0, -2, 1));
             IconButton more = new IconButton("more", false);
             more.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(surface, 24), null));
             more.setContentDescription("Actions for voicemail from " + caller);
             more.setOnClickListener(v -> showActions(message));
-            details.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48))); add(root, details, 8);
+            heading.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48))); add(root, saved, 6);
             root.setOnLongClickListener(v -> { showActions(message); return true; });
 
         }
@@ -504,7 +502,7 @@ public final class MainActivity extends MotionActivity {
     }
     private GradientDrawable shape(int color, int radius) { GradientDrawable drawable = new GradientDrawable(); drawable.setColor(color); drawable.setCornerRadius(dp(radius)); return drawable; }
     private Button button(String label, boolean filled) {
-        Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(15);
+        Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(14);
         button.setTextColor(accent); button.setMinHeight(dp(48)); button.setMinimumHeight(dp(48));
         button.setMinWidth(dp(80)); button.setMinimumWidth(dp(80)); button.setPadding(dp(16), 0, dp(16), 0);
         button.setStateListAnimator(null); AppMotion.press(button);

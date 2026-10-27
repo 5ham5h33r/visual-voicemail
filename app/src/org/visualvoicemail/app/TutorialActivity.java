@@ -72,7 +72,7 @@ public final class TutorialActivity extends MotionActivity {
     private void build(boolean animate) {
         root = ui.column();
         root.setBackgroundColor(ui.bg);
-        root.setPadding(ui.dp(24), 0, ui.dp(24), ui.dp(16));
+        root.setPadding(ui.dp(20), 0, ui.dp(20), ui.dp(16));
         root.setOnApplyWindowInsetsListener(
                 (v, insets) -> {
                     if (Build.VERSION.SDK_INT >= 30) {
@@ -81,15 +81,15 @@ public final class TutorialActivity extends MotionActivity {
                                         WindowInsets.Type.systemBars()
                                                 | WindowInsets.Type.displayCutout());
                         v.setPadding(
-                                ui.dp(24) + b.left,
+                                ui.dp(20) + b.left,
                                 b.top,
-                                ui.dp(24) + b.right,
+                                ui.dp(20) + b.right,
                                 ui.dp(16) + b.bottom);
                     } else
                         v.setPadding(
-                                ui.dp(24),
+                                ui.dp(20),
                                 insets.getSystemWindowInsetTop(),
-                                ui.dp(24),
+                                ui.dp(20),
                                 ui.dp(16) + insets.getSystemWindowInsetBottom());
                     return insets;
                 });
@@ -111,12 +111,12 @@ public final class TutorialActivity extends MotionActivity {
         if (page == 0) {
             ImageView icon = new ImageView(this);
             icon.setImageResource(R.mipmap.ic_launcher);
-            body.addView(icon, new LinearLayout.LayoutParams(ui.dp(88), ui.dp(88)));
+            body.addView(icon, new LinearLayout.LayoutParams(ui.dp(64), ui.dp(64)));
         }
-        TextView title = ui.label(TITLES[page], 36, ui.text, true);
+        TextView title = ui.label(TITLES[page], 30, ui.text, true);
         title.setLineSpacing(ui.dp(2), 1);
         ui.add(body, title, page == 0 ? 28 : 4);
-        TextView subtitle = ui.label(COPY[page], 17, ui.secondary, false);
+        TextView subtitle = ui.label(COPY[page], 15, ui.secondary, false);
         subtitle.setLineSpacing(ui.dp(5), 1);
         ui.add(body, subtitle, 16);
         if (page == 0) {
@@ -138,7 +138,7 @@ public final class TutorialActivity extends MotionActivity {
             LinearLayout sample = ui.column();
             sample.setPadding(ui.dp(18), ui.dp(18), ui.dp(18), ui.dp(18));
             sample.setBackground(ui.shape(ui.surface, 22));
-            sample.addView(ui.label("Alex Morgan", 18, ui.text, true));
+            sample.addView(ui.label("Alex Morgan", 16, ui.text, true));
             ui.add(sample, ui.label("Today · 0:24 · Sample voicemail", 13, ui.secondary, false), 8);
             LinearLayout actions = ui.column();
             Button read =
@@ -300,7 +300,7 @@ public final class TutorialActivity extends MotionActivity {
         LinearLayout labels = ui.column();
         labels.setPadding(ui.dp(12), 0, 0, 0);
         labels.addView(ui.label(title, 16, ui.text, true));
-        TextView note = ui.label(detail, 14, ui.secondary, false);
+        TextView note = ui.label(detail, 13, ui.secondary, false);
         note.setLineSpacing(ui.dp(3), 1);
         ui.add(labels, note, 7);
         row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
@@ -317,7 +317,7 @@ public final class TutorialActivity extends MotionActivity {
         LinearLayout card = ui.column();
         card.setPadding(ui.dp(20), ui.dp(20), ui.dp(20), ui.dp(20));
         card.setBackground(ui.shape(ui.surface, 22));
-        card.addView(ui.label(title, 18, ui.text, true));
+        card.addView(ui.label(title, 16, ui.text, true));
         TextView note = ui.label(body, 14, ui.secondary, false);
         note.setLineSpacing(ui.dp(4), 1);
         ui.add(card, note, 10);

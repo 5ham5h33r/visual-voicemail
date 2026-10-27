@@ -6,11 +6,11 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Version 0.14 adds Standard (Whisper Tiny) and Enhanced (Whisper Base) quality choices directly on the transcript page and in Settings, plus consistent tap feedback and reduced-motion support. English transcription, phrase-based tap-to-play, transcript search, and the guided introduction work on the phone.
+An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Version 0.15 adds a more compact interface and reliable back navigation for individually opened pages. Standard (Whisper Tiny) and Enhanced (Whisper Base) quality choices remain directly on the transcript page and in Settings, with consistent tap feedback and reduced-motion support. English transcription, phrase-based tap-to-play, transcript search, and the guided introduction work on the phone.
 
 ## Screenshots
 
-Player/settings/quality screenshots are from version 0.14; inbox/onboarding screenshots are from version 0.13 on the S24 Ultra. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
+Screenshots show the compact version 0.15 interface on the S24 Ultra. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
 
 <table>
   <tr><th>Recording · Dark</th><th>Recording · Light</th><th>Recording · AMOLED</th></tr>
@@ -46,6 +46,7 @@ Player/settings/quality screenshots are from version 0.14; inbox/onboarding scre
 - [Search, read/unread status, and reversible deletion marks](docs/search-actions.md)
 - [App settings and playback preferences](docs/settings.md)
 - [Motion and responsive tap feedback](docs/motion.md)
+- [Compact layout and back navigation](docs/compact-interface.md)
 - [First-use tutorial and replayable help](docs/tutorial.md)
 - [App icon and branding assets](docs/branding/README.md)
 - [LinkedIn promo video and post assets](media/promo/README.md)

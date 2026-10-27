@@ -62,22 +62,22 @@ public final class SettingsActivity extends MotionActivity {
     private void build() {
         if(settingsScroll!=null) scrollPosition=settingsScroll.getScrollY();
         LinearLayout root = column(); root.setBackgroundColor(background);
-        root.setPadding(dp(24), dp(24), dp(24), dp(8));
+        root.setPadding(dp(20), dp(20), dp(20), dp(8));
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                view.setPadding(dp(24)+bars.left, dp(12)+bars.top, dp(24)+bars.right, dp(8)+bars.bottom);
-            } else view.setPadding(dp(24), dp(12)+insets.getSystemWindowInsetTop(), dp(24), dp(8)+insets.getSystemWindowInsetBottom());
+                view.setPadding(dp(20)+bars.left, dp(12)+bars.top, dp(20)+bars.right, dp(8)+bars.bottom);
+            } else view.setPadding(dp(20), dp(12)+insets.getSystemWindowInsetTop(), dp(20), dp(8)+insets.getSystemWindowInsetBottom());
             return insets;
         });
         LinearLayout heading = column();
         Ui controls = new Ui(this);
-        heading.addView(controls.icon("back","Back to voicemail",false,()->finish()));
-        TextView title = text("Settings", 32, primary); title.setTypeface(Typeface.create("sans-serif-medium", 0));
-        title.setPadding(0, dp(12), 0, dp(20)); heading.addView(title); root.addView(heading);
+        heading.addView(controls.icon("back","Back to voicemail",false,this::navigateUp));
+        TextView title = text("Settings", Ui.PAGE_TITLE, primary); title.setTypeface(Typeface.create("sans-serif-medium", 0));
+        title.setPadding(0, dp(8), 0, dp(12)); heading.addView(title); root.addView(heading);
         ScrollView scroll = new ScrollView(this); scroll.setVerticalScrollBarEnabled(false); scroll.setClipToPadding(false);
         settingsScroll=scroll;
-        content = column(); content.setPadding(0,0,0,dp(24)); scroll.addView(content);
+        content = column(); content.setPadding(0,0,0,dp(20)); scroll.addView(content);
         root.addView(scroll, new LinearLayout.LayoutParams(-1,0,1)); setContentView(root);
 
         LinearLayout appearance = group("APPEARANCE");
@@ -86,10 +86,10 @@ public final class SettingsActivity extends MotionActivity {
                 preferences.edit().putInt("appearance",choice).apply(); recreate();
             }));
 
-        toggle(appearance,"Reduce motion","Use immediate feedback without scaling or content animations. Android's Remove animations setting is also respected.","reduce_motion",false);
+        toggle(appearance,"Reduce motion","Limit animations and press effects.","reduce_motion",false);
 
         LinearLayout help = group("HELP & TUTORIAL");
-        row(help,"App tutorial","Replay the guide to setup, messages, playback, saving, and alerts",()->startActivity(TutorialActivity.replay(this)));
+        row(help,"App tutorial","Replay setup and tips on the actual controls",()->startActivity(TutorialActivity.replay(this)));
 
         LinearLayout inbox = group("INBOX & CONTACTS");
         boolean permitted = checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
@@ -117,8 +117,8 @@ public final class SettingsActivity extends MotionActivity {
         LinearLayout transcription = group("TRANSCRIPTION");
         row(transcription,"Transcription quality",Transcription.selected(this).label()+" · "+(Transcription.ready(this)?"Ready":Transcription.selected(this).sizeLabel()+" download"),()->startActivity(new Intent(this,TranscriptionSettingsActivity.class)));
         toggle(transcription,"Transcribe on open","Once the English model is ready, transcribe recordings as you open them.","auto_transcribe",true);
-        note(transcription,"English recognition runs on this phone. Choose Standard for speed or Enhanced for a larger model; download and manage either option under Transcription quality.");
-        note(transcription,"Opening a recording generates a transcript once the model is ready. Speech detection supplies approximate phrase anchors. Tap a phrase to play from there; use Find in transcript to search. Check important details against the audio.");
+        note(transcription,"English transcription stays on this phone. Choose speed or accuracy under Transcription quality.");
+        note(transcription,"Tap transcript phrases to listen; use Find to search. Timing and recognized words can be imperfect.");
         row(transcription,"Clear saved transcripts","Keep recordings, carrier messages, and the speech model",()->confirm("Clear saved transcripts?","Transcripts saved on this phone will be removed. Open a recording to generate its transcript again.","Clear transcripts",()->{
             info("Saved transcripts",Transcription.clear(this,false)?"Saved transcripts cleared.":"Wait for transcription or a model download to finish, then retry.");build();
         }));
@@ -274,8 +274,8 @@ public final class SettingsActivity extends MotionActivity {
     private void action(int action) { setResult(RESULT_OK,new Intent().putExtra(ACTION,action)); finish(); }
     private void open(Intent intent) { try { startActivity(intent); } catch (android.content.ActivityNotFoundException ignored) { info("Unavailable","No app is available to open this setting or link."); } }
     private LinearLayout group(String title) {
-        TextView label=text(title,13,secondary); label.setLetterSpacing(.08f); label.setPadding(dp(4),dp(20),0,dp(12)); content.addView(label);
-        LinearLayout group=column(); group.setBackground(shape(surface,24)); group.setClipToOutline(true); content.addView(group); return group;
+        TextView label=text(title,12,secondary); label.setLetterSpacing(.08f); label.setPadding(dp(4),dp(16),0,dp(8)); content.addView(label);
+        LinearLayout group=column(); group.setBackground(shape(surface,18)); group.setClipToOutline(true); content.addView(group); return group;
     }
     private SpannableString label(String title,String detail) {
         SpannableString text=new SpannableString(title+"\n"+detail); int start=title.length()+1;
@@ -283,21 +283,21 @@ public final class SettingsActivity extends MotionActivity {
         text.setSpan(new ForegroundColorSpan(secondary),start,text.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE); return text;
     }
     private void row(LinearLayout parent,String title,String detail,Runnable action) {
-        TextView view=text("",16,primary); view.setText(label(title,detail)); view.setPadding(dp(20),dp(16),dp(20),dp(16));
-        view.setMinHeight(dp(72)); view.setGravity(Gravity.CENTER_VERTICAL); view.setFocusable(true); view.setClickable(true);
+        TextView view=text("",15,primary); view.setText(label(title,detail)); view.setPadding(dp(16),dp(12),dp(16),dp(12));
+        view.setMinHeight(dp(60)); view.setGravity(Gravity.CENTER_VERTICAL); view.setFocusable(true); view.setClickable(true);
         view.setBackground(new RippleDrawable(ColorStateList.valueOf(divider),null,shape(surface,0)));
         view.setContentDescription(title+". "+detail); AppMotion.press(view); view.setOnClickListener(v->action.run()); parent.addView(view,new LinearLayout.LayoutParams(-1,-2));
     }
     private void toggle(LinearLayout parent,String title,String detail,String key,boolean fallback) {
-        Switch toggle=new AppMotion.Switch(this); toggle.setText(label(title,detail)); toggle.setTextSize(16); toggle.setTextColor(primary);
-        toggle.setPadding(dp(20),dp(16),dp(20),dp(16)); toggle.setMinHeight(dp(72)); toggle.setSwitchPadding(dp(16));
+        Switch toggle=new AppMotion.Switch(this); toggle.setText(label(title,detail)); toggle.setTextSize(15); toggle.setTextColor(primary);
+        toggle.setPadding(dp(16),dp(12),dp(16),dp(12)); toggle.setMinHeight(dp(64)); toggle.setSwitchPadding(dp(16));
         int[][] states={new int[]{android.R.attr.state_checked},new int[]{}};
         toggle.setThumbTintList(new ColorStateList(states,new int[]{accent,secondary}));
         toggle.setTrackTintList(new ColorStateList(states,new int[]{color(R.color.accent_surface),divider}));
         toggle.setChecked(preferences.getBoolean(key,fallback)); toggle.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean(key,checked).apply();AppMotion.configure(this);});
         parent.addView(toggle,new LinearLayout.LayoutParams(-1,-2));
     }
-    private void note(LinearLayout parent,String detail) { TextView view=text(detail,13,secondary); view.setPadding(dp(20),dp(16),dp(20),dp(16)); parent.addView(view); }
+    private void note(LinearLayout parent,String detail) { TextView view=text(detail,12,secondary); view.setPadding(dp(16),dp(12),dp(16),dp(12)); parent.addView(view); }
     private String size(long bytes) { return bytes<1024 ? bytes+" B" : bytes<1024*1024 ? String.format(Locale.getDefault(),"%.1f KB",bytes/1024d) : String.format(Locale.getDefault(),"%.1f MB",bytes/1048576d); }
     private LinearLayout column() { LinearLayout layout=new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }
     private TextView text(String text,int size,int color) { TextView view=new TextView(this); view.setText(text); view.setTextSize(size); view.setTextColor(color); view.setTypeface(Typeface.create("sans-serif",0)); return view; }

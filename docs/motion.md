@@ -1,4 +1,4 @@
-# Motion and tap feedback in version 0.14
+# Motion and tap feedback in version 0.15
 
 The app follows Apple's [motion guidance](https://developer.apple.com/design/human-interface-guidelines/motion): feedback should be brief, purposeful, interruptible, and optional. These are design principles applied to native Android controls; the app retains Android navigation and accessibility behavior.
 

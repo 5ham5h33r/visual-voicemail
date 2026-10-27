@@ -7,8 +7,7 @@ public final class TranscriptionQuality {
                     "standard",
                     "Standard",
                     "Fast results, less storage",
-                    "A good starting point for clear voicemail. Uses less storage and finishes"
-                            + " sooner.",
+                    "Fast results and a smaller download. Best for clear recordings.",
                     "tiny.en",
                     "d026532c022fa99fd789d6b32446a1df7b6bfc43",
                     "",
@@ -21,8 +20,7 @@ public final class TranscriptionQuality {
                     "enhanced",
                     "Enhanced",
                     "Accuracy over speed",
-                    "A larger model that may recognize difficult speech better. Takes longer and"
-                            + " uses more storage. Results can still contain mistakes.",
+                    "May recognize difficult speech better. Uses more storage and takes longer.",
                     "base.en",
                     "59eea950fc76df2453efb57e6c0fd334548e8ffe",
                     "enhanced",
@@ -91,6 +89,10 @@ public final class TranscriptionQuality {
 
     public String sizeLabel() {
         return Math.round(bytes() / 1000000d) + " MB";
+    }
+
+    public String compactLabel() {
+        return title + " (" + (this == STANDARD ? "Tiny" : "Base") + ")";
     }
 
     public String label() {

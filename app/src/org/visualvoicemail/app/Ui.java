@@ -16,6 +16,11 @@ import android.widget.TextView;
 
 /** Shared native layout rhythm and vector controls. Text sizes follow the user's font scale. */
 final class Ui {
+    static final int PAGE_TITLE = 28,
+            DETAIL_TITLE = 24,
+            SECTION_TITLE = 20,
+            BODY = 15,
+            CAPTION = 12;
     final Activity a;
     final int bg, surface, text, secondary, accent, tint, divider;
 
@@ -75,11 +80,11 @@ final class Ui {
         b.setAllCaps(false);
         b.setStateListAnimator(null);
         b.setElevation(0);
-        b.setTextSize(16);
+        b.setTextSize(BODY);
         b.setTextColor(primary ? bg : accent);
         b.setTypeface(Typeface.create("sans-serif-medium", 0));
-        b.setMinHeight(dp(52));
-        b.setPadding(dp(20), dp(12), dp(20), dp(12));
+        b.setMinHeight(dp(48));
+        b.setPadding(dp(16), dp(10), dp(16), dp(10));
         b.setBackground(
                 new RippleDrawable(
                         ColorStateList.valueOf(divider), shape(primary ? accent : tint, 16), null));
@@ -107,7 +112,7 @@ final class Ui {
         Icon v = new Icon(name, solid);
         v.setContentDescription(description);
         v.setOnClickListener(w -> action.run());
-        v.setLayoutParams(new LinearLayout.LayoutParams(dp(solid ? 64 : 48), dp(solid ? 64 : 48)));
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(solid ? 56 : 48), dp(solid ? 56 : 48)));
         return v;
     }
 

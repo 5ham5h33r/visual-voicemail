@@ -1,4 +1,4 @@
-# App settings in version 0.14
+# App settings in version 0.15
 
 Open the gear at the top-right of the inbox. Settings uses the same light/dark/AMOLED palette as the inbox, remembers its scroll position, and keeps preferences after reopening.
 
