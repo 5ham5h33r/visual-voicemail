@@ -12,6 +12,7 @@ python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test navigation
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test header
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test settings
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test selection
+python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test transition
 ```
 
 Use `--compile-only` to type-check all sources without accessing a phone. Full speech recognition and leading-silence checks were run separately on the S24 Ultra; see docs/transcription.md for results and limits.
@@ -34,3 +35,5 @@ Header checks inject synthetic inbox rows only into temporary views, exercise na
 Settings checks cover horizontal header alignment, real filtered controls, no-results states, switching and restoring Reduce motion, keyboard dismissal, child-page return, query/cursor recreation, clear focus/visibility, scroll restoration during a fling, and Back to the inbox. Only temporary app preferences are changed and restored; no carrier messages, downloads, folders, or audio are modified.
 
 Selection motion checks use three synthetic rows and observe real native checkbox animation, retained row/widget instances, immediate checked/model state, color completion, rapid toggles, Select all, interrupted mode transitions, accessibility, and reduced motion. They restore app preferences and never request carrier audio or change carrier flags.
+
+Transition checks inject synthetic inbox rows, perform a real long press, sample rendered header/list coordinates, physically tap the selection close and normal Settings controls, and check reversal, scrolled selection, reduced motion, and recreation during a transition. App preferences are restored; no carrier flags, downloads, or personal audio are changed.

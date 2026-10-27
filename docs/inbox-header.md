@@ -13,3 +13,5 @@ Validation uses synthetic long/short inboxes and actual phone gestures without c
 The S24 Ultra passed 38 header checks, plus 32 onboarding, 42 bulk-action, 33 navigation, 28 quality/motion, and 14 recording checks (187 total). All 86 host behavior checks and theme contrast checks passed. Fixtures were view-only and original app preferences were restored.
 
 Version 0.19 shows the search clear button only while the field contains text, including whitespace. Clearing retains search focus and hides the button again. Initial visibility also follows a restored query. The existing 38 header checks passed, and empty/typed/cleared/whitespace behavior was checked directly on the S24 Ultra.
+
+Version 0.22 coordinates selection-mode header collapse/expansion and list movement over 220 ms, rather than instantly hiding the header before fading the toolbar. Ordinary finger-driven inbox scrolling still keeps a stable header height. See [motion](motion.md).
