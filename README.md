@@ -14,6 +14,7 @@ An independently signed Android app now authenticates to Mint's existing voicema
 - [Native inbox, light/dark themes, and playback controls](docs/inbox-design.md)
 - [Search, read/unread status, and reversible deletion marks](docs/search-actions.md)
 - [App settings and playback preferences](docs/settings.md)
+- [First-use tutorial and replayable help](docs/tutorial.md)
 - [New voicemail notifications and background-check limits](docs/notifications.md)
 - [Planned transcription and tap-to-play requirements](docs/transcription-requirements.md)
 - [Five-question UX pressure test and open findings](docs/ux-pressure-test.md)

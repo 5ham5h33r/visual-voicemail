@@ -8,6 +8,8 @@ Version 0.7 follow-up: Settings adds visible last-sync information, refresh-on-o
 
 Verdict: useful playback prototype; the complete everyday voicemail experience is not release-ready. System/light/dark themes, saved playback, explicit read-status verification, and reversible marks are strengths. The unresolved flows below are product gaps, not visual polish requests. Transcription remains outside the current milestone.
 
+Version 0.11 adds the user-requested optional [first-use tutorial](tutorial.md), with Skip, topic selection, saved progress, replay from Settings, Mint setup guidance, and explanations of current feature limits. It postpones the automatic foreground refresh/notification prompt until the guide is acknowledged and does not request permissions itself. This addresses the missing feature introduction without claiming that the remaining setup/error-recovery acceptance criteria or a usability study have passed.
+
 ## 1. Where would users abandon onboarding?
 
 **Partial.** The current path is open app → connect using Mint data → view inbox. There is no forced account signup or default-dialer change. The welcome copy mentions Mint data, but the app does not provide a clear preflight check for the correct data SIM or distinguish unsupported service, temporary network failure, and carrier activation failure in plain language. Your phone has multiple SIMs, making this a concrete setup concern. An empty mailbox and a failed/missing saved inbox also need clearer distinctions.
