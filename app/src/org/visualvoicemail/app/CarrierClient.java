@@ -201,16 +201,27 @@ public final class CarrierClient {
         } finally { connection.disconnect(); }
     }
 
-    public synchronized File audio(JSONObject message) throws Exception {
-        stage("downloading_audio");
+    private File audioFile(JSONObject message) throws Exception {
         String id = message.optString("objectid", "");
         if (id.isEmpty()) throw new IOException("This message has no identifier.");
         StringBuilder filename = new StringBuilder();
         for (byte b : MessageDigest.getInstance("SHA-256").digest(id.getBytes(StandardCharsets.UTF_8)))
             filename.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));
         File directory = new File(context.getFilesDir(), "audio");
-        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Could not create audio storage.");
-        File file = new File(directory, filename + ".audio");
+        return new File(directory, filename + ".audio");
+    }
+
+    /** Local lookup must stay independent of a potentially slow mailbox sync. */
+    public File cachedAudio(JSONObject message) {
+        try {
+            File file = audioFile(message);
+            return file.isFile() && file.length() > 0 ? file : null;
+        } catch (Exception ignored) { return null; }
+    }
+
+    public synchronized File audio(JSONObject message) throws Exception {
+        stage("downloading_audio");
+        File file = audioFile(message);
         if (file.isFile() && file.length() > 0) {
             diagnostics.put("audio_from_cache", true).put("audio_bytes", file.length());
             stage("audio_ready"); return file;
@@ -226,7 +237,12 @@ public final class CarrierClient {
             bytes = payload(url);
         }
         if (bytes.length == 0) throw new IOException("The recording is empty.");
-        try (FileOutputStream output = new FileOutputStream(file)) { output.write(bytes); }
+        File directory = file.getParentFile();
+        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Could not create audio storage.");
+        android.util.AtomicFile recording = new android.util.AtomicFile(file);
+        FileOutputStream output = recording.startWrite();
+        try { output.write(bytes); recording.finishWrite(output); }
+        catch (Exception error) { recording.failWrite(output); throw error; }
         diagnostics.put("audio_bytes", bytes.length);
         stage("audio_downloaded");
         return file;
@@ -255,7 +271,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.2 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.3 Android");
     }
 
     private static byte[] read(InputStream input, int maximum) throws IOException {

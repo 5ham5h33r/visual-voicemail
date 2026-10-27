@@ -33,7 +33,18 @@ for path in (CLASSES, DEX, LOCAL):
 def run(*args):
     subprocess.run([str(arg) for arg in args], check=True)
 
-sources = sorted((ROOT / 'src').rglob('*.java'))
+generated = BUILD / 'generated'
+generated.mkdir(exist_ok=True)
+unsigned = BUILD / 'probe-unsigned.apk'
+resources = ROOT / 'res'
+compiled_resources = []
+if resources.is_dir():
+    resource_zip = BUILD / 'resources.zip'
+    run(BUILD_TOOLS / ('aapt2' + EXEC), 'compile', '--dir', resources, '-o', resource_zip)
+    compiled_resources = [resource_zip]
+run(BUILD_TOOLS / ('aapt2' + EXEC), 'link', '-I', TOOLS / 'android.jar',
+    '--manifest', ROOT / 'AndroidManifest.xml', '--java', generated, '-o', unsigned, *compiled_resources)
+sources = sorted((ROOT / 'src').rglob('*.java')) + sorted(generated.rglob('*.java'))
 for compiled in CLASSES.rglob('*.class'):
     if not compiled.resolve().is_relative_to(CLASSES.resolve()):
         raise RuntimeError('Unexpected class file outside the build directory')
@@ -44,9 +55,6 @@ run(JAVA, '-jar', TOOLS / 'ecj.jar', '-8', '-encoding', 'UTF-8', '-proc:none',
 run(JAVA, '-cp', BUILD_TOOLS / 'lib/d8.jar', 'com.android.tools.r8.D8',
     '--min-api', '26', '--lib', TOOLS / 'android.jar', '--output', DEX,
     *sorted(CLASSES.rglob('*.class')))
-unsigned = BUILD / 'probe-unsigned.apk'
-run(BUILD_TOOLS / ('aapt2' + EXEC), 'link', '-I', TOOLS / 'android.jar',
-    '--manifest', ROOT / 'AndroidManifest.xml', '-o', unsigned)
 with zipfile.ZipFile(unsigned, 'a', compression=zipfile.ZIP_DEFLATED) as archive:
     archive.write(DEX / 'classes.dex', 'classes.dex')
 keystore = LOCAL / 'research-debug.p12'

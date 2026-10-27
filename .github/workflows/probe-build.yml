@@ -31,6 +31,9 @@ jobs:
         run: python3 probe/build.py --module ${{ matrix.module }}
       - name: Check original Python sources
         run: python3 -m compileall -q research/*.py probe/*.py
+      - name: Check native theme text contrast
+        if: matrix.module == 'app'
+        run: python3 research/check_ui_contrast.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: visual-voice-mail-${{ matrix.module }}
