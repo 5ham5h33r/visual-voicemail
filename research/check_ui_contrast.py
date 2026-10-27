@@ -1,4 +1,4 @@
-"""Check text contrast in both native inbox palettes without external dependencies."""
+"""Check text contrast in light, dark, and AMOLED inbox palettes."""
 import pathlib
 import xml.etree.ElementTree as ET
 
@@ -16,9 +16,14 @@ def main():
     pairs = [(text, surface) for text in ('primary_text', 'secondary_text', 'error')
              for surface in ('background', 'surface')]
     pairs += [('accent', 'background'), ('accent', 'accent_surface')]
+    palettes = {}
     for variant in ('values', 'values-night'):
-        colors = {node.attrib['name']: node.text.strip() for node in
-                  ET.parse(ROOT / 'app/res' / variant / 'colors.xml').getroot()}
+        palettes[variant] = {node.attrib['name']: node.text.strip() for node in
+                             ET.parse(ROOT / 'app/res' / variant / 'colors.xml').getroot()}
+    palettes['amoled'] = dict(palettes['values-night'], background=palettes['values']['amoled_background'])
+    if palettes['amoled']['background'].upper() != '#000000':
+        raise SystemExit('AMOLED background must be true black (#000000).')
+    for variant, colors in palettes.items():
         for foreground, background in pairs:
             bright, dark = sorted((luminance(colors[foreground]), luminance(colors[background])), reverse=True)
             ratio = (bright + 0.05) / (dark + 0.05)

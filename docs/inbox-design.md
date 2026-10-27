@@ -34,3 +34,9 @@ The app requests transient audio focus for speech and pauses when focus is lost.
 The first live Light-mode switch revealed a configuration timing crash. The final implementation applies the override when attaching the base context, before activity resources are loaded. Subsequent switching and relaunch checks passed.
 
 This is an installed development milestone for user feedback. Background delivery/notifications, transcription, deletion, and read-status synchronization are not implemented. Audio-focus interruption is implemented but has not been exercised with a live incoming call. Large fonts, rotation, multiple simultaneous message selections, and other carriers still need broader testing. Existing protocol/session caveats remain in the other research documents.
+
+## AMOLED appearance added in version 0.5
+
+Appearance now offers Use device setting, Light, Dark, and AMOLED (true black). The fourth choice is saved independently of regular Dark and forces the night palette. The screen/window and system-bar backgrounds use `#000000`; message cards and dialogs retain the existing dark surface for grouping and readable controls. The contrast checker covers light, dark, and AMOLED palettes and rejects an AMOLED canvas that is not true black.
+
+Installed and checked on the user's S24 Ultra. Screenshot pixel samples confirmed RGB (0, 0, 0) for the AMOLED canvas, status-bar background, and navigation-bar background. The selection remained active after force-stop/relaunch. Switching back to regular Dark and Light retained their respective canvas colors, RGB (16, 18, 20) and (243, 244, 246). Restored the previous Use device setting preference after testing. No battery-life claim is made by these color and persistence checks. Later search and carrier read-status features are described in [search/actions](search-actions.md).

@@ -85,16 +85,17 @@ public final class MainActivity extends Activity {
         if (appearance != 0) {
             Configuration override = new Configuration(base.getResources().getConfiguration());
             override.uiMode = (override.uiMode & ~Configuration.UI_MODE_NIGHT_MASK)
-                | (appearance == 2 ? Configuration.UI_MODE_NIGHT_YES : Configuration.UI_MODE_NIGHT_NO);
+                | (appearance >= 2 ? Configuration.UI_MODE_NIGHT_YES : Configuration.UI_MODE_NIGHT_NO);
             base = base.createConfigurationContext(override);
         }
         super.attachBaseContext(base);
     }
 
     @Override public void onCreate(Bundle state) {
-        setTheme(R.style.AppTheme);
+        boolean amoled = getSharedPreferences("settings", MODE_PRIVATE).getInt("appearance", 0) == 3;
+        setTheme(amoled ? R.style.AppTheme_Amoled : R.style.AppTheme);
         super.onCreate(state);
-        background = color(R.color.background); surface = color(R.color.surface);
+        background = color(amoled ? R.color.amoled_background : R.color.background); surface = color(R.color.surface);
         primary = color(R.color.primary_text); secondary = color(R.color.secondary_text);
         accent = color(R.color.accent); accentSurface = color(R.color.accent_surface);
         divider = color(R.color.divider); error = color(R.color.error);
@@ -211,7 +212,7 @@ public final class MainActivity extends Activity {
     private void showAppearance() {
         int selected = getSharedPreferences("settings", MODE_PRIVATE).getInt("appearance", 0);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Appearance")
-            .setSingleChoiceItems(new String[]{"Use device setting", "Light", "Dark"}, selected, (selection, choice) -> {
+            .setSingleChoiceItems(new String[]{"Use device setting", "Light", "Dark", "AMOLED (true black)"}, selected, (selection, choice) -> {
                 getSharedPreferences("settings", MODE_PRIVATE).edit().putInt("appearance", choice).apply();
                 selection.dismiss();
                 if (choice != selected) recreate();

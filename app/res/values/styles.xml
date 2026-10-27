@@ -10,4 +10,10 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:forceDarkAllowed">false</item>
     </style>
+    <style name="AppTheme.Amoled" parent="AppTheme">
+        <item name="android:windowBackground">@color/amoled_background</item>
+        <item name="android:statusBarColor">@color/amoled_background</item>
+        <item name="android:navigationBarColor">@color/amoled_background</item>
+        <item name="android:colorBackground">@color/amoled_background</item>
+    </style>
 </resources>
