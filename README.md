@@ -15,6 +15,7 @@ An independently signed Android app now authenticates to Mint's existing voicema
 - [Search, read/unread status, and reversible deletion marks](docs/search-actions.md)
 - [App settings and playback preferences](docs/settings.md)
 - [New voicemail notifications and background-check limits](docs/notifications.md)
+- [Planned transcription and tap-to-play requirements](docs/transcription-requirements.md)
 - [Five-question UX pressure test and open findings](docs/ux-pressure-test.md)
 - [Build the voicemail app](app/README.md)
 - [Build the diagnostic Android app](probe/README.md)
