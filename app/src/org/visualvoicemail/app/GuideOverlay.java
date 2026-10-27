@@ -6,17 +6,22 @@ import android.view.*;
 import android.widget.*;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Accessible, skippable tips anchored to real controls. Highlight taps invoke the actual control.
  */
 final class GuideOverlay extends FrameLayout {
     static final class Tip {
-        final View target;
+        final Supplier<View> target;
         final String title, body;
         final boolean activate;
 
         Tip(View target, String title, String body, boolean activate) {
+            this(() -> target, title, body, activate);
+        }
+
+        Tip(Supplier<View> target, String title, String body, boolean activate) {
             this.target = target;
             this.title = title;
             this.body = body;
@@ -28,6 +33,7 @@ final class GuideOverlay extends FrameLayout {
     private final Ui ui;
     private final List<Tip> tips;
     private final Runnable complete;
+    private final Runnable skipped;
     private final Paint paint = new Paint(3);
     private final RectF hole = new RectF();
     private final LinearLayout card;
@@ -39,22 +45,27 @@ final class GuideOverlay extends FrameLayout {
     private android.window.OnBackInvokedCallback backCallback;
 
     static void show(Activity a, List<Tip> tips, Runnable done) {
+        show(a, tips, done, done);
+    }
+
+    static void show(Activity a, List<Tip> tips, Runnable done, Runnable skip) {
         if (tips.isEmpty()) {
             done.run();
             return;
         }
         FrameLayout host = (FrameLayout) a.getWindow().getDecorView();
-        GuideOverlay guide = new GuideOverlay(a, tips, done);
+        GuideOverlay guide = new GuideOverlay(a, tips, done, skip);
         host.addView(guide, new FrameLayout.LayoutParams(-1, -1));
         guide.post(guide::position);
     }
 
-    private GuideOverlay(Activity a, List<Tip> tips, Runnable done) {
+    private GuideOverlay(Activity a, List<Tip> tips, Runnable done, Runnable skipAction) {
         super(a);
         activity = a;
         ui = new Ui(a);
         this.tips = tips;
         complete = done;
+        skipped = skipAction;
         setWillNotDraw(false);
         setClickable(true);
         setFocusable(true);
@@ -73,7 +84,7 @@ final class GuideOverlay extends FrameLayout {
         body.setLineSpacing(ui.dp(4), 1);
         ui.add(card, body, 10);
         LinearLayout actions = ui.row();
-        Button skip = ui.button("Skip tour", false, this::finish);
+        Button skip = ui.button("Skip tour", false, this::skip);
         skip.setBackgroundColor(0);
         actions.addView(skip, new LinearLayout.LayoutParams(0, -2, 1));
         next = ui.button("Next", true, this::advance);
@@ -83,7 +94,7 @@ final class GuideOverlay extends FrameLayout {
         ui.add(card, actions, 18);
         addView(card, new FrameLayout.LayoutParams(-1, -2));
         if (android.os.Build.VERSION.SDK_INT >= 33) {
-            backCallback = this::finish;
+            backCallback = this::skip;
             a.getOnBackInvokedDispatcher()
                     .registerOnBackInvokedCallback(
                             android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY, backCallback);
@@ -92,9 +103,9 @@ final class GuideOverlay extends FrameLayout {
                 (v, event) -> {
                     if (event.getAction() == MotionEvent.ACTION_UP) {
                         if (hole.contains(event.getX(), event.getY()) && tips.get(index).activate) {
-                            View target = tips.get(index).target;
+                            View target = tips.get(index).target.get();
                             finish();
-                            target.performClick();
+                            if (target != null) target.performClick();
                         }
                         return true;
                     }
@@ -103,7 +114,7 @@ final class GuideOverlay extends FrameLayout {
         setOnKeyListener(
                 (v, key, event) -> {
                     if (key == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-                        finish();
+                        skip();
                         return true;
                     }
                     return false;
@@ -117,20 +128,25 @@ final class GuideOverlay extends FrameLayout {
     private void position() {
         if (getParent() == null) return;
         Tip tip = tips.get(index);
-        if (!tip.target.isShown()) {
+        View target = tip.target.get();
+        if (target == null || !target.isShown()) {
             advance();
             return;
         }
-        tip.target.requestRectangleOnScreen(
-                new Rect(0, 0, tip.target.getWidth(), tip.target.getHeight()), true);
+        if (target.getWidth() == 0 || target.getHeight() == 0) {
+            postOnAnimation(this::position);
+            return;
+        }
+        target.requestRectangleOnScreen(
+                new Rect(0, 0, target.getWidth(), target.getHeight()), true);
         int[] at = new int[2], here = new int[2];
-        tip.target.getLocationInWindow(at);
+        target.getLocationInWindow(at);
         getLocationInWindow(here);
         hole.set(
                 at[0] - here[0] - ui.dp(4),
                 at[1] - here[1] - ui.dp(4),
-                at[0] - here[0] + tip.target.getWidth() + ui.dp(4),
-                at[1] - here[1] + tip.target.getHeight() + ui.dp(4));
+                at[0] - here[0] + target.getWidth() + ui.dp(4),
+                at[1] - here[1] + target.getHeight() + ui.dp(4));
         step.setText((index + 1) + " OF " + tips.size());
         title.setText(tip.title);
         body.setText(tip.body);
@@ -160,12 +176,20 @@ final class GuideOverlay extends FrameLayout {
     }
 
     private void finish() {
+        dismiss(complete);
+    }
+
+    private void skip() {
+        dismiss(skipped);
+    }
+
+    private void dismiss(Runnable action) {
         if (getParent() == null) return;
         if (android.os.Build.VERSION.SDK_INT >= 33 && backCallback != null)
             activity.getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
         content.setImportantForAccessibility(previousAccessibility);
         ((android.view.ViewGroup) getParent()).removeView(this);
-        complete.run();
+        action.run();
     }
 
     @Override

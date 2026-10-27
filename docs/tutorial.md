@@ -16,4 +16,4 @@ Apple's [onboarding guidance](https://developer.apple.com/design/human-interface
 
 ## Device verification
 
-The S24 Ultra checks cover introduction navigation, sample actions, permission-setup visibility, Get Started, all inbox tips, tapping the actual highlighted recording, and all recording tips. Captures verify Light, Dark, and AMOLED, with personal information removed before capture. Full TalkBack traversal, large-font/landscape layout, denied permissions on a fresh installation, and broader device coverage remain separate checks.
+Thirty-two S24 Ultra checks cover introduction navigation, sample actions, permission-setup visibility, Get Started, all inbox tips, tapping the actual highlighted recording, all recording tips, replacing inbox rows during the tour, and skipping later recording tips. Captures verify Light, Dark, and AMOLED, with personal information removed before capture. Full TalkBack traversal, large-font/landscape layout, denied permissions on a fresh installation, and broader device coverage remain separate checks.

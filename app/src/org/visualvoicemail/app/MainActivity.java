@@ -630,9 +630,8 @@ public final class MainActivity extends Activity {
         tips.add(new GuideOverlay.Tip(search,"Find a message","Search a caller, a date, or words in transcripts already saved on this phone.",false));
         tips.add(new GuideOverlay.Tip(filterControl,"Keep your place","Unread shows messages you haven't marked read. Marked holds reversible deletion marks.",false));
         tips.add(new GuideOverlay.Tip(settingsControl,"Make it yours","Themes, contact names, alerts, download location, and this tour live in Settings.",false));
-        View recording=rows.isEmpty()?refresh:rows.values().iterator().next().root;
-        tips.add(new GuideOverlay.Tip(recording,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. The three-dot menu has read status, saving, and deletion marks.",true));
-        GuideOverlay.show(this,tips,()->{});
+        tips.add(new GuideOverlay.Tip(()->rows.isEmpty()?refresh:rows.values().iterator().next().root,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. The three-dot menu has read status, saving, and deletion marks.",true));
+        GuideOverlay.show(this,tips,()->{},()->getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("guide_recording",false).apply());
     }
 
     private void clearDownloads() {

@@ -94,10 +94,25 @@ public class OnboardingFlowCheck extends Instrumentation {
             check(a != null);
             Thread.sleep(1000);
             check(guide(a.getWindow().getDecorView()) != null);
-            for (int i = 0; i < 3; i++) tap("Next");
+            for (int i = 0; i < 3; i++) {
+                tap("Next");
+                if (i == 1)
+                    runOnMainSync(
+                            () -> {
+                                try {
+                                    java.lang.reflect.Method render =
+                                            a.getClass().getDeclaredMethod("render");
+                                    render.setAccessible(true);
+                                    render.invoke(a);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            }
             View overlay = guide(a.getWindow().getDecorView());
             check(overlay != null);
             check(find(overlay, "Open a recording") != null);
+            Activity inboxActivity = a;
             ActivityMonitor recording =
                     addMonitor("org.visualvoicemail.app.RecordingActivity", null, false);
             RectF hole = (RectF) get(overlay, "hole");
@@ -121,6 +136,30 @@ public class OnboardingFlowCheck extends Instrumentation {
             tap("Next");
             tap("Next");
             tap("Done");
+            check(guide(a.getWindow().getDecorView()) == null);
+            check(!prefs.getBoolean("guide_recording", true));
+            runOnMainSync(() -> a.finish());
+            Thread.sleep(500);
+            a = inboxActivity;
+            runOnMainSync(
+                    () -> {
+                        try {
+                            prefs.edit().putBoolean("guide_recording", true).commit();
+                            java.lang.reflect.Field pending =
+                                    a.getClass().getDeclaredField("guidePending");
+                            pending.setAccessible(true);
+                            pending.setBoolean(a, true);
+                            java.lang.reflect.Method show =
+                                    a.getClass().getDeclaredMethod("showGuide");
+                            show.setAccessible(true);
+                            show.invoke(a);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+            Thread.sleep(500);
+            check(guide(a.getWindow().getDecorView()) != null);
+            tap("Skip tour");
             check(guide(a.getWindow().getDecorView()) == null);
             check(!prefs.getBoolean("guide_recording", true));
             out.putBoolean("passed", true);
