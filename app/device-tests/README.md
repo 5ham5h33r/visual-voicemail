@@ -9,6 +9,7 @@ python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test recording
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test onboarding
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test quality
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test navigation
+python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test header
 ```
 
 Use `--compile-only` to type-check all sources without accessing a phone. Full speech recognition and leading-silence checks were run separately on the S24 Ultra; see docs/transcription.md for results and limits.
@@ -25,3 +26,5 @@ python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test bulk --speech
 ```
 
 Selection checks use synthetic inbox rows and restore the original encrypted deletion marks and preferences. Speech checks use temporary public audio in the app cache, then remove that audio and its transcripts. Bulk carrier write behavior is covered by host tests with a fake carrier; no personal read flags are changed in the phone test.
+
+Header checks inject synthetic inbox rows only into temporary views, exercise native touch/fling, search and keyboard, filters, short-list behavior, selection, Back, recreation, Settings return, and reduced motion. They do not request audio or change carrier flags. Original app preferences are restored.

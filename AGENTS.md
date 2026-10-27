@@ -15,3 +15,5 @@
 - Follow the compact type/spacing hierarchy in `Ui` and `docs/compact-interface.md`. Prefer shorter helper text and fewer filled containers; retain readable font scaling and comfortable touch targets. Top-left back actions must use the shared Up behavior so individually opened child pages return to their parent.
 
 - Inbox Select all applies only to current visible search/filter results. Bulk speech must preserve existing transcripts by default, serialize work, and report partial outcomes. Keep carrier recording deletion behind the existing reversible local marks policy.
+
+- Keep the expanded inbox header and messages on one native scroll surface. Preserve scroll position and compact actions; respect Reduce motion. Avoid persistent explanatory footer text and scroll-driven header-height changes. See docs/inbox-header.md.

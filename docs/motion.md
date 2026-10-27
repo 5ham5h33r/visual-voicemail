@@ -11,3 +11,5 @@ Filter results use a 140 ms reveal; transcript arrival and instructional cards u
 Settings → Appearance → Reduce motion disables custom scaling, reveals, and layout transitions, settles switch feedback, and sets app window animations to zero. Android's disabled-animation state is respected independently. No global device settings are changed. All five app screens share the same navigation policy.
 
 The 24 quality/motion device checks verify actual touch press/release/cancel, click delivery before the release animation has to finish, normal scale after cancellation, reduced-motion scale/reveal states, and zero app window animations when enabled. Full TalkBack traversal and broader device/refresh-rate coverage remain open.
+
+Version 0.18 adds a scroll-driven title crossfade, without a separate scroll/layout animation. The expanded header and messages share one native ScrollView. Reduce motion switches title states without a fade while keeping direct native scrolling. See [inbox header](inbox-header.md).

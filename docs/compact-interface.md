@@ -15,3 +15,5 @@ The screenshot helper sometimes opened a detail/settings page as its own task, l
 Thirty-three S24 Ultra navigation checks cover normal Settings/recording/quality paths, isolated Settings and recording pages returning to the inbox, and isolated quality pages returning to Settings and then the inbox. Both top-left and system Back were checked. Screenshot/test activity launches remain temporary; the normal app is reopened after testing.
 
 The compact build also passed the 24 quality/tap-feedback, 14 playback, and 32 anchored-onboarding device checks. Theme contrast and 74 host behavior checks passed. Full large-font/TalkBack/landscape coverage remains open; the phone font setting stayed at 1.0 and was not changed.
+
+Version 0.18 removes the persistent offline footer and lets the expanded inbox header scroll into a compact toolbar. Bulk selection also removes the expanded search/filter area while keeping selection actions pinned. See [inbox header](inbox-header.md).
