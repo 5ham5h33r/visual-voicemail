@@ -248,6 +248,10 @@ final class Ui {
             } else if (name.equals("search")) {
                 c.drawCircle(-2, -2, 7, p);
                 c.drawLine(3, 3, 9, 9, p);
+            } else if (name.equals("refresh")) {
+                c.drawArc(-9, -9, 9, 9, -50, 290, false, p);
+                c.drawLine(8, -10, 8, -3, p);
+                c.drawLine(8, -3, 1, -3, p);
             } else if (name.equals("more")) {
                 p.setStyle(Paint.Style.FILL);
                 for (int x = -6; x <= 6; x += 6) c.drawCircle(x, 0, 1.5f, p);

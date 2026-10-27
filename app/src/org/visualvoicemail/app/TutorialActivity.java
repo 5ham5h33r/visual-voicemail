@@ -193,10 +193,7 @@ public final class TutorialActivity extends MotionActivity {
             ui.add(body, position, 20);
             TextView note =
                     ui.label(
-                            "English transcription uses a one-time model download (104–161 MB)."
-                                + " Choose quality in the transcript or Settings. Audio stays on"
-                                + " this phone. Phrase timing and recognized words can be"
-                                + " imperfect.",
+                            "Standard and Enhanced use English models (104–161 MB). Large v3 adds other languages and English translation (1.78 GB). Choose in the transcript or Settings. Audio stays on this phone. Words and phrase timing can be imperfect.",
                             14,
                             ui.secondary,
                             false);

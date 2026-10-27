@@ -25,3 +25,5 @@ Version 0.23 refreshes expanded inbox, guided inbox, bulk selection, and Setting
 The final version 0.23 bulk images show rounded native checkbox glyphs and aligned previews. Six additional menu examples were rendered from the actual native popup/dialog view trees in Light, Dark, and AMOLED; their text is generic and every image was reviewed. Whole-screen gallery images remain native window captures with personal details hidden.
 
 Version 0.25 recording images were recaptured from native S24 Ultra windows in Light, Dark, and AMOLED. Caller details and dates are replaced before drawing; transcript lines contain labeled sample text. The images show the smaller handset/share symbols and compact player with symmetric vertical padding. Every image was visually reviewed before copying into this directory.
+
+The version 0.26 greeting image is a native Light-mode window. Carrier greeting details are hidden before drawing, and the screenshot was visually reviewed. No microphone recording or carrier replacement was performed for capture.

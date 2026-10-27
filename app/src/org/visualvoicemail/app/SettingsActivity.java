@@ -203,6 +203,7 @@ public final class SettingsActivity extends MotionActivity {
 
 
         LinearLayout mailbox = group("MAILBOX & SYNC");
+        row(mailbox,"Voicemail greeting","Record or choose audio, preview, then save to your carrier",()->startActivity(new Intent(this,GreetingActivity.class)));
         CarrierClient client = CarrierClient.get(this);
         long last = client.lastSyncTime();
         note(mailbox,last==0 ? "No successful sync saved yet." : "Last updated "+DateFormat.getDateTimeInstance(DateFormat.MEDIUM,DateFormat.SHORT).format(new Date(last)));

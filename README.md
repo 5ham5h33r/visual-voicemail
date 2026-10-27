@@ -6,9 +6,9 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-Version 0.25 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
+Version 0.26 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
 
-Transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Tiny and Base are English-only; Large v3 adds automatic/manual language selection and a separate English translation. Original and translated text are both searchable. The recording page includes Call and Share actions for text or audio. Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Settings has local search by name or feature. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
+Transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Tiny and Base are English-only; Large v3 adds automatic/manual language selection and a separate English translation. Original and translated text are both searchable. The recording page includes Call and Share actions for text or audio. Settings also includes personal greeting setup with local recording/import, preview, and an explicit carrier-save confirmation. Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Settings has local search by name or feature. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
 
 ## Screenshots
 
@@ -56,6 +56,8 @@ Recording screenshots show version 0.25 with smaller icons and balanced player s
   </tr>
 </table>
 
+<a href="docs/screenshots/greeting-light.png"><img src="docs/screenshots/greeting-light.png" width="300" alt="Greeting setup with local Record, Choose audio, preview gating, and carrier details hidden"></a>
+
 <a href="docs/screenshots/settings-search.png"><img src="docs/screenshots/settings-search.png" width="300" alt="Settings search finds transcription options by the word Whisper"></a>
 
 <a href="docs/screenshots/transcription-quality.png"><img src="docs/screenshots/transcription-quality.png" width="300" alt="Transcription quality choices: Whisper Tiny, Base, and full Large v3, with download sizes and status"></a>
@@ -86,6 +88,7 @@ The [five-question UX review](docs/ux-review.md) covers the whole app, the chang
 - [On-device transcription, search, and validation](docs/transcription.md)
 - [Multilingual transcripts and English translation](docs/translation.md)
 - [Calling and sharing recordings or text](docs/recording-actions.md)
+- [Personal greeting setup and validation limits](docs/greeting.md)
 - [Five-question UX pressure test and open findings](docs/ux-pressure-test.md)
 - [Build the voicemail app](app/README.md)
 - [Build the diagnostic Android app](probe/README.md)
