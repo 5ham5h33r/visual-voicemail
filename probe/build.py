@@ -45,18 +45,28 @@ if resources.is_dir():
 run(BUILD_TOOLS / ('aapt2' + EXEC), 'link', '-I', TOOLS / 'android.jar',
     '--manifest', ROOT / 'AndroidManifest.xml', '--java', generated, '-o', unsigned, *compiled_resources)
 sources = sorted((ROOT / 'src').rglob('*.java')) + sorted(generated.rglob('*.java'))
+dependencies, speech_archive = [], None
+if options.module == 'app':
+    from transcription_tools import prepare
+    dependencies, speech_archive = prepare()
 for compiled in CLASSES.rglob('*.class'):
     if not compiled.resolve().is_relative_to(CLASSES.resolve()):
         raise RuntimeError('Unexpected class file outside the build directory')
     compiled.unlink()
 run(JAVA, '-jar', TOOLS / 'ecj.jar', '-8', '-encoding', 'UTF-8', '-proc:none',
     '-bootclasspath', os.pathsep.join(map(str, [TOOLS / 'android.jar', BUILD_TOOLS / 'core-lambda-stubs.jar'])),
+    *(['-classpath', os.pathsep.join(map(str, dependencies))] if dependencies else []),
     '-d', CLASSES, *sources)
 run(JAVA, '-cp', BUILD_TOOLS / 'lib/d8.jar', 'com.android.tools.r8.D8',
     '--min-api', '26', '--lib', TOOLS / 'android.jar', '--output', DEX,
-    *sorted(CLASSES.rglob('*.class')))
+    *sorted(CLASSES.rglob('*.class')), *dependencies)
 with zipfile.ZipFile(unsigned, 'a', compression=zipfile.ZIP_DEFLATED) as archive:
     archive.write(DEX / 'classes.dex', 'classes.dex')
+    if speech_archive:
+        with zipfile.ZipFile(speech_archive) as speech:
+            for name in speech.namelist():
+                if name.startswith(('jni/arm64-v8a/', 'jni/x86_64/')) and name.endswith('.so'):
+                    archive.writestr(name.replace('jni/', 'lib/', 1), speech.read(name))
 keystore = LOCAL / 'research-debug.p12'
 if not keystore.exists():
     run(KEYTOOL, '-genkeypair', '-keystore', keystore, '-storepass', 'android',
