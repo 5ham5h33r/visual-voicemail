@@ -66,6 +66,7 @@ public final class MainActivity extends Activity {
     private boolean clearingDownloads;
     private static final int SETTINGS_REQUEST = 42;
     private static final int DOWNLOAD_FOLDER_REQUEST = 44;
+    private static final int ALERT_PERMISSION = 45;
     private String pendingSaveId = "";
     private boolean savingCopy;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -108,7 +109,7 @@ public final class MainActivity extends Activity {
         primary = color(R.color.primary_text); secondary = color(R.color.secondary_text);
         accent = color(R.color.accent); accentSurface = color(R.color.accent_surface);
         divider = color(R.color.divider); error = color(R.color.error);
-        carrier = new CarrierClient(this);
+        carrier = CarrierClient.get(this);
         marks = new MessageMarks(this);
         if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); pendingSettingsAction = state.getInt("settings_action", 0); pendingSaveId=state.getString("pending_save",""); }
         audio = getSystemService(AudioManager.class);
@@ -124,6 +125,7 @@ public final class MainActivity extends Activity {
         else if (carrier.hasSession()) status.setText("Refresh to check your mailbox");
         else status.setText("Connect to your Mint Mobile mailbox");
         refresh.setText(carrier.hasSession() ? "Refresh" : "Connect");
+        openNotification(getIntent());
     }
 
     private void buildLayout() {
@@ -237,6 +239,7 @@ public final class MainActivity extends Activity {
                     reloadContactNames();
                     status.setTextColor(secondary); status.setText(summary() + " · Just updated");
                     refresh.setEnabled(true); refresh.setText("Refresh");
+                    offerAlerts();
                 });
             } catch (Exception exception) {
                 carrier.saveDiagnostics();
@@ -274,8 +277,9 @@ public final class MainActivity extends Activity {
         for (JSONObject message : shown) if (activeId.equals(message.optString("objectid"))) activeShown = true;
         if (!activeShown && player != null && prepared && player.isPlaying()) pause("filtered_out");
         try {
-            carrier.diagnostics().put("search_result_count", shown.size()).put("search_active", !query.trim().isEmpty())
-                .put("deletion_mark_count", markedCount).put("inbox_filter", filter);
+            carrier.diagnostics().put("search_result_count", shown.size());
+            carrier.diagnostics().put("search_active", !query.trim().isEmpty());
+            carrier.diagnostics().put("deletion_mark_count", markedCount); carrier.diagnostics().put("inbox_filter", filter);
             carrier.saveDiagnostics();
         } catch (Exception ignored) { }
         if (shown.isEmpty()) {
@@ -740,7 +744,11 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         if (displayedAppearance!=AppAppearance.mode(this)) { recreate(); return; }
+        // A background check may have updated the persisted inbox while this screen was stopped.
+        if (!syncing && !updatingRead) inbox = carrier.cachedInbox();
         render();
+        VoicemailAlerts.ensureScheduled(this);
+        offerAlerts();
         int action=pendingSettingsAction; pendingSettingsAction=0;
         if (action==SettingsActivity.REFRESH) sync();
         else if (action==SettingsActivity.RECONNECT) sync(true);
@@ -752,6 +760,30 @@ public final class MainActivity extends Activity {
                 getSharedPreferences("settings",MODE_PRIVATE).edit().putLong("last_open_refresh_attempt",now).apply(); sync();
             }
         }
+    }
+    private void offerAlerts() {
+        if (!visible || !carrier.hasSession() || isFinishing() || getSharedPreferences("settings",MODE_PRIVATE).getBoolean("alerts_prompted",false)) return;
+        getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("alerts_prompted",true).apply();
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("New voicemail alerts")
+            .setMessage("Get a notification when a check finds new unread voicemail. Background checks run about every "+VoicemailAlerts.interval(this)+" minutes; Android may delay them to save battery. Caller details stay out of the alert. You can change this in Settings.")
+            .setPositiveButton("Enable",(d,w)->VoicemailAlerts.enable(this,ALERT_PERMISSION))
+            .setNegativeButton("Not now",(d,w)->VoicemailAlerts.disable(this)).create();
+        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
+        dialog.getButton(-1).setAllCaps(false); dialog.getButton(-2).setAllCaps(false);
+    }
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results) {
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request==ALERT_PERMISSION) { VoicemailAlerts.ensureScheduled(this); VoicemailAlerts.checkSoon(this); }
+    }
+    private void openNotification(Intent intent) {
+        if (intent == null || !VoicemailAlerts.OPEN.equals(intent.getAction())) return;
+        query=""; filter=1; if(search!=null)search.setText("");
+        VoicemailAlerts.dismiss(this); intent.setAction(null);
+    }
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent); setIntent(intent); openNotification(intent);
+        if(!syncing && !updatingRead) inbox=carrier.cachedInbox();
+        render();
     }
     private void clearDownloads() {
         if (clearingDownloads) return;
