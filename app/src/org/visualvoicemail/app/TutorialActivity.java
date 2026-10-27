@@ -151,12 +151,11 @@ public final class TutorialActivity extends MotionActivity {
                             });
             Button mark =
                     ui.button(
-                            "Try a deletion mark",
+                            "See how Delete works",
                             false,
                             () ->
                                     result.setText(
-                                            "A deletion mark is reversible. It doesn't erase a"
-                                                    + " carrier message."));
+                                            "Delete verifies a saved recording first, then removes the carrier copy. The recording stays in Saved. This sample changes nothing."));
             actions.addView(read, new LinearLayout.LayoutParams(-1, -2));
             ui.add(actions, mark, 10);
             ui.add(sample, actions, 18);

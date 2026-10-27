@@ -221,7 +221,7 @@ public final class InboxNavigationCheck extends DeviceCheckInstrumentation {
             check(tabs[1].isSelected() && !tabs[0].isSelected());
             swipe(.80f, .20f, 0, MotionEvent.ACTION_UP);
             check(page() == 2 && ((List<?>) field(screen, "shownMessages")).isEmpty());
-            check(named("Nothing marked for deletion") != null);
+            check(named("No saved voicemails") != null);
             check(named("View all voicemails") != null);
             swipe(.80f, .20f, 0, MotionEvent.ACTION_UP);
             check(page() == 2); // No wrapping at the last tab.
@@ -254,11 +254,11 @@ public final class InboxNavigationCheck extends DeviceCheckInstrumentation {
             Thread.sleep(300);
             check(named("No unread matches") != null);
             swipe(.80f, .20f, 0, MotionEvent.ACTION_UP);
-            check(page() == 2 && named("No marked matches") != null);
+            check(page() == 2 && named("No saved matches") != null);
             check("nonexistent-phrase".contentEquals(search.getText()));
             tap(named("Clear search"));
             Thread.sleep(100);
-            check(search.length() == 0 && named("Nothing marked for deletion") != null);
+            check(search.length() == 0 && named("No saved voicemails") != null);
             tap(named("View all voicemails"));
             Thread.sleep(300);
             check(page() == 0);

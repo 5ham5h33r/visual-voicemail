@@ -222,14 +222,11 @@ public final class BulkFlowCheck extends DeviceCheckInstrumentation {
                             throw new RuntimeException(e);
                         }
                     });
-            accept();
-            JSONObject saved =
-                    (JSONObject)
-                            method(storage, "get", String.class)
-                                    .invoke(store, "deletion-marks.bin");
-            for (int i = 0; i < 3; i++) check(saved.optBoolean("bulk-check-" + i));
-            check(!(Boolean) field(screen, "selecting"));
-            chooseAll();
+            // Never accept the live carrier deletion dialog, including for synthetic IDs.
+            check(((AlertDialog) field(screen, "bulkDialog")).isShowing());
+            cancelDialog();
+            check(!(Boolean) staticField(Class.forName("org.visualvoicemail.app.MailboxBatch"), "busy"));
+            check((Boolean) field(screen, "selecting") && selected().size() == 3);
             ui(
                     () -> {
                         try {
@@ -239,7 +236,7 @@ public final class BulkFlowCheck extends DeviceCheckInstrumentation {
                         }
                     });
             accept();
-            saved =
+            JSONObject saved =
                     (JSONObject)
                             method(storage, "get", String.class)
                                     .invoke(store, "deletion-marks.bin");

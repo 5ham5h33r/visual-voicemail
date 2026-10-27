@@ -118,7 +118,7 @@ public final class CarrierClient {
         stage("mailbox_loaded");
         VoicemailAlerts.onMailbox(context, result);
         VoicemailAlerts.ensureScheduled(context);
-        return result;
+        return SavedMailbox.get(context).merge(result, true);
     }
 
     /** Background work shares the same client/monitor as foreground mailbox operations. */
@@ -249,6 +249,10 @@ public final class CarrierClient {
 
     /** Seen is added with PUT; unread removes that flag, never the voicemail itself. */
     public synchronized List<JSONObject> setRead(String id, boolean read) throws Exception {
+        if (SavedMailbox.get(context).removed(id)) {
+            SavedMailbox.get(context).setRead(id, read);
+            return cachedInbox();
+        }
         applyRead(id, read);
         List<JSONObject> refreshed = sync();
         for (JSONObject message : refreshed) if (id.equals(message.optString("objectid"))) {
@@ -262,6 +266,9 @@ public final class CarrierClient {
 
     private void applyRead(String id, boolean read) throws Exception {
         if (id.isEmpty()) throw new IOException("This message has no identifier.");
+        if (SavedMailbox.get(context).removed(id)) {
+            SavedMailbox.get(context).setRead(id, read); return;
+        }
         diagnostics.put("read_update_verified", false);
         stage("updating_read_status");
         if (token.isEmpty() || tokenExpires < System.currentTimeMillis() + 60000) authenticate();
@@ -279,14 +286,46 @@ public final class CarrierClient {
 
     /** Individual flag requests, then one server refresh; only confirmed states count as success. */
     synchronized int setReadBatch(List<String> ids, boolean read) throws Exception {
+        boolean localOnly = true;
+        for (String id : ids) if (!SavedMailbox.get(context).removed(id)) localOnly = false;
+        final boolean offline = localOnly;
         return ReadBatch.run(ids, read, new ReadBatch.Backend() {
             @Override public void update(String id, boolean target) throws Exception { applyRead(id, target); }
             @Override public java.util.Map<String, Boolean> refresh() throws Exception {
                 java.util.Map<String, Boolean> states = new java.util.HashMap<>();
-                for (JSONObject message : sync())
+                for (JSONObject message : offline ? cachedInbox() : sync())
                     states.put(message.optString("objectid"), InboxQuery.isRead(message.optString("flag")));
                 return states;
             }
+        });
+    }
+
+    /** User-requested carrier removal always follows a verified durable local save. */
+    synchronized ArchiveBatch.Result archive(List<JSONObject> messages) {
+        Map<String, JSONObject> selected = new LinkedHashMap<>();
+        for (JSONObject message : messages) selected.put(message.optString("objectid"), message);
+        SavedMailbox saved = SavedMailbox.get(context);
+        return ArchiveBatch.run(selected.keySet(), new ArchiveBatch.Backend() {
+            @Override public void saveAndVerify(String id) throws Exception {
+                saved.saveAndVerify(selected.get(id), audio(selected.get(id)));
+            }
+            @Override public void deleteCarrier(String id) throws Exception {
+                if (saved.removed(id)) return;
+                if (token.isEmpty() || tokenExpires < System.currentTimeMillis() + 60000) authenticate();
+                String path = "voicemail/" + java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20");
+                JSONObject result;
+                try { result = mailbox(path, "DELETE", null); }
+                catch (AuthExpired expired) { token = ""; authenticate(); result = mailbox(path, "DELETE", null); }
+                JSONArray errors = result.optJSONArray("errors");
+                if (errors != null && errors.length() > 0) throw new IOException("The carrier couldn't delete this voicemail.");
+            }
+            @Override public java.util.Set<String> refreshCarrier() throws Exception {
+                java.util.Set<String> present = new java.util.HashSet<>();
+                for (JSONObject message : sync()) if (!message.optBoolean("_carrier_removed"))
+                    present.add(message.optString("objectid"));
+                return present;
+            }
+            @Override public void confirmRemoved(String id) throws Exception { saved.confirmRemoved(id); }
         });
     }
 
@@ -303,6 +342,8 @@ public final class CarrierClient {
     /** Local lookup must stay independent of a potentially slow mailbox sync. */
     public File cachedAudio(JSONObject message) {
         try {
+            File saved = SavedMailbox.get(context).cachedAudio(message.optString("objectid"));
+            if (saved != null) return saved;
             File file = audioFile(message);
             return file.isFile() && file.length() > 0 ? file : null;
         } catch (Exception ignored) { return null; }
@@ -310,6 +351,9 @@ public final class CarrierClient {
 
     public synchronized File audio(JSONObject message) throws Exception {
         stage("downloading_audio");
+        File saved = SavedMailbox.get(context).cachedAudio(message.optString("objectid"));
+        if (saved != null) return saved;
+        if (message.optBoolean("_carrier_removed")) throw new IOException("This saved recording is missing. Restore an exported backup if available.");
         File file = audioFile(message);
         if (file.isFile() && file.length() > 0) {
             diagnostics.put("audio_from_cache", true); diagnostics.put("audio_bytes", file.length());
@@ -364,7 +408,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.23 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.24 Android");
     }
 
     private void disconnect(HttpsURLConnection connection) {
@@ -400,7 +444,8 @@ public final class CarrierClient {
             JSONObject message = messages.optJSONObject(i);
             if (message != null) result.add(message);
         }
-        return result;
+        try { return SavedMailbox.get(context).merge(result, false); }
+        catch (Exception unavailable) { return result; }
     }
 
     public boolean hasSession() { return !token.isEmpty(); }

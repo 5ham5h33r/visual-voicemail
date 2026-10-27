@@ -174,7 +174,7 @@ final class Transcription {
     static volatile long batchVersion;
 
     static synchronized void generate(Context context, JSONObject message) {
-        if (busy || !ready(context)) return;
+        if (busy || MailboxBatch.removingSaved || !ready(context)) return;
         final Context c = context.getApplicationContext();
         final TranscriptionQuality quality = selected(c);
         begin(message.optString("objectid"));
@@ -195,7 +195,7 @@ final class Transcription {
      */
     static synchronized boolean generateBatch(
             Context context, List<JSONObject> messages, boolean replace) {
-        if (busy || !ready(context) || messages.isEmpty()) return false;
+        if (busy || MailboxBatch.removingSaved || !ready(context) || messages.isEmpty()) return false;
         final Context c = context.getApplicationContext();
         final TranscriptionQuality quality = selected(c);
         final List<JSONObject> snapshot = new ArrayList<>(messages);

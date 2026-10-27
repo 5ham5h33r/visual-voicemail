@@ -14,7 +14,7 @@
 
 - Follow the compact type/spacing hierarchy in `Ui` and `docs/compact-interface.md`. Prefer shorter helper text and fewer filled containers; retain readable font scaling and comfortable touch targets. Top-left back actions must use the shared Up behavior so individually opened child pages return to their parent.
 
-- Inbox Select all applies only to current visible search/filter results. Bulk speech must preserve existing transcripts by default, serialize work, and report partial outcomes. Keep carrier recording deletion behind the existing reversible local marks policy.
+- Inbox Select all applies only to current visible search/filter results. Bulk speech must preserve existing transcripts by default, serialize work, and report partial outcomes. The user has authorized carrier deletion with retained app-local recordings: save and verify durable audio and encrypted metadata before any carrier DELETE, confirm absence by fresh sync, and keep copies in Saved. Never automatically execute old local deletion marks. Device tests must use synthetic carriers and disposable audio, preserving all existing personal voicemail.
 
 - Keep the expanded inbox header and messages on one native scroll surface. Preserve scroll position and compact actions; respect Reduce motion. Avoid persistent explanatory footer text and scroll-driven header-height changes. See docs/inbox-header.md.
 

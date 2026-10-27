@@ -231,13 +231,13 @@ public final class SettingsActivity extends MotionActivity {
 
         LinearLayout storage = group("STORAGE");
         row(storage,"Download location",DownloadFolder.describe(this),()->downloadLocation());
-        note(storage,"Used by Save audio copy in a message's menu. Saved copies are ordinary audio files in your selected folder. Playback uses a separate private cache; existing copies are not moved.");
+        note(storage,"Used by Export audio copy in a message's menu. Exports are ordinary audio files in your selected folder. Saved voicemail stays in separate app-private storage; existing copies are not moved.");
         try {
             long[] stats = RecordingCache.stats(new File(getFilesDir(),"audio"));
             note(storage,stats[0]+(stats[0]==1?" privately cached recording":" privately cached recordings")+" · "+size(stats[1]));
         } catch (Exception ignored) { note(storage,"Downloaded storage is currently unavailable."); }
         row(storage,"Clear playback cache","Keep saved audio copies, carrier messages, and the inbox", () -> confirm("Clear playback cache?",
-            "Remove the app's private playback files. Saved copies in your download folder, the inbox, and carrier messages are kept. A connection may be needed to play recordings again.",
+            "Remove temporary playback files. Recordings in Saved, exported copies, the inbox, and carrier messages are kept. A connection may be needed to play other recordings again.",
             "Clear cache", () -> action(CLEAR_DOWNLOADS)));
 
         LinearLayout privacy = group("PRIVACY & PERMISSIONS");
@@ -266,7 +266,7 @@ public final class SettingsActivity extends MotionActivity {
                 info("Speech recognition licenses",new String(bytes.toByteArray(),StandardCharsets.UTF_8));
             }catch(Exception ignored){info("Speech recognition licenses","License texts and upstream source links are available in the source repository under docs/licenses.");}
         });
-        note(about,"Permanent message deletion is not available in this build. Deletion marks are local and reversible.");
+        note(about,"Delete saves and verifies a local recording before removing its carrier copy. Saved recordings survive playback-cache clearing. Export important copies before uninstalling; uninstalling removes app-local recordings and transcripts.");
         noSettings=text("No matching settings\nTry a setting name, like theme or download.",15,secondary);
         noSettings.setGravity(Gravity.CENTER);noSettings.setPadding(dp(16),dp(32),dp(16),dp(32));content.addView(noSettings);
         filterSettings();

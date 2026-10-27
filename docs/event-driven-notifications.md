@@ -34,3 +34,7 @@ The original client's static Firebase registration flow is separate evidence. It
 Retain scheduled checks as an honestly labeled fallback, with existing cached data and notification deduplication. Do not increase their frequency as a substitute for push reliability.
 
 A supported standalone push path would need carrier-compatible registration and sender authorization, followed by an agreed new-message test with the app offscreen and its process absent. Test repeated arrivals while the mailbox already has unread voicemail, duplicates, offline recovery, reboot, and battery restrictions. Registering a token or posting a local test alert alone is insufficient. No verified compatible push path is shipped by this investigation.
+
+## Independent-client requirement
+
+The user chose to keep this app independent. A companion-app notification listener was considered, but is not part of the selected design. Samsung Phone and Google Messages can remain the defaults: those roles do not transfer T-Mobile Visual Voicemail's configured carrier-app eligibility to this package. Direct push investigation must establish compatible carrier registration and actual delivery to this client, without depending on the T-Mobile app or copying its signing identity.
