@@ -1,0 +1,267 @@
+package org.visualvoicemail.app;
+
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
+import android.provider.Settings;
+import android.telephony.SubscriptionManager;
+import android.util.Base64;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.zip.GZIPOutputStream;
+import javax.net.ssl.HttpsURLConnection;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+/** Original client for the observed carrier protocol. Never logs authentication values. */
+public final class CarrierClient {
+    private static final String ENTITLEMENT = "https://eas3.msg.t-mobile.com/generic_devices";
+    private static final String MAILBOX = "https://cpaas-geo.t-mobile.com/v1/daasvmsvc/";
+    // Public protocol profile/version used by this carrier's over-the-top VVM interface.
+    private static final String MAILBOX_PROFILE = "VVMOTT";
+    private static final String MAILBOX_PROFILE_VERSION = "10";
+    private final Context context;
+    private final ConnectivityManager connectivity;
+    private String number = "";
+    private String token = "";
+    private int nextMessage = 1;
+    private final JSONObject diagnostics = new JSONObject();
+
+    public CarrierClient(Context context) {
+        this.context = context.getApplicationContext();
+        connectivity = context.getSystemService(ConnectivityManager.class);
+    }
+
+    public JSONObject diagnostics() { return diagnostics; }
+
+    private void stage(String name) throws Exception {
+        diagnostics.put("stage", name);
+        saveDiagnostics();
+    }
+
+    public synchronized List<JSONObject> sync() throws Exception {
+        stage("connecting");
+        if (token.isEmpty()) authenticate();
+        stage("listing");
+        JSONObject page;
+        try { page = mailbox("voicemails?audiotype=audio%2Famr&offset=0&count=100"); }
+        catch (AuthExpired expired) {
+            token = "";
+            authenticate();
+            page = mailbox("voicemails?audiotype=audio%2Famr&offset=0&count=100");
+        }
+        JSONArray messages = page.optJSONArray("voicemails");
+        List<JSONObject> result = new ArrayList<>();
+        if (messages != null) for (int i = 0; i < messages.length(); i++) result.add(messages.getJSONObject(i));
+        diagnostics.put("message_count", result.size());
+        stage("mailbox_loaded");
+        return result;
+    }
+
+    private void authenticate() throws Exception {
+        stage("acquiring_cellular");
+        try (Cellular cellular = new Cellular()) {
+            Network network = cellular.network;
+            String id = deviceId();
+            stage("identifying");
+            JSONArray identification = entitlement(network, new JSONArray()
+                .put(authentication(id)).put(new JSONObject().put("method", "getMSISDN")
+                    .put("message-id", nextMessage++).put("device-id", id)));
+            JSONObject subscriber = identification.getJSONObject(1);
+            requireSuccess(subscriber, "identification");
+            number = subscriber.getString("msisdn");
+            String fingerprint = subscriber.getString("service-fingerprint");
+            JSONObject service = new JSONObject().put("service-name", "vvm").put("service-fingerprint", fingerprint);
+            stage("establishing_service");
+            JSONArray provision = entitlement(network, new JSONArray().put(authentication(id))
+                .put(new JSONObject().put("method", "manageService").put("message-id", nextMessage++)
+                    .put("operation", 0).put("device-id", id).put("service-item", service)));
+            JSONObject provisionResult = provision.getJSONObject(1);
+            diagnostics.put("service_response", provisionResult.optInt("response-code", -1));
+            requireSuccess(provisionResult, "service registration");
+            JSONObject returnedInstance = provisionResult.getJSONObject("service-instance");
+            String instanceNumber = returnedInstance.optString("msisdn", number);
+            diagnostics.put("has_service_instance_id", !returnedInstance.optString("service-instance-id", "").isEmpty());
+            diagnostics.put("instance_number_matches_identification", number.equals(instanceNumber));
+            JSONObject instance = new JSONObject().put("service-name", "vvm")
+                .put("service-instance-id", returnedInstance.getString("service-instance-id"))
+                .put("msisdn", instanceNumber);
+            stage("requesting_token");
+            JSONArray access = entitlement(network, new JSONArray().put(authentication(id))
+                .put(new JSONObject().put("method", "manageService").put("message-id", nextMessage++)
+                    .put("operation", 5).put("device-id", id).put("service-item", service)
+                    .put("service-instance", instance)));
+            JSONObject accessResult = access.getJSONObject(1);
+            diagnostics.put("token_auth_response", access.getJSONObject(0).optInt("response-code", -1));
+            diagnostics.put("token_response", accessResult.optInt("response-code", -1));
+            requireSuccess(accessResult, "mailbox access");
+            JSONObject credentials = accessResult.getJSONObject("instance-token");
+            String rawToken = credentials.getString("service-instance-token");
+            if (rawToken.isEmpty()) throw new IOException("The carrier returned no mailbox access token.");
+            token = Base64.encodeToString(rawToken.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+            diagnostics.put("has_mailbox_token", true);
+            stage("authenticated");
+        }
+    }
+
+    private JSONObject authentication(String id) throws Exception {
+        return new JSONObject().put("method", "3gppAuthentication").put("message-id", nextMessage++)
+            .put("device-type", 0).put("os-type", 0).put("device-id", id);
+    }
+
+    private void requireSuccess(JSONObject message, String purpose) throws IOException {
+        int code = message.optInt("response-code", -1);
+        if (code != 1000) throw new IOException("Carrier " + purpose + " returned code " + code + ".");
+    }
+
+    private String deviceId() {
+        String localId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+        return Base64.encodeToString(("AID:" + localId + SubscriptionManager.getDefaultDataSubscriptionId())
+            .getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+    }
+
+    private JSONArray entitlement(Network network, JSONArray messages) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(bytes)) {
+            gzip.write(messages.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        HttpsURLConnection connection = (HttpsURLConnection) network.openConnection(new URL(ENTITLEMENT));
+        try {
+            configure(connection);
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Content-Encoding", "gzip");
+            connection.setRequestProperty("x-application-category", "vvm");
+            connection.setFixedLengthStreamingMode(bytes.size());
+            try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes.toByteArray()); }
+            int code = connection.getResponseCode();
+            if (code != 200) throw new IOException("Carrier connection returned HTTP " + code + ".");
+            return new JSONArray(new String(read(connection.getInputStream(), 1024 * 1024), StandardCharsets.UTF_8));
+        } finally { connection.disconnect(); }
+    }
+
+    private JSONObject mailbox(String path) throws Exception {
+        HttpsURLConnection connection = (HttpsURLConnection) new URL(MAILBOX + path).openConnection();
+        try {
+            configure(connection);
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            connection.setRequestProperty("msisdn", "tel:+" + number.replaceFirst("^\\+", ""));
+            connection.setRequestProperty("client-id", MAILBOX_PROFILE);
+            connection.setRequestProperty("client-type", "vvm");
+            connection.setRequestProperty("client-version", MAILBOX_PROFILE_VERSION);
+            connection.setRequestProperty("X-Correlation-ID", UUID.randomUUID().toString());
+            int code = connection.getResponseCode();
+            diagnostics.put("mailbox_http_status", code);
+            if (code == 401) throw new AuthExpired();
+            if (code != 200) throw new IOException("Mailbox request returned HTTP " + code + ".");
+            return new JSONObject(new String(read(connection.getInputStream(), 8 * 1024 * 1024), StandardCharsets.UTF_8));
+        } finally { connection.disconnect(); }
+    }
+
+    public synchronized File audio(JSONObject message) throws Exception {
+        stage("downloading_audio");
+        String id = message.optString("objectid", "");
+        if (id.isEmpty()) throw new IOException("This message has no identifier.");
+        StringBuilder filename = new StringBuilder();
+        for (byte b : MessageDigest.getInstance("SHA-256").digest(id.getBytes(StandardCharsets.UTF_8)))
+            filename.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));
+        File directory = new File(context.getFilesDir(), "audio");
+        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Could not create audio storage.");
+        File file = new File(directory, filename + ".audio");
+        if (file.isFile() && file.length() > 0) return file;
+        JSONObject object = message.optJSONObject("objectaudio");
+        if (object == null) throw new IOException("The carrier supplied no audio for this message.");
+        byte[] bytes;
+        String inline = object.optString("audiopayload", "");
+        if (!inline.isEmpty() && !object.isNull("audiopayload")) bytes = Base64.decode(inline, Base64.DEFAULT);
+        else {
+            URL url = new URL(object.getString("audiopayloadurl"));
+            bytes = payload(url);
+        }
+        if (bytes.length == 0) throw new IOException("The recording is empty.");
+        try (FileOutputStream output = new FileOutputStream(file)) { output.write(bytes); }
+        diagnostics.put("audio_bytes", bytes.length);
+        stage("audio_downloaded");
+        return file;
+    }
+
+    private byte[] payload(URL url) throws Exception {
+        for (int redirect = 0; redirect < 4; redirect++) {
+            if (!"https".equalsIgnoreCase(url.getProtocol())) throw new IOException("Recording URL must use HTTPS.");
+            HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
+            try {
+                configure(connection);
+                int code = connection.getResponseCode();
+                if (code >= 300 && code < 400) {
+                    url = new URL(url, connection.getHeaderField("Location"));
+                    continue;
+                }
+                if (code != 200) throw new IOException("Recording request returned HTTP " + code + ".");
+                return read(connection.getInputStream(), 25 * 1024 * 1024);
+            } finally { connection.disconnect(); }
+        }
+        throw new IOException("Too many recording redirects.");
+    }
+
+    private void configure(HttpsURLConnection connection) {
+        connection.setInstanceFollowRedirects(false);
+        connection.setConnectTimeout(20000);
+        connection.setReadTimeout(20000);
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.2 Android");
+    }
+
+    private static byte[] read(InputStream input, int maximum) throws IOException {
+        try (InputStream stream = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int length;
+            while ((length = stream.read(buffer)) != -1) {
+                if (output.size() + length > maximum) throw new IOException("Carrier response exceeded the size limit.");
+                output.write(buffer, 0, length);
+            }
+            return output.toByteArray();
+        }
+    }
+
+    public void saveDiagnostics() {
+        try (FileOutputStream output = context.openFileOutput("diagnostics.json", Context.MODE_PRIVATE)) {
+            output.write(diagnostics.toString(2).getBytes(StandardCharsets.UTF_8));
+        } catch (Exception ignored) { }
+    }
+
+    private static final class AuthExpired extends IOException { private static final long serialVersionUID = 1L; }
+
+    private final class Cellular implements AutoCloseable {
+        private final ConnectivityManager.NetworkCallback callback;
+        private Network network;
+        Cellular() throws Exception {
+            CountDownLatch ready = new CountDownLatch(1);
+            callback = new ConnectivityManager.NetworkCallback() {
+                @Override public void onAvailable(Network available) { network = available; ready.countDown(); }
+                @Override public void onUnavailable() { ready.countDown(); }
+            };
+            connectivity.requestNetwork(new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), callback, 20000);
+            if (!ready.await(22, TimeUnit.SECONDS) || network == null) {
+                close();
+                throw new IOException("Turn on mobile data and choose Mint as your data SIM, then try again.");
+            }
+        }
+        @Override public void close() { try { connectivity.unregisterNetworkCallback(callback); } catch (Exception ignored) { } }
+    }
+}

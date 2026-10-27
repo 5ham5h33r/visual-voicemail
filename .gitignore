@@ -5,3 +5,5 @@ research/device-private/
 __pycache__/
 probe/build/
 probe/local/
+app/build/
+app/local/

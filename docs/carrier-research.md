@@ -4,7 +4,7 @@ Investigation date: October 26, 2026 (America/Los_Angeles).
 
 ## Current conclusion
 
-A standalone carrier-mailbox app is technically plausible. T-Mobile's installed app works alongside Samsung Phone, uses HTTPS mailbox APIs, and has both SIM-based and cellular-IP authentication implementations. An independently signed probe has now reproduced cellular-IP subscriber identification without carrier privileges or a default-dialer role. Mailbox-token issuance, message retrieval, token refresh, and incoming-message notifications remain to be reproduced.
+A standalone carrier-mailbox app now authenticates and loads the user's real Mint inbox. Cellular identification, service-instance token issuance, and a mailbox HTTP 200 were reproduced without carrier privileges or a default-dialer role. Audio playback, persisted credentials, and background notification delivery are the remaining milestones. See [the live mailbox validation](mailbox-access.md).
 
 The official app having carrier privileges does **not** establish that every authentication path needs them. The cellular-IP path accepted the independent probe's identification request, but that alone does **not** prove that the server will issue the mailbox token or accept its push registration. See [the independent probe results](independent-probe.md).
 
