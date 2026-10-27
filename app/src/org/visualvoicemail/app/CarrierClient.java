@@ -5,6 +5,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.os.CancellationSignal;
 import android.provider.Settings;
 import android.telephony.SubscriptionManager;
 import android.util.Base64;
@@ -20,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.UUID;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
@@ -29,6 +32,11 @@ import org.json.JSONObject;
 
 /** Original client for the observed carrier protocol. Never logs authentication values. */
 public final class CarrierClient {
+    private static CarrierClient instance;
+    public static synchronized CarrierClient get(Context context) {
+        if (instance == null) instance = new CarrierClient(context);
+        return instance;
+    }
     private static final String ENTITLEMENT = "https://eas3.msg.t-mobile.com/generic_devices";
     private static final String MAILBOX = "https://cpaas-geo.t-mobile.com/v1/daasvmsvc/";
     // Public protocol profile/version used by this carrier's over-the-top VVM interface.
@@ -37,13 +45,15 @@ public final class CarrierClient {
     private final Context context;
     private final ConnectivityManager connectivity;
     private String number = "";
-    private String token = "";
+    private volatile String token = "";
+    private CancellationSignal cancellation;
     private long tokenExpires;
     private final PrivateStore store;
     private int nextMessage = 1;
-    private final JSONObject diagnostics = new JSONObject();
+    private final Map<String,Object> diagnostics = new ConcurrentHashMap<>();
+    private final Object diagnosticsFileLock = new Object();
 
-    public CarrierClient(Context context) {
+    private CarrierClient(Context context) {
         this.context = context.getApplicationContext();
         connectivity = context.getSystemService(ConnectivityManager.class);
         store = new PrivateStore(context);
@@ -56,7 +66,7 @@ public final class CarrierClient {
         }
     }
 
-    public JSONObject diagnostics() { return diagnostics; }
+    public Map<String,Object> diagnostics() { return diagnostics; }
 
     public long lastSyncTime() {
         JSONObject saved = store.get("inbox.bin");
@@ -68,6 +78,7 @@ public final class CarrierClient {
     }
 
     private void stage(String name) throws Exception {
+        if (cancellation != null) cancellation.throwIfCanceled();
         diagnostics.put("stage", name);
         saveDiagnostics();
     }
@@ -96,13 +107,25 @@ public final class CarrierClient {
             if (offset >= 10000) throw new IOException("This mailbox is too large to sync in one request. Please try again later.");
         }
         List<JSONObject> result = new ArrayList<>(unique.values());
+        if (cancellation != null) cancellation.throwIfCanceled();
         JSONArray saved = new JSONArray();
         for (JSONObject message : result) saved.put(message);
-        diagnostics.put("encrypted_inbox_saved", store.put("inbox.bin", new JSONObject()
-            .put("messages", saved).put("synced_at", System.currentTimeMillis())));
+        boolean persisted = store.put("inbox.bin", new JSONObject()
+            .put("messages", saved).put("synced_at", System.currentTimeMillis()));
+        diagnostics.put("encrypted_inbox_saved", persisted);
+        if (!persisted) throw new IOException("The mailbox couldn't be saved on this phone. Free some storage and retry.");
         diagnostics.put("message_count", result.size());
         stage("mailbox_loaded");
+        VoicemailAlerts.onMailbox(context, result);
+        VoicemailAlerts.ensureScheduled(context);
         return result;
+    }
+
+    /** Background work shares the same client/monitor as foreground mailbox operations. */
+    public synchronized List<JSONObject> sync(CancellationSignal signal) throws Exception {
+        signal.throwIfCanceled(); cancellation = signal;
+        try { return sync(); }
+        finally { signal.setOnCancelListener(null); cancellation = null; }
     }
 
     private void authenticate() throws Exception {
@@ -189,7 +212,7 @@ public final class CarrierClient {
             int code = connection.getResponseCode();
             if (code != 200) throw new IOException("Carrier connection returned HTTP " + code + ".");
             return new JSONArray(new String(read(connection.getInputStream(), 1024 * 1024), StandardCharsets.UTF_8));
-        } finally { connection.disconnect(); }
+        } finally { disconnect(connection); }
     }
 
     private JSONObject mailbox(String path) throws Exception {
@@ -221,7 +244,7 @@ public final class CarrierClient {
             if (code == 204) return new JSONObject();
             byte[] response = read(connection.getInputStream(), 8 * 1024 * 1024);
             return response.length == 0 ? new JSONObject() : new JSONObject(new String(response, StandardCharsets.UTF_8));
-        } finally { connection.disconnect(); }
+        } finally { disconnect(connection); }
     }
 
     /** Seen is added with PUT; unread removes that flag, never the voicemail itself. */
@@ -239,7 +262,7 @@ public final class CarrierClient {
         catch (AuthExpired expired) { token = ""; authenticate(); result = mailbox(path, read ? "PUT" : "DELETE", body); }
         JSONArray errors = result.optJSONArray("errors");
         if (errors != null && errors.length() > 0) throw new IOException("The carrier could not change this message's read status.");
-        diagnostics.put("read_update_http_status", diagnostics.optInt("mailbox_http_status"));
+        diagnostics.put("read_update_http_status", diagnostics.getOrDefault("mailbox_http_status",0));
         List<JSONObject> refreshed = sync();
         for (JSONObject message : refreshed) if (id.equals(message.optString("objectid"))) {
             boolean verified = InboxQuery.isRead(message.optString("flag")) == read;
@@ -272,7 +295,7 @@ public final class CarrierClient {
         stage("downloading_audio");
         File file = audioFile(message);
         if (file.isFile() && file.length() > 0) {
-            diagnostics.put("audio_from_cache", true).put("audio_bytes", file.length());
+            diagnostics.put("audio_from_cache", true); diagnostics.put("audio_bytes", file.length());
             stage("audio_ready"); return file;
         }
         diagnostics.put("audio_from_cache", false);
@@ -310,17 +333,26 @@ public final class CarrierClient {
                 }
                 if (code != 200) throw new IOException("Recording request returned HTTP " + code + ".");
                 return read(connection.getInputStream(), 25 * 1024 * 1024);
-            } finally { connection.disconnect(); }
+            } finally { disconnect(connection); }
         }
         throw new IOException("Too many recording redirects.");
     }
 
     private void configure(HttpsURLConnection connection) {
+        if (cancellation != null) {
+            cancellation.throwIfCanceled();
+            cancellation.setOnCancelListener(connection::disconnect);
+        }
         connection.setInstanceFollowRedirects(false);
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.8 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.9 Android");
+    }
+
+    private void disconnect(HttpsURLConnection connection) {
+        if (cancellation != null) cancellation.setOnCancelListener(null);
+        connection.disconnect();
     }
 
     private static byte[] read(InputStream input, int maximum) throws IOException {
@@ -336,9 +368,11 @@ public final class CarrierClient {
     }
 
     public void saveDiagnostics() {
-        try (FileOutputStream output = context.openFileOutput("diagnostics.json", Context.MODE_PRIVATE)) {
-            output.write(diagnostics.toString(2).getBytes(StandardCharsets.UTF_8));
-        } catch (Exception ignored) { }
+        synchronized (diagnosticsFileLock) {
+            try (FileOutputStream output = context.openFileOutput("diagnostics.json", Context.MODE_PRIVATE)) {
+                output.write(new JSONObject(diagnostics).toString(2).getBytes(StandardCharsets.UTF_8));
+            } catch (Exception ignored) { }
+        }
     }
 
     public List<JSONObject> cachedInbox() {
@@ -368,7 +402,14 @@ public final class CarrierClient {
             connectivity.requestNetwork(new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET).build(), callback, 20000);
-            if (!ready.await(22, TimeUnit.SECONDS) || network == null) {
+            boolean available;
+            try {
+                if (cancellation != null) cancellation.setOnCancelListener(() -> { close(); ready.countDown(); });
+                available = ready.await(22, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) { close(); throw interrupted; }
+            finally { if (cancellation != null) cancellation.setOnCancelListener(null); }
+            if (cancellation != null && cancellation.isCanceled()) { close(); cancellation.throwIfCanceled(); }
+            if (!available || network == null) {
                 close();
                 throw new IOException("Turn on mobile data and choose Mint as your data SIM, then try again.");
             }

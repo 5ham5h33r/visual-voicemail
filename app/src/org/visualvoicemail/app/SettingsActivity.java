@@ -35,6 +35,7 @@ public final class SettingsActivity extends Activity {
     static final int REFRESH = 1, RECONNECT = 2, CLEAR_DOWNLOADS = 3;
     private static final int CONTACT_PERMISSION = 41;
     private static final int DOWNLOAD_FOLDER = 43;
+    private static final int ALERT_PERMISSION = 45;
     static final String ACTION = "settings_action";
     private SharedPreferences preferences;
     private LinearLayout content;
@@ -56,7 +57,7 @@ public final class SettingsActivity extends Activity {
         if(state!=null) scrollPosition=state.getInt("scroll",0);
         build();
     }
-    @Override protected void onResume() { super.onResume(); if (!firstResume) build(); firstResume = false; }
+    @Override protected void onResume() { super.onResume(); VoicemailAlerts.ensureScheduled(this); if (!firstResume) build(); firstResume = false; }
 
     private void build() {
         if(settingsScroll!=null) scrollPosition=settingsScroll.getScrollY();
@@ -112,7 +113,7 @@ public final class SettingsActivity extends Activity {
         note(playback,"Playback pauses when you leave the app. A selected phone output must be available before playback starts.");
 
         LinearLayout mailbox = group("MAILBOX & SYNC");
-        CarrierClient client = new CarrierClient(this);
+        CarrierClient client = CarrierClient.get(this);
         long last = client.lastSyncTime();
         note(mailbox,last==0 ? "No successful sync saved yet." : "Last updated "+DateFormat.getDateTimeInstance(DateFormat.MEDIUM,DateFormat.SHORT).format(new Date(last)));
         toggle(mailbox,"Refresh on open","Check when returning to the app, at most once every 5 minutes.","refresh_on_open",true);
@@ -121,7 +122,24 @@ public final class SettingsActivity extends Activity {
             "Turn on mobile data and select Mint as your data SIM. Saved messages and downloads stay on this phone.","Reconnect", () -> action(RECONNECT)));
         row(mailbox,"Connection help","Mint data SIM and connection requirements", () -> info("Connection help",
             "Choose Mint as the mobile-data SIM and turn on mobile data for the first connection or renewed sign-in. Saved recordings can play offline.\n\nYour existing mailbox is used. You don't need to change call forwarding or your default dialer."));
-        note(mailbox,"New-message alerts are not available in this build. Open the inbox or refresh it to check for voicemail.");
+
+        LinearLayout notifications = group("NOTIFICATIONS");
+        row(notifications,"New voicemail alerts",VoicemailAlerts.status(this),()->notificationSettings());
+        int interval=VoicemailAlerts.interval(this);
+        row(notifications,"Check interval","About every "+interval+" minutes",()->choose("Check interval",
+            new String[]{"15 minutes","30 minutes","1 hour"},interval==60?2:interval==30?1:0,choice->{
+                preferences.edit().putInt("alert_interval",choice==2?60:choice==1?30:15).apply();
+                VoicemailAlerts.ensureScheduled(this); build();
+            }));
+        row(notifications,"Sound, vibration & lock screen","Manage the New voicemail notification channel in Android",()->open(VoicemailAlerts.systemSettings(this)));
+        row(notifications,"Send test notification","Check Android notification delivery without changing voicemail",()->{
+            if(VoicemailAlerts.test(this)) info("Test sent","Look in your notification shade. This only tests display permissions, not background mailbox delivery.");
+            else info("Notifications blocked","Enable New voicemail alerts and allow notifications in Android settings, then try again.");
+        });
+        note(notifications,"Checks use your carrier connection and a little data. Android controls timing and can delay checks while idle or saving battery. Force-stopping the app pauses checks until you reopen it. These are scheduled checks, not instant carrier push alerts.");
+        long checked=preferences.getLong("background_checked_at",0);
+        note(notifications,checked==0?"No background check completed yet.":"Last background check "+DateFormat.getDateTimeInstance(DateFormat.MEDIUM,DateFormat.SHORT).format(new Date(checked))
+            +(preferences.getBoolean("background_check_ok",false)?" · Successful":" · Couldn't connect; open the inbox to retry"));
 
         LinearLayout storage = group("STORAGE");
         row(storage,"Download location",DownloadFolder.describe(this),()->downloadLocation());
@@ -162,6 +180,20 @@ public final class SettingsActivity extends Activity {
     }
 
     static float speed(Context context) { return SPEED_VALUES[clamp(context.getSharedPreferences("settings",MODE_PRIVATE).getInt("playback_speed",1),SPEED_VALUES.length)]; }
+    private void notificationSettings() {
+        boolean enabled=VoicemailAlerts.enabled(this), allowed=VoicemailAlerts.allowed(this);
+        AlertDialog.Builder builder=new AlertDialog.Builder(this).setTitle("New voicemail alerts")
+            .setMessage("Notify for newly discovered unread voicemail. Existing messages stay quiet when enabled. Checks run about every "+VoicemailAlerts.interval(this)+" minutes and may be delayed by Android. No caller details are shown.")
+            .setNegativeButton("Cancel",null);
+        if(enabled && !allowed) {
+            builder.setPositiveButton("Android settings",(d,w)->open(VoicemailAlerts.systemSettings(this)))
+                .setNeutralButton("Turn off",(d,w)->{VoicemailAlerts.disable(this);build();});
+        } else builder.setPositiveButton(enabled?"Turn off":"Enable",(d,w)->{
+            if(enabled)VoicemailAlerts.disable(this);else VoicemailAlerts.enable(this,ALERT_PERMISSION);
+            build();
+        });
+        show(builder.create());
+    }
     private void downloadLocation() {
         AlertDialog.Builder builder=new AlertDialog.Builder(this).setTitle("Download location")
             .setMessage(DownloadFolder.describe(this)+"\n\nChoose where Save audio copy writes recordings. Other apps with folder access can open saved copies. Changing this location does not move existing files or the private playback cache.")
@@ -203,6 +235,7 @@ public final class SettingsActivity extends Activity {
     }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants) {
         super.onRequestPermissionsResult(request,permissions,grants);
+        if(request==ALERT_PERMISSION) { VoicemailAlerts.ensureScheduled(this); VoicemailAlerts.checkSoon(this); build(); }
         if(request==CONTACT_PERMISSION) { preferences.edit().putBoolean("contact_names",grants.length>0 && grants[0]==PackageManager.PERMISSION_GRANTED).apply(); build(); }
     }
     private interface Choice { void select(int choice); }

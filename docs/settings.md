@@ -1,4 +1,4 @@
-# App settings in version 0.8
+# App settings in version 0.9
 
 Open the gear at the top-right of the inbox. Settings uses the same light/dark/AMOLED palette as the inbox, remembers its scroll position, and keeps preferences after reopening.
 
@@ -8,10 +8,11 @@ Open the gear at the top-right of the inbox. Settings uses the same light/dark/A
 - **Inbox and contacts:** optional local contact-name lookup and newest/oldest message ordering. Unknown dates sort last in either order. The Contacts permission explanation and enable/disable controls now live here.
 - **Playback:** 0.75×, 1×, 1.25×, 1.5×, and 2× speed; 5/10/15/30-second skips; follow-device, phone speaker, or phone earpiece output. Preferences apply when playback starts. The player displays its actual output route and stops if a requested route cannot be used. Leaving the app always pauses playback.
 - **Mailbox and sync:** last successful update, refresh on open, refresh now, reconnect, and connection help. Refresh on open defaults on for an already-connected mailbox, checks stale data on returning, and is limited to one attempt per five minutes. It does not initiate first-time authentication or run in the background. Reconnect renews carrier authentication using Mint mobile data and preserves the saved inbox/downloads.
+- **Notifications:** enable/disable new unread voicemail alerts, choose checks about every 15/30/60 minutes, open Android's notification channel controls, send a labeled test, and see the last background-check result. Android permission/channel blocks are reflected in Settings. Scheduling can be delayed by battery/network restrictions; force-stop pauses checks until reopening. See [notifications](notifications.md) for behavior and evidence.
 - **Storage:** Download location opens Android's folder picker and remembers access to the selected folder. A message's **Save audio copy** action writes a new file there; if no usable location is set, it asks for one first. Changing or forgetting the location does not move or delete existing copies. Playback continues to use a separate private cache, with its own count/size and confirmed **Clear playback cache** action. Clearing releases the player and runs after existing audio work on the same worker. It removes only recognized private recording files and atomic-write remnants. Saved audio copies, carrier messages, inbox/session records, and local deletion marks are kept. A connection may be needed to replay recordings afterward.
 - **Privacy and app information:** Android app-permission settings, plain-language data handling, installed version, source-code link, and the full MIT license.
 
-Notification delivery, transcription, and permanent carrier-message deletion are explicitly described as unavailable. There are no notification or transcription toggles pretending those features work.
+Transcription and permanent carrier-message deletion remain unavailable. Carrier push registration is unimplemented; notifications use the disclosed scheduled checks.
 
 ## Validation
 
