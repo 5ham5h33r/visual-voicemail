@@ -233,12 +233,13 @@ public final class MainActivity extends MotionActivity {
         searchBox.addView(search, new LinearLayout.LayoutParams(0, -2, 1));
         IconButton clear = new IconButton("clear", false);
         clear.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(surface, 24), null));
+        clear.setVisibility(search.length() == 0 ? View.GONE : View.VISIBLE);
         clear.setContentDescription("Clear voicemail search"); clear.setOnClickListener(v -> search.setText(""));
         searchBox.addView(clear, new LinearLayout.LayoutParams(dp(48), dp(48)));
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence text, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence text, int start, int before, int count) {
-                query = text.toString(); if (messages != null) render();
+                query = text.toString(); clear.setVisibility(text.length() == 0 ? View.GONE : View.VISIBLE); if (messages != null) render();
             }
             @Override public void afterTextChanged(Editable text) { }
         });

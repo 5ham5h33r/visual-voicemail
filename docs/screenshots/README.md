@@ -15,3 +15,5 @@ Version 0.16 refreshes the transcription-quality screenshot with the three real 
 Version 0.17 adds reviewed bulk-selection captures in Light, Dark, and AMOLED. Caller names/numbers, dates, and transcript previews were replaced in native views before capture. The images contain no personal voicemail text or audio. Original theme and refresh preferences were restored; no message flags or deletion marks were changed by capture.
 
 Version 0.18 refreshes expanded inbox, guided inbox, and bulk-selection images, and adds scrolled-inbox examples in Light, Dark, and AMOLED. Long inbox and selection captures use synthetic messages; scrolled examples are labeled Sample inbox. All caller/date details are hidden in native views. All ten updated images were visually reviewed before copying them here. Preferences were restored and the normal inbox was reopened after capture/tests.
+
+Version 0.19 refreshes the three expanded inbox images and the guided-search capture to show the clear button hidden for an empty field. All four redacted captures were reviewed before copying them here.
