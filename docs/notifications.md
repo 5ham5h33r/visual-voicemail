@@ -33,3 +33,7 @@ Actual new-carrier-message arrival, long idle timing, battery/data usage over ti
 - [JobInfo.Builder scheduling and persisted-job behavior](https://developer.android.com/reference/android/app/job/JobInfo.Builder)
 - [JobService lifecycle and cancellation](https://developer.android.com/reference/android/app/job/JobService)
 - [VisualVoicemailService role restrictions](https://developer.android.com/reference/android/telephony/VisualVoicemailService)
+
+## Event-driven delivery research
+
+The [SMS/push investigation](event-driven-notifications.md) documents Android eligibility, read-only S24 Ultra capability results, carrier configuration, and the remaining Firebase registration/delivery uncertainty. It does not change polling frequency or claim instant carrier push support.
