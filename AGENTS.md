@@ -17,3 +17,5 @@
 - Inbox Select all applies only to current visible search/filter results. Bulk speech must preserve existing transcripts by default, serialize work, and report partial outcomes. Keep carrier recording deletion behind the existing reversible local marks policy.
 
 - Keep the expanded inbox header and messages on one native scroll surface. Preserve scroll position and compact actions; respect Reduce motion. Avoid persistent explanatory footer text and scroll-driven header-height changes. See docs/inbox-header.md.
+
+- Settings search filters the actual controls, preserves section context and the query across navigation/recreation, and never changes preferences merely by filtering. Keep the clear affordance hidden for empty search fields.

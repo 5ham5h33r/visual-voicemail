@@ -17,3 +17,5 @@ Version 0.17 adds reviewed bulk-selection captures in Light, Dark, and AMOLED. C
 Version 0.18 refreshes expanded inbox, guided inbox, and bulk-selection images, and adds scrolled-inbox examples in Light, Dark, and AMOLED. Long inbox and selection captures use synthetic messages; scrolled examples are labeled Sample inbox. All caller/date details are hidden in native views. All ten updated images were visually reviewed before copying them here. Preferences were restored and the normal inbox was reopened after capture/tests.
 
 Version 0.19 refreshes the three expanded inbox images and the guided-search capture to show the clear button hidden for an empty field. All four redacted captures were reviewed before copying them here.
+
+Version 0.20 refreshes Settings with its aligned back/title row and search field. The Light, Dark, AMOLED, and filtered-search captures were reviewed; private folder details and timestamps are hidden before capture. Original preferences were restored. The gallery uses the Light and search examples; [Dark](settings-dark.png) and [AMOLED](settings-amoled.png) are also available.
