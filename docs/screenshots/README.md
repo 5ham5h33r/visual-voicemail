@@ -11,3 +11,5 @@ Version 0.14 refreshes the recording views in all three themes, shows the qualit
 Version 0.15 refreshes the full current gallery for the compact layout. Every screenshot was visually reviewed; rendered sample transcript timestamps retain the real UI text hierarchy. The legacy promo-only playback image remains separate.
 
 Version 0.16 refreshes the transcription-quality screenshot with the three real downloaded model choices, including full Whisper Large v3. This page contains only public model information and was visually reviewed before committing. Other screenshots retain the unchanged compact 0.15 interface.
+
+Version 0.17 adds reviewed bulk-selection captures in Light, Dark, and AMOLED. Caller names/numbers, dates, and transcript previews were replaced in native views before capture. The images contain no personal voicemail text or audio. Original theme and refresh preferences were restored; no message flags or deletion marks were changed by capture.

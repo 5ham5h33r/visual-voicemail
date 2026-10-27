@@ -21,9 +21,13 @@ subprocess.run([JAVA, '-jar', str(TOOLS / 'ecj.jar'), '-8', '-encoding', 'UTF-8'
                 str(ROOT / 'app/src/org/visualvoicemail/app/NotificationLedger.java'),
                 str(ROOT / 'app/tests/NotificationLedgerTest.java'),
                 str(ROOT / 'app/src/org/visualvoicemail/app/TranscriptSearch.java'),
-                str(ROOT / 'app/tests/TranscriptSearchTest.java')], check=True)
+                str(ROOT / 'app/tests/TranscriptSearchTest.java'),
+                str(ROOT / 'app/src/org/visualvoicemail/app/ReadBatch.java'),
+                str(ROOT / 'app/tests/ReadBatchTest.java')], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.InboxQueryTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.SettingsLogicTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.ExportAudioFormatTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.NotificationLedgerTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.TranscriptSearchTest'], check=True)
+
+subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.ReadBatchTest'], check=True)

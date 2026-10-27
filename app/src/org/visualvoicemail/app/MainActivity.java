@@ -69,6 +69,22 @@ public final class MainActivity extends MotionActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, MessageRow> rows = new HashMap<>();
     private List<JSONObject> inbox = new ArrayList<>();
+    private final java.util.Set<String> selectedIds = new java.util.LinkedHashSet<>();
+    private List<JSONObject> shownMessages = new ArrayList<>();
+    private boolean selecting, selectionBackRegistered;
+    private LinearLayout selectionBar, bulkBar, batchPanel, inboxTools;
+    private TextView selectionCount, batchText;
+    private Button selectAll, selectControl, batchCancel, batchDismiss;
+    private AlertDialog bulkDialog;
+    private long speechVersion = -1, mailboxVersion = -1;
+    private android.window.OnBackInvokedCallback selectionBack;
+    private final Runnable batchTicker = new Runnable() {
+        @Override public void run() {
+            if (!visible) return;
+            updateBatchPanel();
+            handler.postDelayed(this, 400);
+        }
+    };
     private CarrierClient carrier;
     private MessageMarks marks;
     private LinearLayout messages;
@@ -99,6 +115,11 @@ public final class MainActivity extends MotionActivity {
         carrier = CarrierClient.get(this);
         marks = new MessageMarks(this);
         if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); pendingSettingsAction = state.getInt("settings_action", 0); pendingSaveId=state.getString("pending_save",""); }
+        if (state != null) {
+            selecting = state.getBoolean("selecting", false);
+            ArrayList<String> selected = state.getStringArrayList("selected_ids");
+            if (selected != null) selectedIds.addAll(selected);
+        }
         buildLayout();
         inbox = carrier.cachedInbox();
         render();
@@ -120,7 +141,7 @@ public final class MainActivity extends MotionActivity {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
                 left = bars.left; top = bars.top; right = bars.right;
                 bottom = Math.max(bars.bottom, insets.getInsets(WindowInsets.Type.ime()).bottom);
-                int headingVisibility = insets.isVisible(WindowInsets.Type.ime()) ? View.GONE : View.VISIBLE;
+                int headingVisibility = selecting || insets.isVisible(WindowInsets.Type.ime()) ? View.GONE : View.VISIBLE;
                 if (headerBrand != null) headerBrand.setVisibility(headingVisibility);
                 if (headerTitle != null) headerTitle.setVisibility(headingVisibility);
             } else {
@@ -143,6 +164,23 @@ public final class MainActivity extends MotionActivity {
         settings.setOnClickListener(v -> startActivityForResult(new Intent(this, SettingsActivity.class), SETTINGS_REQUEST));
         top.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
         root.addView(top);
+        selectionBar = row(); selectionBar.setGravity(Gravity.CENTER_VERTICAL);
+        IconButton close = new IconButton("clear", false);
+        close.setContentDescription("Cancel voicemail selection");
+        close.setOnClickListener(v -> clearSelection());
+        selectionBar.addView(close, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        selectionCount = text("", 17, primary, true);
+        selectionCount.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        selectionBar.addView(selectionCount, new LinearLayout.LayoutParams(0, -2, 1));
+        selectAll = button("Select all", false);
+        selectAll.setTextSize(13);
+        selectAll.setOnClickListener(v -> selectAllShown());
+        selectionBar.addView(selectAll);
+        IconButton bulkMore = new IconButton("more", false);
+        bulkMore.setContentDescription("More selected voicemail actions");
+        bulkMore.setOnClickListener(v -> showBulkActions());
+        selectionBar.addView(bulkMore, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        root.addView(selectionBar);
         TextView title = text("Voicemail", Ui.PAGE_TITLE, primary, true);
         headerTitle = title;
         add(root, title, 12);
@@ -189,13 +227,46 @@ public final class MainActivity extends MotionActivity {
             filterRow.addView(filters[i], item);
         }
         add(root, filterRow, 8);
-        LinearLayout tools = row(); tools.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout tools = row(); inboxTools = tools; tools.setGravity(Gravity.CENTER_VERTICAL);
         section = text("INBOX", 13, secondary, true);
         section.setLetterSpacing(0.08f);
         tools.addView(section, new LinearLayout.LayoutParams(0, -2, 1));
+        selectControl = button("Select", false);
+        selectControl.setTextSize(13);
+        selectControl.setOnClickListener(v -> { selecting = true; render(); });
+        tools.addView(selectControl);
         refresh = button("Refresh", false);
         refresh.setOnClickListener(v -> sync()); tools.addView(refresh);
         add(root, tools, 14);
+        bulkBar = row();
+        String[] actions = {"Transcribe", "Mark read", "Delete"};
+        for (int i = 0; i < actions.length; i++) {
+            final int action = i;
+            Button control = button(actions[i], false); control.setTextSize(13);
+            control.setMinWidth(0); control.setMinimumWidth(0);
+            control.setPadding(dp(4), 0, dp(4), 0);
+            control.setOnClickListener(v -> {
+                if (action == 0) confirmTranscripts();
+                else if (action == 1) changeSelectedRead(true);
+                else confirmMarks(true);
+            });
+            control.setContentDescription(i == 2 ? "Mark selected voicemails for deletion" : actions[i] + " for selected voicemails");
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -2, 1);
+            if (i > 0) size.setMarginStart(dp(6));
+            bulkBar.addView(control, size);
+        }
+        add(root, bulkBar, 4);
+        batchPanel = column();
+        batchText = text("", 13, secondary, false);
+        batchText.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        batchPanel.addView(batchText);
+        LinearLayout batchButtons = row();
+        batchCancel = button("Cancel transcription queue", false);
+        batchCancel.setTextSize(13); batchCancel.setOnClickListener(v -> { Transcription.cancel(); updateBatchPanel(); });
+        batchDismiss = button("Dismiss", false); batchDismiss.setTextSize(13);
+        batchDismiss.setOnClickListener(v -> { Transcription.dismissBatch(); MailboxBatch.dismiss(); updateBatchPanel(); });
+        batchButtons.addView(batchCancel); batchButtons.addView(batchDismiss);
+        batchPanel.addView(batchButtons); add(root, batchPanel, 8);
         ScrollView scroll = new ScrollView(this);
         scroll.setClipToPadding(false); scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
@@ -208,7 +279,7 @@ public final class MainActivity extends MotionActivity {
     private void sync() { sync(false); }
 
     private void sync(boolean reconnect) {
-        if (syncing || updatingRead || clearingDownloads) return;
+        if (syncing || updatingRead || clearingDownloads || MailboxBatch.busy) return;
         syncing = true; refresh.setEnabled(false); refresh.setText("Refreshing…");
         status.setTextColor(secondary); status.setText("Checking your mailbox…");
         worker.execute(() -> {
@@ -248,6 +319,12 @@ public final class MainActivity extends MotionActivity {
         }
         boolean oldestFirst = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("oldest_first", false);
         shown.sort((a,b) -> InboxQuery.compareDates(a.optString("date"),b.optString("date"),oldestFirst));
+        shownMessages = shown;
+        java.util.Set<String> visibleIds = new java.util.HashSet<>();
+        for (JSONObject message : shown) visibleIds.add(message.optString("objectid"));
+        selectedIds.retainAll(visibleIds);
+        if (shown.isEmpty()) selecting = false;
+        updateSelection();
         String[] labels = {"All", "Unread", "Marked" + (markedCount == 0 ? "" : " (" + markedCount + ")")};
         for (int i = 0; i < filters.length; i++) {
             filters[i].setText(labels[i]); filters[i].setSelected(filter == i);
@@ -284,6 +361,145 @@ public final class MainActivity extends MotionActivity {
         add(messages, foot, 16);
     }
 
+    private void updateSelection() {
+        selectionBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
+        inboxTools.setVisibility(selecting ? View.GONE : View.VISIBLE);
+        bulkBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
+        headerBrand.setVisibility(selecting ? View.GONE : View.VISIBLE);
+        headerTitle.setVisibility(selecting ? View.GONE : View.VISIBLE);
+        selectControl.setVisibility(!selecting && !shownMessages.isEmpty() ? View.VISIBLE : View.GONE);
+        selectionCount.setText(selectedIds.size() + " selected");
+        selectAll.setText(!shownMessages.isEmpty() && selectedIds.size() == shownMessages.size() ? "Deselect all" : "Select all");
+        selectAll.setContentDescription("Select or deselect all " + shownMessages.size() + " voicemails in current results");
+        for (int i = 0; i < bulkBar.getChildCount(); i++)
+            bulkBar.getChildAt(i).setEnabled(!selectedIds.isEmpty() && !MailboxBatch.busy);
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (selecting && !selectionBackRegistered) {
+                if (selectionBack == null) selectionBack = this::clearSelection;
+                getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, selectionBack);
+                selectionBackRegistered = true;
+            } else if (!selecting && selectionBackRegistered) {
+                getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(selectionBack);
+                selectionBackRegistered = false;
+            }
+        }
+    }
+
+    private void toggleSelection(JSONObject message) {
+        String id = message.optString("objectid");
+        if (!selectedIds.remove(id)) selectedIds.add(id);
+        render();
+    }
+
+    private void clearSelection() { selectedIds.clear(); selecting = false; render(); }
+
+    private void selectAllShown() {
+        if (selectedIds.size() == shownMessages.size()) selectedIds.clear();
+        else for (JSONObject message : shownMessages) selectedIds.add(message.optString("objectid"));
+        render();
+    }
+
+    private List<JSONObject> selectedMessages() {
+        List<JSONObject> selected = new ArrayList<>();
+        for (JSONObject message : shownMessages)
+            if (selectedIds.contains(message.optString("objectid"))) selected.add(message);
+        return selected;
+    }
+
+    private void showBulkActions() {
+        if (selectedIds.isEmpty()) { status.setText("Select one or more voicemails first."); return; }
+        if (MailboxBatch.busy) { status.setText("Wait for the current mailbox update."); return; }
+        showBulkDialog(new AlertDialog.Builder(this).setTitle(selectedIds.size() + " selected")
+                .setItems(new String[]{"Generate transcripts", "Mark as read", "Mark as unread", "Mark for deletion", "Restore deletion marks"}, (d, action) -> {
+                    if (action == 0) confirmTranscripts();
+                    else if (action == 1 || action == 2) changeSelectedRead(action == 1);
+                    else confirmMarks(action == 3);
+                }).setNegativeButton("Cancel", null).create());
+    }
+
+    private void showBulkDialog(AlertDialog dialog) {
+        bulkDialog = dialog;
+        if (!AppMotion.enabled(this)) dialog.getWindow().setWindowAnimations(0);
+        dialog.show(); AppMotion.buttons(dialog);
+        dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
+    }
+
+    private void confirmMarks(boolean marked) {
+        List<String> ids = new ArrayList<>(selectedIds);
+        if (ids.isEmpty()) return;
+        showBulkDialog(new AlertDialog.Builder(this)
+                .setTitle((marked ? "Mark " : "Restore ") + ids.size() + " voicemails?")
+                .setMessage(marked ? "Marked for deletion on this phone. Carrier recordings and saved transcripts are kept. You can undo this using Restore deletion marks."
+                        : "Remove the deletion marks from these messages. Your recordings and transcripts are kept.")
+                .setPositiveButton(marked ? "Mark for deletion" : "Restore", (d, w) -> {
+                    if (marks.setAll(ids, marked)) {
+                        clearSelection(); status.setTextColor(secondary);
+                        status.setText(ids.size() + (marked ? " marked for deletion · Nothing erased" : " deletion marks removed"));
+                    } else { status.setTextColor(error); status.setText("Couldn't save deletion marks. Nothing changed; try again."); }
+                }).setNegativeButton("Cancel", null).create());
+    }
+
+    private void changeSelectedRead(boolean read) {
+        List<String> ids = new ArrayList<>(selectedIds);
+        if (ids.isEmpty() || syncing || updatingRead || MailboxBatch.busy) {
+            status.setText("Wait for the current mailbox update, then retry."); return;
+        }
+        if (MailboxBatch.read(this, ids, read)) { clearSelection(); updateBatchPanel(); }
+    }
+
+    private void confirmTranscripts() {
+        final List<JSONObject> selected = selectedMessages();
+        if (selected.isEmpty()) return;
+        if (Transcription.busy) { status.setText("Finish or cancel the current transcription or model download first."); return; }
+        if (!Transcription.ready(this)) {
+            showBulkDialog(new AlertDialog.Builder(this).setTitle("Set up transcription")
+                    .setMessage("Download your selected model first. Your selection will be kept when you return.")
+                    .setPositiveButton("Choose model", (d, w) -> startActivity(new Intent(this, TranscriptionSettingsActivity.class)))
+                    .setNegativeButton("Not now", null).create()); return;
+        }
+        int existing = 0;
+        for (JSONObject message : selected) if (Transcription.cached(this, message.optString("objectid")) != null) existing++;
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle("Transcribe " + selected.size() + " voicemails?")
+                .setMessage(Transcription.selected(this).label() + " · On this phone. Missing recordings download from your carrier. Keep the app open. "
+                        + existing + " already have transcripts; Generate missing keeps them. Cancel stops at the next phrase boundary."
+                        + (Transcription.selected(this) == TranscriptionQuality.HIGHEST ? " Large v3 can take minutes per message." : ""))
+                .setPositiveButton("Generate missing", (d, w) -> startTranscripts(selected, false))
+                .setNegativeButton("Cancel", null);
+        if (existing > 0) dialog.setNeutralButton("Update all", (d, w) -> startTranscripts(selected, true));
+        showBulkDialog(dialog.create());
+    }
+
+    private void startTranscripts(List<JSONObject> selected, boolean replace) {
+        if (Transcription.generateBatch(this, selected, replace)) { clearSelection(); updateBatchPanel(); }
+        else status.setText("Another speech operation started. Retry when it finishes.");
+    }
+
+    private void updateBatchPanel() {
+        String text = MailboxBatch.status;
+        if (!Transcription.batchStatus.isEmpty()) text += (text.isEmpty() ? "" : "\n") + Transcription.batchStatus;
+        if (Transcription.batch && Transcription.cancelled) text += "\nCancelling after the current phrase…";
+        if (!text.contentEquals(batchText.getText())) batchText.setText(text);
+        batchPanel.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
+        batchCancel.setVisibility(Transcription.batch ? View.VISIBLE : View.GONE);
+        batchCancel.setEnabled(!Transcription.cancelled);
+        batchDismiss.setVisibility(!Transcription.batch && !MailboxBatch.busy ? View.VISIBLE : View.GONE);
+        refresh.setEnabled(!syncing && !updatingRead && !clearingDownloads && !MailboxBatch.busy);
+        if (speechVersion != Transcription.batchVersion) {
+            speechVersion = Transcription.batchVersion;
+            loadTranscripts();
+        }
+        if (mailboxVersion != MailboxBatch.version && !MailboxBatch.busy) {
+            mailboxVersion = MailboxBatch.version;
+            if (!MailboxBatch.busy && !syncing && !updatingRead) {
+                inbox = carrier.cachedInbox(); render();
+            }
+        }
+    }
+
+    @Override public void onBackPressed() {
+        if (selecting) clearSelection(); else super.onBackPressed();
+    }
+
     private final class MessageRow {
         final LinearLayout root = column();
         final IconButton play = new IconButton("play", true);
@@ -292,7 +508,7 @@ public final class MainActivity extends MotionActivity {
         MessageRow(JSONObject message) {
             caller = caller(message);
             root.setPadding(dp(16), dp(16), dp(16), dp(12));
-            root.setBackground(shape(surface, 18));
+            root.setBackground(shape(selectedIds.contains(message.optString("objectid")) ? accentSurface : surface, 18));
             LinearLayout heading = row(); heading.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout info = column();
             TextView name = text(caller, 16, primary, true);
@@ -300,14 +516,30 @@ public final class MainActivity extends MotionActivity {
             if (contactNames.containsKey(ContactNames.number(message)))
                 add(info, text(formattedNumber(message), 12, secondary, false), 4);
             add(info, text(date(message) + " · " + duration((int)(message.optDouble("duration", 0) * 1000)), 12, secondary, false), 4);
+            if (selecting) {
+                android.widget.CheckBox check = new android.widget.CheckBox(MainActivity.this);
+                check.setButtonTintList(ColorStateList.valueOf(accent));
+                check.setChecked(selectedIds.contains(message.optString("objectid")));
+                check.setContentDescription("Select voicemail from " + caller);
+                check.setOnClickListener(v -> toggleSelection(message));
+                heading.addView(check, new LinearLayout.LayoutParams(dp(48), dp(48)));
+            }
             heading.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
             LinearLayout.LayoutParams playSize = new LinearLayout.LayoutParams(dp(48), dp(48)); playSize.setMarginStart(dp(12));
             heading.addView(play, playSize);
             play.setContentDescription("Play voicemail from " + caller);
-            play.setOnClickListener(v -> openRecording(message, true)); root.addView(heading);
-            root.setOnClickListener(v -> openRecording(message, false));
+            play.setOnClickListener(v -> { if (selecting) toggleSelection(message); else openRecording(message, true); });
+            play.setVisibility(selecting ? View.GONE : View.VISIBLE); root.addView(heading);
+            root.setOnClickListener(v -> { if (selecting) toggleSelection(message); else openRecording(message, false); });
             root.setFocusable(true); AppMotion.press(root);
-            root.setContentDescription("Open voicemail from " + caller + ", " + date(message));
+            root.setContentDescription((selecting ? "Select" : "Open") + " voicemail from " + caller + ", " + date(message));
+            root.setSelected(selecting && selectedIds.contains(message.optString("objectid")));
+            if (selecting) root.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+                @Override public void onInitializeAccessibilityNodeInfo(View host, android.view.accessibility.AccessibilityNodeInfo info) {
+                    super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.setCheckable(true); info.setChecked(host.isSelected());
+                }
+            });
             String state = marks.contains(message.optString("objectid")) ? "Marked for deletion"
                 : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
             saved = text(state + " · " + (transcripts.containsKey(message.optString("objectid")) ? "Transcript available" : carrier.cachedAudio(message) == null ? "Open to listen" : "Saved on this phone"), 12, secondary, false);
@@ -325,9 +557,15 @@ public final class MainActivity extends MotionActivity {
             IconButton more = new IconButton("more", false);
             more.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(surface, 24), null));
             more.setContentDescription("Actions for voicemail from " + caller);
-            more.setOnClickListener(v -> showActions(message));
+            more.setOnClickListener(v -> { if (selecting) toggleSelection(message); else showActions(message); });
+            more.setVisibility(selecting ? View.GONE : View.VISIBLE);
             heading.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48))); add(root, saved, 6);
-            root.setOnLongClickListener(v -> { showActions(message); return true; });
+            root.setOnLongClickListener(v -> {
+                selecting = true; toggleSelection(message);
+                getSystemService(InputMethodManager.class).hideSoftInputFromWindow(search.getWindowToken(), 0);
+                search.clearFocus();
+                return true;
+            });
 
         }
     }
@@ -402,7 +640,7 @@ public final class MainActivity extends MotionActivity {
     }
 
     private void changeRead(JSONObject message, boolean read) {
-        if (updatingRead || syncing) { status.setText("Wait for the current mailbox update, then try again."); return; }
+        if (updatingRead || syncing || MailboxBatch.busy) { status.setText("Wait for the current mailbox update, then try again."); return; }
         updatingRead = true; refresh.setEnabled(false);
         status.setTextColor(secondary); status.setText(read ? "Marking as read…" : "Marking as unread…");
         worker.execute(() -> {
@@ -564,12 +802,13 @@ public final class MainActivity extends MotionActivity {
     }
     @Override protected void onResume() {
         super.onResume();
+        handler.removeCallbacks(batchTicker); handler.post(batchTicker);
         loadTranscripts();
         if(guidePending)handler.postDelayed(this::showGuide,500);
         if (displayedAppearance!=AppAppearance.mode(this)) { recreate(); return; }
         updateCarrierName();
         // A background check may have updated the persisted inbox while this screen was stopped.
-        if (!syncing && !updatingRead) inbox = carrier.cachedInbox();
+        if (!syncing && !updatingRead && !MailboxBatch.busy) inbox = carrier.cachedInbox();
         render();
         VoicemailAlerts.ensureScheduled(this);
         if (TutorialActivity.needed(this)) {
@@ -629,7 +868,7 @@ public final class MainActivity extends MotionActivity {
         tips.add(new GuideOverlay.Tip(search,"Find a message","Search a caller, a date, or words in transcripts already saved on this phone.",false));
         tips.add(new GuideOverlay.Tip(filterControl,"Keep your place","Unread shows messages you haven't marked read. Marked holds reversible deletion marks.",false));
         tips.add(new GuideOverlay.Tip(settingsControl,"Make it yours","Themes, contact names, alerts, download location, and this tour live in Settings.",false));
-        tips.add(new GuideOverlay.Tip(()->rows.isEmpty()?refresh:rows.values().iterator().next().root,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. The three-dot menu has read status, saving, and deletion marks.",true));
+        tips.add(new GuideOverlay.Tip(()->rows.isEmpty()?refresh:rows.values().iterator().next().root,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. Long-press a message or tap Select for bulk actions. The three-dot menu has individual actions.",true));
         GuideOverlay.show(this,tips,()->{},()->getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("guide_recording",false).apply());
     }
 
@@ -646,15 +885,20 @@ public final class MainActivity extends MotionActivity {
         });
     }
     @Override protected void onSaveInstanceState(Bundle state) {
+        state.putBoolean("selecting", selecting);
+        state.putStringArrayList("selected_ids", new ArrayList<>(selectedIds));
         state.putString("query", query); state.putInt("filter", filter); super.onSaveInstanceState(state);
         state.putInt("settings_action",pendingSettingsAction);
         state.putString("pending_save",pendingSaveId);
     }
     @Override protected void onStop() {
-        visible = false; super.onStop();
+        visible = false; handler.removeCallbacks(batchTicker); super.onStop();
     }
     @Override protected void onDestroy() {
-        destroyed = true; handler.removeCallbacksAndMessages(null); worker.shutdown();
+        destroyed = true;
+        if (Build.VERSION.SDK_INT >= 33 && selectionBackRegistered)
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(selectionBack);
+        handler.removeCallbacksAndMessages(null); worker.shutdown();
         if (contactSignal != null) contactSignal.cancel(); contactWorker.shutdown(); super.onDestroy();
     }
 }

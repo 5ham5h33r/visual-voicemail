@@ -11,8 +11,17 @@ python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test quality
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test navigation
 ```
 
-Use `--compile-only` to type-check both sources without accessing a phone. Full speech recognition and leading-silence checks were run separately on the S24 Ultra; see docs/transcription.md for results and limits.
+Use `--compile-only` to type-check all sources without accessing a phone. Full speech recognition and leading-silence checks were run separately on the S24 Ultra; see docs/transcription.md for results and limits.
 
 The quality check switches between Standard, Enhanced, and Highest quality without regenerating or downloading a personal transcript. It checks both entry points, retains the cached text, exercises actual tap/cancel events, and restores the original quality/reduced-motion settings.
 
 Navigation checks exercise normal parent stacks and isolated pages opened by tooling. They use an existing cached voicemail without playing or changing it, and check both top-left and system Back.
+
+
+Bulk checks require Standard already downloaded and a supplied public 16 kHz PCM WAV speech fixture. The local validation used the upstream sherpa-onnx tiny.en test WAV, converted to 16 kHz mono with two seconds of leading silence and one second of trailing silence. Do not supply personal audio. CI only compiles these checks; it does not access a phone or audio fixture.
+
+```sh
+python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test bulk --speech-fixture /path/to/public-speech-fixture.wav
+```
+
+Selection checks use synthetic inbox rows and restore the original encrypted deletion marks and preferences. Speech checks use temporary public audio in the app cache, then remove that audio and its transcripts. Bulk carrier write behavior is covered by host tests with a fake carrier; no personal read flags are changed in the phone test.
