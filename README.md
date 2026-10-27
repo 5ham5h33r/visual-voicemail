@@ -10,6 +10,7 @@ An independently signed Android app now authenticates to Mint's existing voicema
 - [Independent probe results and limits](docs/independent-probe.md)
 - [Mailbox access validation](docs/mailbox-access.md)
 - [Live playback validation](docs/playback-validation.md)
+- [Protected sessions and offline playback](docs/offline-inbox.md)
 - [Build the diagnostic Android app](probe/README.md)
 
 ## Development
