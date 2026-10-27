@@ -1,6 +1,6 @@
 # Documentation screenshots
 
-The current gallery contains native app-window captures from versions 0.13 and 0.14 on the S24 Ultra. Caller names/numbers, dates, and transcript previews were replaced in temporary views before capture. Recording-detail images use explicitly labeled sample transcript text; personal audio/text was not saved to the repository. Status icons are omitted. Every image was visually reviewed before copying it here. No audio file is included.
+The gallery contains native app-window captures from the S24 Ultra. Version-specific updates are recorded below. Caller names/numbers, dates, and transcript previews were replaced in temporary views before capture. Recording-detail images use explicitly labeled sample transcript text; personal audio/text was not saved to the repository. Status icons are omitted. Every image was visually reviewed before copying it here. No audio file is included.
 
 Recording screenshots cover Light, Dark, and true-black AMOLED. The guided-inbox image shows a real search control highlighted by the in-app tour. Onboarding examples are labeled samples. Original theme and refresh preferences were restored after capture.
 
@@ -19,3 +19,7 @@ Version 0.18 refreshes expanded inbox, guided inbox, and bulk-selection images, 
 Version 0.19 refreshes the three expanded inbox images and the guided-search capture to show the clear button hidden for an empty field. All four redacted captures were reviewed before copying them here.
 
 Version 0.20 refreshes Settings with its aligned back/title row and search field. The Light, Dark, AMOLED, and filtered-search captures were reviewed; private folder details and timestamps are hidden before capture. Original preferences were restored. The gallery uses the Light and search examples; [Dark](settings-dark.png) and [AMOLED](settings-amoled.png) are also available.
+
+Version 0.23 refreshes expanded inbox, guided inbox, bulk selection, and Settings captures (11 images). Caller/number/date details and transcript previews were replaced in native views before capture; every image was visually reviewed. Bulk examples show previews and read/saved status aligned with the caller column. Original preferences were restored.
+
+The final version 0.23 bulk images show rounded native checkbox glyphs and aligned previews. Six additional menu examples were rendered from the actual native popup/dialog view trees in Light, Dark, and AMOLED; their text is generic and every image was reviewed. Whole-screen gallery images remain native window captures with personal details hidden.

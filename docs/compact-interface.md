@@ -17,3 +17,5 @@ Thirty-three S24 Ultra navigation checks cover normal Settings/recording/quality
 The compact build also passed the 24 quality/tap-feedback, 14 playback, and 32 anchored-onboarding device checks. Theme contrast and 74 host behavior checks passed. Full large-font/TalkBack/landscape coverage remains open; the phone font setting stayed at 1.0 and was not changed.
 
 Version 0.18 removes the persistent offline footer and lets the expanded inbox header scroll into a compact toolbar. Bulk selection also removes the expanded search/filter area while keeping selection actions pinned. See [inbox header](inbox-header.md).
+
+Version 0.23 moves the Settings heading 12 dp toward the leading edge, with the existing 48 dp back-control touch target retained. This follows direct comparison with Samsung's native settings on the same phone; it is an optical alignment choice, not a universal Apple spacing requirement. Expanded inbox secondary controls become menu/refresh icons, with initial mailbox connection still presented as a text action. See the [five-question review](ux-review.md) for the app-wide assessment and remaining gaps.

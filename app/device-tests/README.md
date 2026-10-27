@@ -13,6 +13,7 @@ python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test header
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test settings
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test selection
 python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test transition
+python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test inbox-navigation
 ```
 
 Use `--compile-only` to type-check all sources without accessing a phone. Full speech recognition and leading-silence checks were run separately on the S24 Ultra; see docs/transcription.md for results and limits.
@@ -34,6 +35,10 @@ Header checks inject synthetic inbox rows only into temporary views, exercise na
 
 Settings checks cover horizontal header alignment, real filtered controls, no-results states, switching and restoring Reduce motion, keyboard dismissal, child-page return, query/cursor recreation, clear focus/visibility, scroll restoration during a fling, and Back to the inbox. Only temporary app preferences are changed and restored; no carrier messages, downloads, folders, or audio are modified.
 
-Selection motion checks use three synthetic rows and observe real native checkbox animation, retained row/widget instances, immediate checked/model state, color completion, rapid toggles, Select all, interrupted mode transitions, accessibility, and reduced motion. They restore app preferences and never request carrier audio or change carrier flags.
+Selection motion checks use three synthetic rows and observe the animated glyph on the native checkbox, retained row/widget instances, immediate checked/model state, color completion, rapid toggles, Select all, interrupted mode transitions, accessibility, and reduced motion. They restore app preferences and never request carrier audio or change carrier flags.
 
 Transition checks inject synthetic inbox rows, perform a real long press, sample rendered header/list coordinates, physically tap the selection close and normal Settings controls, and check reversal, scrolled selection, reduced motion, and recreation during a transition. App preferences are restored; no carrier flags, downloads, or personal audio are changed.
+
+Inbox-navigation checks exercise actual horizontal swipes through All/Unread/Marked, vertical scrolling, first/last boundaries, cancelled gestures, rapid tab changes, rendered transition frames, query preservation, scope-specific empty messages and recovery actions, the inbox menu selection route, and reduced motion. Selection checks also inject a sample transcript in memory and verify preview/status alignment with caller text when entering and leaving selection. Fixtures never change carrier flags or saved transcripts.
+
+Temporary test activities use FLAG_KEEP_SCREEN_ON without changing phone preferences. Physical gesture checks require the test app to hold foreground focus. Navigation also checks direct finger tracking, a visible neighboring-page gap, cached view reuse, and selection through the actual themed popup.

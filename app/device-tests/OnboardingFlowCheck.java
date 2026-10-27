@@ -10,7 +10,7 @@ import android.widget.*;
 import java.lang.reflect.*;
 import java.util.*;
 
-public class OnboardingFlowCheck extends Instrumentation {
+public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
     int checks;
     Context c;
     Activity a;

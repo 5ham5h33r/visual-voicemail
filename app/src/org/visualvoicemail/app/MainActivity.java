@@ -75,7 +75,7 @@ public final class MainActivity extends MotionActivity {
     private boolean selecting, selectionBackRegistered, displayedSelection;
     private LinearLayout selectionBar, bulkBar, batchPanel, inboxTools;
     private TextView selectionCount, batchText;
-    private Button selectAll, selectControl, batchCancel, batchDismiss;
+    private Button selectAll, batchCancel, batchDismiss;
     private AlertDialog bulkDialog;
     private long speechVersion = Transcription.batchVersion, mailboxVersion = MailboxBatch.version;
     private android.window.OnBackInvokedCallback selectionBack;
@@ -88,9 +88,19 @@ public final class MainActivity extends MotionActivity {
     };
     private CarrierClient carrier;
     private MessageMarks marks;
-    private LinearLayout messages;
+    private LinearLayout messages, scrollContent;
+    private final FilterPage[] filterPages = new FilterPage[3];
+    private final class FilterPage {
+        final LinearLayout content = column();
+        final Map<String,MessageRow> cards = new HashMap<>();
+        final List<JSONObject> shown = new ArrayList<>();
+        View connect;
+        FilterPage() { content.setPadding(0,dp(4),0,dp(16)); }
+    }
     private TextView status;
-    private Button refresh;
+    private IconButton refresh;
+    private View connectControl;
+    private InboxNavigation inboxNavigation;
     private EditText search;
     private View headerBrand, headerTitle;
     private TextView carrierName, compactTitle, compactStatus;
@@ -130,7 +140,7 @@ public final class MainActivity extends MotionActivity {
         if (!inbox.isEmpty()) status.setText(summary() + " · " + freshness());
         else if (carrier.hasSession()) status.setText("Refresh to check your mailbox");
         else status.setText("Connect to your Mint Mobile mailbox");
-        refresh.setText(carrier.hasSession() ? "Refresh" : "Connect");
+        refresh.setContentDescription(carrier.hasSession() ? "Refresh mailbox" : "Connect mailbox");
         if (state != null) inboxScroll.restoreOffset(state.getInt("inbox_scroll", 0), state.getBoolean("selection_expand", true));
         openNotification(getIntent());
         guidePending=getIntent().getBooleanExtra("guide",false);
@@ -209,7 +219,7 @@ public final class MainActivity extends MotionActivity {
         inboxScroll = new InboxScrollView(this);
         inboxScroll.setClipToPadding(false); inboxScroll.setFillViewport(true);
         inboxScroll.setVerticalScrollBarEnabled(false);
-        LinearLayout scrollContent = column();
+        scrollContent = column();
         inboxHeader = new SelectionChrome.Header(this);
         TextView title = text("Voicemail", Ui.PAGE_TITLE, primary, true);
         headerTitle = title;
@@ -254,12 +264,12 @@ public final class MainActivity extends MotionActivity {
             return false;
         });
         add(inboxHeader, searchBox, 14);
-        LinearLayout filterRow = row(); filterControl=filterRow;
+        InboxTabs filterRow = new InboxTabs(this,accentSurface); filterControl=filterRow;
         for (int i = 0; i < filters.length; i++) {
             final int choice = i;
             filters[i] = button("", false); filters[i].setMinWidth(0); filters[i].setMinimumWidth(0);
             filters[i].setPadding(dp(8), 0, dp(8), 0);
-            filters[i].setOnClickListener(v -> { if(filter==choice)return; filter = choice; render(); AppMotion.reveal(messages,140,4); });
+            filters[i].setOnClickListener(v -> changeFilter(choice));
             LinearLayout.LayoutParams item = new LinearLayout.LayoutParams(0, -2, 1);
             if (i > 0) item.setMarginStart(dp(8));
             filterRow.addView(filters[i], item);
@@ -269,15 +279,16 @@ public final class MainActivity extends MotionActivity {
         section = text("INBOX", 13, secondary, true);
         section.setLetterSpacing(0.08f);
         tools.addView(section, new LinearLayout.LayoutParams(0, -2, 1));
-        selectControl = button("Select", false);
-        selectControl.setTextSize(13);
-        selectControl.setOnClickListener(v -> { selecting = true; applySelection(true); });
-        tools.addView(selectControl);
-        refresh = button("Refresh", false);
-        refresh.setOnClickListener(v -> sync()); tools.addView(refresh);
+        IconButton inboxActions = new IconButton("more", false);
+        inboxActions.setContentDescription("Inbox actions"); inboxActions.setTooltipText("Inbox actions");
+        inboxActions.setOnClickListener(v -> showInboxMenu(inboxActions));
+        tools.addView(inboxActions, new LinearLayout.LayoutParams(dp(48),dp(48)));
+        refresh = new IconButton("refresh", false);
+        refresh.setContentDescription("Refresh mailbox"); refresh.setTooltipText("Refresh mailbox");
+        refresh.setOnClickListener(v -> sync()); tools.addView(refresh,new LinearLayout.LayoutParams(dp(48),dp(48)));
         add(inboxHeader, tools, 8);
         bulkBar = row();
-        String[] actions = {"Transcribe", "Mark read", "Delete"};
+        String[] actions = {"Transcribe", "Mark read", "Mark for deletion"};
         for (int i = 0; i < actions.length; i++) {
             final int action = i;
             Button control = button(actions[i], false); control.setTextSize(13);
@@ -309,7 +320,15 @@ public final class MainActivity extends MotionActivity {
         messages = column(); messages.setPadding(0, dp(4), 0, dp(16));
         scrollContent.addView(messages);
         inboxScroll.addView(scrollContent);
-        root.addView(inboxScroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        inboxNavigation = new InboxNavigation(this);
+        inboxNavigation.addView(inboxScroll,new FrameLayout.LayoutParams(-1,-1));
+        inboxNavigation.bind(messages,filterControl,new InboxNavigation.Listener() {
+            public int current() { return filter; }
+            public boolean available() { return !selecting && !destroyed; }
+            public void navigate(int page) { changeFilter(page); }
+            public View prepare(int page) { return filterPage(page).content; }
+        });
+        root.addView(inboxNavigation, new LinearLayout.LayoutParams(-1, 0, 1));
         inboxScroll.bind(inboxHeader, title, carrierName, compact, searchAction, filterAction);
         inboxScroll.bindSelection(toolbar,top,selectionBar,bulkBar);
         setContentView(root);
@@ -319,7 +338,7 @@ public final class MainActivity extends MotionActivity {
 
     private void sync(boolean reconnect) {
         if (syncing || updatingRead || clearingDownloads || MailboxBatch.busy) return;
-        syncing = true; refresh.setEnabled(false); refresh.setText("Refreshing…");
+        syncing = true; refresh.setEnabled(false); refresh.setContentDescription("Refreshing mailbox");
         status.setTextColor(secondary); status.setText("Checking your mailbox…");
         worker.execute(() -> {
             try {
@@ -330,14 +349,14 @@ public final class MainActivity extends MotionActivity {
                     render();
                     reloadContactNames();
                     status.setTextColor(secondary); status.setText(summary() + " · Just updated");
-                    refresh.setEnabled(true); refresh.setText("Refresh");
+                    refresh.setEnabled(true); refresh.setContentDescription("Refresh mailbox");
                     offerAlerts();
                 });
             } catch (Exception exception) {
                 carrier.saveDiagnostics();
                 runOnUiThread(() -> {
                     if (destroyed) return;
-                    syncing = false; refresh.setEnabled(true); refresh.setText("Retry refresh");
+                    syncing = false; refresh.setEnabled(true); refresh.setContentDescription("Retry mailbox refresh");
                     status.setTextColor(error);
                     status.setText("Couldn't refresh. " + safeMessage(exception)
                         + (inbox.isEmpty() ? "" : " Your saved inbox is still available."));
@@ -347,55 +366,106 @@ public final class MainActivity extends MotionActivity {
     }
 
     private void render() {
-        for (MessageRow row : rows.values()) row.dispose();
-        messages.removeAllViews(); rows.clear();
-        List<JSONObject> shown = new ArrayList<>(); int markedCount = 0;
-        for (JSONObject message : inbox) {
-            boolean marked = marks.contains(message.optString("objectid"));
-            if (marked) markedCount++;
-            if (filter == 1 && InboxQuery.isRead(message.optString("flag"))) continue;
-            if (filter == 2 && !marked) continue;
-            if (InboxQuery.matches(query, message.optString("returnnumber"), caller(message), message.optString("date"), date(message)) || (transcripts.containsKey(message.optString("objectid")) && transcripts.get(message.optString("objectid")).matches(query))) shown.add(message);
+        inboxNavigation.contentChanged();
+        for (FilterPage page : filterPages) if (page != null)
+            for (MessageRow row : page.cards.values()) row.dispose();
+        java.util.Arrays.fill(filterPages,null);
+        activateFilter();
+    }
+
+    private void activateFilter() {
+        FilterPage page = filterPage(filter);
+        if (messages != page.content) {
+            if (messages.getParent() == scrollContent) scrollContent.removeView(messages);
+            messages = page.content;
+            scrollContent.addView(messages);
+            inboxNavigation.messages(messages);
         }
-        boolean oldestFirst = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("oldest_first", false);
-        shown.sort((a,b) -> InboxQuery.compareDates(a.optString("date"),b.optString("date"),oldestFirst));
-        shownMessages = shown;
+        rows.clear(); rows.putAll(page.cards); shownMessages = page.shown;
+        connectControl = page.connect;
+        refresh.setVisibility(carrier.hasSession() ? View.VISIBLE : View.GONE);
         java.util.Set<String> visibleIds = new java.util.HashSet<>();
-        for (JSONObject message : shown) visibleIds.add(message.optString("objectid"));
+        for (JSONObject message : shownMessages) visibleIds.add(message.optString("objectid"));
         selectedIds.retainAll(visibleIds);
-        if (shown.isEmpty()) selecting = false;
+        if (shownMessages.isEmpty()) selecting = false;
         updateSelection();
+        int markedCount = 0;
+        for (JSONObject message : inbox) if (marks.contains(message.optString("objectid"))) markedCount++;
         String[] labels = {"All", "Unread", "Marked" + (markedCount == 0 ? "" : " (" + markedCount + ")")};
-        for (int i = 0; i < filters.length; i++) {
-            filters[i].setText(labels[i]); filters[i].setSelected(filter == i);
-            filters[i].setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(filter == i ? accentSurface : background, 24), null));
-            filters[i].setContentDescription(labels[i] + " voicemails" + (filter == i ? ", selected" : ""));
+        for (int i=0;i<filters.length;i++) {
+            filters[i].setText(labels[i]); filters[i].setSelected(filter==i);
+            filters[i].setBackground(new RippleDrawable(ColorStateList.valueOf(divider),shape(android.graphics.Color.TRANSPARENT,24),null));
+            filters[i].setContentDescription(labels[i]+" voicemails"+(filter==i?", selected":""));
         }
-        section.setText(query.trim().isEmpty() && filter == 0 ? "INBOX" : shown.size() + (shown.size() == 1 ? " RESULT" : " RESULTS"));
-        try {
-            carrier.diagnostics().put("search_result_count", shown.size());
-            carrier.diagnostics().put("search_active", !query.trim().isEmpty());
-            carrier.diagnostics().put("deletion_mark_count", markedCount); carrier.diagnostics().put("inbox_filter", filter);
-            carrier.saveDiagnostics();
-        } catch (Exception ignored) { }
+        ((InboxTabs)filterControl).selected(filter);
+        section.setText(query.trim().isEmpty() && filter==0 ? "INBOX" : shownMessages.size()+(shownMessages.size()==1?" RESULT":" RESULTS"));
+        carrier.diagnostics().put("search_result_count",shownMessages.size());
+        carrier.diagnostics().put("search_active",!query.trim().isEmpty());
+        carrier.diagnostics().put("deletion_mark_count",markedCount); carrier.diagnostics().put("inbox_filter",filter);
+        if (!worker.isShutdown()) worker.execute(() -> carrier.saveDiagnostics());
+        // Warm small inboxes after the current frame. Larger mailboxes build neighboring pages lazily.
+        if (inbox.size()<=100) handler.post(() -> {
+            if (!destroyed && !selecting) for (int i=0;i<3;i++) filterPage(i);
+        });
+    }
+
+    private FilterPage filterPage(int choice) {
+        if (filterPages[choice] != null) return filterPages[choice];
+        FilterPage page = new FilterPage(); filterPages[choice] = page;
+        List<JSONObject> shown = page.shown;
+        for (JSONObject message : inbox) {
+            if (choice==1 && InboxQuery.isRead(message.optString("flag"))) continue;
+            if (choice==2 && !marks.contains(message.optString("objectid"))) continue;
+            if (InboxQuery.matches(query,message.optString("returnnumber"),caller(message),message.optString("date"),date(message))
+                    || transcripts.containsKey(message.optString("objectid")) && transcripts.get(message.optString("objectid")).matches(query)) shown.add(message);
+        }
+        boolean oldest = getSharedPreferences("settings",MODE_PRIVATE).getBoolean("oldest_first",false);
+        shown.sort((x,y) -> InboxQuery.compareDates(x.optString("date"),y.optString("date"),oldest));
         if (shown.isEmpty()) {
             LinearLayout empty = column(); empty.setPadding(dp(24), dp(32), dp(24), dp(32));
             empty.setBackground(shape(surface, 24));
-            boolean narrowed = !query.trim().isEmpty() || filter != 0;
-            empty.addView(text(contactsLoading && narrowed ? "Looking up contact names…" : narrowed ? "No matching voicemails" : carrier.hasSession() ? "No voicemails" : "Your voicemail, here", 18, primary, true));
-            add(empty, text(narrowed ? contactsLoading ? "Names are loading from this phone."
-                : !contactsEnabled() && !query.trim().isEmpty() ? "For name search, enable Contact names in Settings. You can also search a number or date, or choose All."
-                : "Try a different search or choose All."
-                : carrier.hasSession() ? "Refresh to check for new messages."
-                : "Connect once using Mint mobile data. Your messages will appear here, ready to play.", 15, secondary, false), 12);
-            messages.addView(empty); return;
+            boolean searching = !query.trim().isEmpty();
+            String title, detail, action;
+            Runnable next;
+            if (searching) {
+                title = contactsLoading ? "Looking up contact names…"
+                        : choice == 1 ? "No unread matches" : choice == 2 ? "No marked matches" : "No matching voicemails";
+                String scope = choice == 1 ? "Unread" : choice == 2 ? "Marked" : "All voicemails";
+                detail = contactsLoading ? "Names are loading from this phone."
+                        : "No results in " + scope + ". Try another name, number, date, or saved transcript."
+                        + (!contactsEnabled() ? " Enable Contact names in Settings to search names." : "");
+                action = "Clear search"; next = () -> search.setText("");
+            } else if (!carrier.hasSession() && inbox.isEmpty()) {
+                title = "Your voicemail, here";
+                detail = "Connect using Mint mobile data. Keep your existing mailbox and dialer.";
+                action = "Connect mailbox"; next = () -> sync();
+            } else if (choice == 1) {
+                title = "You're all caught up";
+                detail = "No unread voicemails. New messages will appear here.";
+                action = "View all voicemails"; next = () -> changeFilter(0);
+            } else if (choice == 2) {
+                title = "Nothing marked for deletion";
+                detail = "Messages you mark appear here. Marks are reversible and don't erase carrier recordings.";
+                action = "View all voicemails"; next = () -> changeFilter(0);
+            } else {
+                title = "No voicemails yet";
+                detail = "New voicemails will appear here. Check your mailbox for the latest messages.";
+                action = "Check for voicemail"; next = () -> sync();
+            }
+            empty.addView(text(title,18,primary,true));
+            add(empty,text(detail,14,secondary,false),10);
+            Button recovery = button(action,false); recovery.setOnClickListener(v -> next.run());
+            add(empty,recovery,12);
+            if (!carrier.hasSession() && !searching && inbox.isEmpty()) page.connect = recovery;
+            page.content.addView(empty); return page;
         }
-        if (filter == 2) add(messages, text("Marked on this phone. No recordings have been deleted. Use Restore to remove a mark.", 13, secondary, false), 8);
+        if (choice == 2) add(page.content, text("Marked on this phone. No recordings have been deleted. Use Restore to remove a mark.", 13, secondary, false), 8);
         for (JSONObject message : shown) {
             String id = message.optString("objectid");
             MessageRow card = new MessageRow(message);
-            rows.put(id, card); add(messages, card.root, 8);
+            page.cards.put(id, card); add(page.content, card.root, 8);
         }
+        return page;
     }
 
     private void showInboxSearch() {
@@ -406,7 +476,7 @@ public final class MainActivity extends MotionActivity {
     }
 
     private void showInboxMenu(View anchor) {
-        inboxMenu = new PopupMenu(this, anchor);
+        inboxMenu = new AppMenu(this, anchor);
         String[] names = {"All voicemails", "Unread", "Marked for deletion"};
         for (int i = 0; i < names.length; i++)
             inboxMenu.getMenu().add(1, 100 + i, i, names[i]).setCheckable(true).setChecked(filter == i);
@@ -417,13 +487,31 @@ public final class MainActivity extends MotionActivity {
         inboxMenu.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
             if (id >= 100 && id <= 102) {
-                filter = id - 100; render();
-                inboxScroll.post(() -> inboxScroll.jumpTo(inboxHeader.getHeight()));
-            } else if (id == 103) { selecting = true; applySelection(true); }
+                changeFilter(id - 100);
+            } else if (id == 103) enterSelection();
             else if (id == 104) sync();
             return true;
         });
         inboxMenu.show();
+    }
+
+    private void enterSelection() {
+        if (shownMessages.isEmpty()) return;
+        inboxNavigation.contentChanged();
+        selecting = true; applySelection(true);
+    }
+
+    private void changeFilter(int choice) {
+        if (choice < 0 || choice > 2 || choice == filter || selecting) return;
+        int direction = choice > filter ? 1 : -1;
+        if (getResources().getConfiguration().getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) direction = -direction;
+        int offset = Math.min(inboxScroll.getScrollY(),inboxHeader.getHeight());
+        FilterPage next = filterPage(choice);
+        if (offset > 0) next.content.setMinimumHeight(inboxNavigation.getHeight());
+        inboxNavigation.change(direction,next.content,() -> {
+            filter = choice; activateFilter();
+            inboxScroll.restoreOffset(offset,true);
+        });
     }
 
     private void applySelection(boolean animate) {
@@ -443,7 +531,6 @@ public final class MainActivity extends MotionActivity {
         inboxScroll.selectionMode(selecting, animate);
         inboxTools.setVisibility(View.VISIBLE);
         compactTitle.setText(filter == 1 ? "Unread voicemail" : filter == 2 ? "Marked voicemail" : "Voicemail");
-        selectControl.setVisibility(!shownMessages.isEmpty() ? View.VISIBLE : View.GONE);
         String count = selectedIds.size() + " selected";
         boolean countChanged = !count.contentEquals(selectionCount.getText());
         selectionCount.setText(count);
@@ -499,9 +586,7 @@ public final class MainActivity extends MotionActivity {
 
     private void showBulkDialog(AlertDialog dialog) {
         bulkDialog = dialog;
-        if (!AppMotion.enabled(this)) dialog.getWindow().setWindowAnimations(0);
-        dialog.show(); AppMotion.buttons(dialog);
-        dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
+        new Ui(this).show(dialog);
     }
 
     private void confirmMarks(boolean marked) {
@@ -584,6 +669,7 @@ public final class MainActivity extends MotionActivity {
         final LinearLayout root = column();
         final IconButton play = new IconButton("play", true);
         final TextView saved;
+        private TextView preview;
         final String caller, id, when;
         final LinearLayout heading = row();
         final AppMotion.CheckBox check = new AppMotion.CheckBox(MainActivity.this);
@@ -632,7 +718,7 @@ public final class MainActivity extends MotionActivity {
                     java.util.List<int[]> found = TranscriptSearch.find(excerpt, query);
                     if (!found.isEmpty()) excerpt = excerpt.substring(Math.max(0, found.get(0)[0]-30));
                 }
-                TextView preview = text(excerpt, 14, secondary, false);
+                preview = text(excerpt, 14, secondary, false);
                 preview.setMaxLines(1); preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 add(root, preview, 8);
             }
@@ -642,7 +728,7 @@ public final class MainActivity extends MotionActivity {
             more.setVisibility(selecting ? View.GONE : View.VISIBLE);
             heading.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48))); add(root, saved, 6);
             root.setOnLongClickListener(v -> {
-                selecting = true; toggleSelection(message);
+                inboxNavigation.contentChanged(); selecting = true; toggleSelection(message);
                 getSystemService(InputMethodManager.class).hideSoftInputFromWindow(search.getWindowToken(), 0);
                 search.clearFocus();
                 return true;
@@ -656,7 +742,12 @@ public final class MainActivity extends MotionActivity {
             boolean selected = selecting && selectedIds.contains(id);
             boolean changedMode = rowSelectionMode != selecting;
             rowSelectionMode = selecting;
-            if (changedMode) AppMotion.selectionLayout(heading, motion);
+            if (changedMode) AppMotion.selectionLayout(root, motion);
+            for (TextView caption : new TextView[]{preview,saved}) if (caption != null) {
+                LinearLayout.LayoutParams size = (LinearLayout.LayoutParams)caption.getLayoutParams();
+                int inset = selecting ? dp(48) : 0;
+                if (size.getMarginStart() != inset) { size.setMarginStart(inset); caption.setLayoutParams(size); }
+            }
             check.setEnabled(selecting); check.setFocusable(selecting);
             check.setImportantForAccessibility(selecting ? View.IMPORTANT_FOR_ACCESSIBILITY_AUTO : View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
             check.setVisibility(selecting ? View.VISIBLE : View.GONE);
@@ -693,7 +784,7 @@ public final class MainActivity extends MotionActivity {
 
         void dispose() {
             if (selectionFill != null) { selectionFill.cancel(); selectionFill = null; }
-            android.transition.TransitionManager.endTransitions(heading);
+            android.transition.TransitionManager.endTransitions(root);
             check.jumpDrawablesToCurrentState(); root.animate().cancel();
         }
     }
@@ -728,7 +819,7 @@ public final class MainActivity extends MotionActivity {
                     status.setText(marked ? "Deletion mark removed" : "Marked for deletion on this phone · Nothing erased");
                 } else { status.setTextColor(error); status.setText("Couldn't save the deletion mark. Try again."); }
             }).setNegativeButton("Cancel", null).create();
-        if(!AppMotion.enabled(this))dialog.getWindow().setWindowAnimations(0); dialog.show(); AppMotion.buttons(dialog); dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
+        new Ui(this).show(dialog);
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setAllCaps(false);
     }
 
@@ -817,6 +908,11 @@ public final class MainActivity extends MotionActivity {
             } else if ("filter".equals(symbol)) {
                 paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.8f);
                 canvas.drawLine(-9,-6,9,-6,paint); canvas.drawLine(-6,0,6,0,paint); canvas.drawLine(-3,6,3,6,paint);
+            } else if ("refresh".equals(symbol)) {
+                paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.8f);
+                paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND);
+                canvas.drawArc(-8,-8,8,8,30,300,false,paint);
+                Path arrow = new Path(); arrow.moveTo(2,-4); arrow.lineTo(7,-4); arrow.lineTo(7,-9); canvas.drawPath(arrow,paint);
             } else if ("more".equals(symbol)) {
                 canvas.drawCircle(-6,0,1.6f,paint); canvas.drawCircle(0,0,1.6f,paint); canvas.drawCircle(6,0,1.6f,paint);
             } else if ("settings".equals(symbol)) {
@@ -1003,9 +1099,9 @@ public final class MainActivity extends MotionActivity {
         inboxScroll.jumpTo(0);
         List<GuideOverlay.Tip> tips=new ArrayList<>();
         tips.add(new GuideOverlay.Tip(search,"Find a message","Search a caller, a date, or words in transcripts already saved on this phone.",false));
-        tips.add(new GuideOverlay.Tip(filterControl,"Keep your place","Unread shows messages you haven't marked read. Marked holds reversible deletion marks.",false));
+        tips.add(new GuideOverlay.Tip(filterControl,"Keep your place","Tap a tab or swipe sideways to switch views. Unread shows messages you haven't marked read. Marked holds reversible deletion marks.",false));
         tips.add(new GuideOverlay.Tip(settingsControl,"Make it yours","Themes, contact names, alerts, download location, and this tour live in Settings.",false));
-        tips.add(new GuideOverlay.Tip(()->rows.isEmpty()?refresh:rows.values().iterator().next().root,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. Long-press a message or tap Select for bulk actions. The three-dot menu has individual actions.",true));
+        tips.add(new GuideOverlay.Tip(()->rows.isEmpty()?(connectControl!=null?connectControl:refresh):rows.values().iterator().next().root,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. Long-press a message, or use Inbox actions → Select messages for bulk actions. The three-dot menu has individual actions.",true));
         GuideOverlay.show(this,tips,()->{},()->getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("guide_recording",false).apply());
     }
 
@@ -1035,7 +1131,9 @@ public final class MainActivity extends MotionActivity {
     }
     @Override protected void onDestroy() {
         destroyed = true;
-        for (MessageRow row : rows.values()) row.dispose();
+        if(inboxMenu!=null)inboxMenu.dismiss();
+        if(bulkDialog!=null)bulkDialog.dismiss();
+        for(FilterPage page:filterPages)if(page!=null)for(MessageRow row:page.cards.values())row.dispose();
         if (Build.VERSION.SDK_INT >= 33 && selectionBackRegistered)
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(selectionBack);
         handler.removeCallbacksAndMessages(null); worker.shutdown();

@@ -11,7 +11,7 @@ import java.lang.reflect.*;
 import java.util.*;
 
 /** Back returns within the app in normal flows and reconstructs parents for isolated pages. */
-public final class NavigationCheck extends Instrumentation {
+public final class NavigationCheck extends DeviceCheckInstrumentation {
     private int checks;
     private Context context;
     private Activity screen;

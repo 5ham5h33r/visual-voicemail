@@ -14,7 +14,7 @@ import java.lang.reflect.*;
 import java.util.*;
 
 /** Exercise the native checkbox and retained row, including interruption and reduced motion. */
-public final class SelectionMotionCheck extends Instrumentation {
+public final class SelectionMotionCheck extends DeviceCheckInstrumentation {
     private Activity screen;
     private int checks;
 
@@ -112,10 +112,34 @@ public final class SelectionMotionCheck extends Instrumentation {
             Field inbox = screen.getClass().getDeclaredField("inbox");
             inbox.setAccessible(true);
             Method render = method(screen.getClass(), "render");
+            Object sampleTranscript =
+                    method(
+                                    Class.forName("org.visualvoicemail.app.Transcript"),
+                                    "parse",
+                                    JSONObject.class)
+                            .invoke(
+                                    null,
+                                    new JSONObject()
+                                            .put("version", 1)
+                                            .put("quality", "standard")
+                                            .put(
+                                                    "segments",
+                                                    new JSONArray()
+                                                            .put(
+                                                                    new JSONObject()
+                                                                            .put("start", 0)
+                                                                            .put("end", 1000)
+                                                                            .put(
+                                                                                    "text",
+                                                                                    "Sample"
+                                                                                        + " transcript"
+                                                                                        + " preview"))));
             ui(
                     () -> {
                         try {
                             inbox.set(screen, samples);
+                            ((Map) field(screen, "transcripts"))
+                                    .put("motion-sample-0", sampleTranscript);
                             render.invoke(screen);
                         } catch (Exception e) {
                             throw new RuntimeException(e);
@@ -125,6 +149,9 @@ public final class SelectionMotionCheck extends Instrumentation {
             Object first = row("motion-sample-0");
             View card = (View) field(first, "root");
             CheckBox checkbox = (CheckBox) field(first, "check");
+            TextView preview = (TextView) field(first, "preview"),
+                    saved = (TextView) field(first, "saved");
+            int initialPreview = preview.getLeft();
             check(checkbox.getVisibility() == View.GONE);
             ui(() -> card.performLongClick());
             check(
@@ -137,6 +164,50 @@ public final class SelectionMotionCheck extends Instrumentation {
                             .toString()
                             .startsWith("1 selected"));
             Thread.sleep(220);
+            boolean[] roundedPixels = new boolean[2];
+            ui(
+                    () -> {
+                        Drawable glyph = checkbox.getButtonDrawable();
+                        int size = glyph.getIntrinsicWidth();
+                        android.graphics.Rect original =
+                                new android.graphics.Rect(glyph.getBounds());
+                        android.graphics.Bitmap image =
+                                android.graphics.Bitmap.createBitmap(
+                                        size, size, android.graphics.Bitmap.Config.ARGB_8888);
+                        try {
+                            glyph.setBounds(0, 0, size, size);
+                            glyph.draw(new android.graphics.Canvas(image));
+                            float density = c.getResources().getDisplayMetrics().density;
+                            int inset = Math.round(size / 2f - 9.75f * density);
+                            out.putInt(
+                                    "rounded_corner_alpha",
+                                    android.graphics.Color.alpha(image.getPixel(inset, inset)));
+                            out.putInt(
+                                    "rounded_edge_alpha",
+                                    android.graphics.Color.alpha(image.getPixel(size / 2, inset)));
+                            roundedPixels[0] =
+                                    android.graphics.Color.alpha(image.getPixel(inset, inset)) < 64;
+                            roundedPixels[1] =
+                                    android.graphics.Color.alpha(image.getPixel(size / 2, inset))
+                                            > 200;
+                        } finally {
+                            glyph.setBounds(original);
+                            image.recycle();
+                        }
+                    });
+            check(roundedPixels[0] && roundedPixels[1]);
+            check(checkbox.getButtonDrawable() instanceof Animatable);
+            LinearLayout heading = (LinearLayout) field(first, "heading");
+            int textLeft = heading.getLeft() + heading.getChildAt(1).getLeft();
+            check(preview.getLeft() == textLeft && saved.getLeft() == textLeft);
+            out.putInt("initial_preview_left", initialPreview);
+            out.putInt("selected_preview_left", preview.getLeft());
+            out.putInt("checkbox_width", checkbox.getWidth());
+            out.putFloat("target_density", c.getResources().getDisplayMetrics().density);
+            out.putFloat("activity_density", screen.getResources().getDisplayMetrics().density);
+            check(
+                    preview.getLeft() - initialPreview
+                            == Math.round(48 * c.getResources().getDisplayMetrics().density));
             check(!running(first));
             check(
                     (Integer) field(first, "selectionColor")
@@ -160,7 +231,7 @@ public final class SelectionMotionCheck extends Instrumentation {
             check(observed[0]);
             Thread.sleep(30);
             out.putBoolean(
-                    "native_checkbox_animation_observed",
+                    "rounded_checkbox_animation_observed",
                     nativeRunning(checkbox.getButtonDrawable()));
             check(first == row("motion-sample-0"));
             Thread.sleep(200);
@@ -195,10 +266,9 @@ public final class SelectionMotionCheck extends Instrumentation {
             check(selected().isEmpty());
             // Exit/re-enter while a layout transition is unfinished must not leave hidden controls.
             invoke("clearSelection");
-            View select = (View) field(screen, "selectControl");
-            ui(() -> select.performClick());
+            invoke("enterSelection");
             invoke("clearSelection");
-            ui(() -> select.performClick());
+            invoke("enterSelection");
             Thread.sleep(250);
             check(checkbox.getVisibility() == View.VISIBLE && checkbox.isEnabled());
             check(first == row("motion-sample-0"));
@@ -221,6 +291,7 @@ public final class SelectionMotionCheck extends Instrumentation {
             check(node.isChecked());
             node.recycle();
             invoke("clearSelection");
+            check(preview.getLeft() == initialPreview && saved.getLeft() == initialPreview);
             check(
                     checkbox.getVisibility() == View.GONE
                             && !checkbox.isEnabled()
