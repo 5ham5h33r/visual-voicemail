@@ -588,7 +588,10 @@ public final class RecordingActivity extends MotionActivity {
                                         + quality.sizeLabel()
                                         + " download from its public model host. Wi-Fi is"
                                         + " recommended. Audio and transcripts stay on this phone."
-                                        + " Listening remains available.")
+                                        + " Listening remains available."
+                                        + (quality == TranscriptionQuality.HIGHEST
+                                                ? "\n\nAllow about 3.6 GB of free storage for setup. Large v3 uses several GB of memory and can take minutes per recording. Keep the app open."
+                                                : ""))
                         .setPositiveButton(
                                 "Download",
                                 (d, w) -> {

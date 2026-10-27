@@ -13,6 +13,6 @@ python research/check_device_ui.py --serial YOUR_ADB_SERIAL --test navigation
 
 Use `--compile-only` to type-check both sources without accessing a phone. Full speech recognition and leading-silence checks were run separately on the S24 Ultra; see docs/transcription.md for results and limits.
 
-The quality check switches between Standard and Enhanced without regenerating or downloading a personal transcript. It checks both entry points, retains the cached text, exercises actual tap/cancel events, and restores the original quality/reduced-motion settings.
+The quality check switches between Standard, Enhanced, and Highest quality without regenerating or downloading a personal transcript. It checks both entry points, retains the cached text, exercises actual tap/cancel events, and restores the original quality/reduced-motion settings.
 
 Navigation checks exercise normal parent stacks and isolated pages opened by tooling. They use an existing cached voicemail without playing or changing it, and check both top-left and system Back.
