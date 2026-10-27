@@ -25,3 +25,5 @@ Host cases cover deduplication, request rejection, lost responses, partial succe
 On the S24 Ultra, all 42 bulk device checks and 12 host read-confirmation checks passed. The caller data and transcript text in selection screenshots were hidden before capture, and Light, Dark, and AMOLED were reviewed. The original app preferences and deletion marks were restored after tests.
 
 The existing 14 recording, 28 quality/motion, 33 navigation, and 32 onboarding device regressions also passed. Native theme contrast checks and all 86 host behavior checks passed. Bulk carrier writes themselves were not exercised against personal messages; the existing single-message request format is reused and bulk result handling is tested with a fake carrier.
+
+Version 0.21 keeps the existing row/checkbox views during selection changes, restoring native checkmark animations and adding short card/toolbar transitions. State changes remain immediate, including with reduced motion. See [motion](motion.md).

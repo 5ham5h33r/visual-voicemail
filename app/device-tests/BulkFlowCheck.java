@@ -253,7 +253,13 @@ public final class BulkFlowCheck extends Instrumentation {
             cancelDialog();
             check(!(Boolean) staticField(speech, "busy"));
             // System Back must leave selection rather than close the inbox.
-            Thread.sleep(450); // Let the native dialog exit before directing Back at the inbox.
+            boolean[] focused = {false};
+            long focusLimit = SystemClock.elapsedRealtime() + 3000;
+            do {
+                runOnMainSync(() -> focused[0] = screen.hasWindowFocus());
+                if (!focused[0]) Thread.sleep(25);
+            } while (!focused[0] && SystemClock.elapsedRealtime() < focusLimit);
+            check(focused[0]);
             sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
             Thread.sleep(250);
             check(!(Boolean) field(screen, "selecting") && !screen.isFinishing());
@@ -360,6 +366,14 @@ public final class BulkFlowCheck extends Instrumentation {
             result.putBoolean("passed", true);
         } catch (Throwable e) {
             result.putString("failure_class", e.getClass().getSimpleName());
+            if (screen != null) {
+                result.putBoolean("screen_finishing", screen.isFinishing());
+                result.putBoolean("window_focused", screen.hasWindowFocus());
+                try {
+                    result.putBoolean("selection_active", (Boolean) field(screen, "selecting"));
+                    result.putBoolean("selection_back_registered", (Boolean) field(screen, "selectionBackRegistered"));
+                } catch (Exception ignored) {}
+            }
             result.putBoolean("passed", false);
         } finally {
             try {

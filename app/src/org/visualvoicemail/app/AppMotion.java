@@ -4,7 +4,10 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.transition.AutoTransition;
+import android.transition.ChangeBounds;
+import android.transition.Fade;
 import android.transition.TransitionManager;
+import android.transition.TransitionSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -56,6 +59,32 @@ final class AppMotion {
                         parent, new AutoTransition().setDuration(160));
         }
         view.setVisibility(visibility);
+    }
+
+    /** Selection controls and their label space change together, without delaying their actions. */
+    static void selectionLayout(ViewGroup parent, boolean animate) {
+        TransitionManager.endTransitions(parent);
+        if (animate && enabled(parent.getContext()) && parent.isLaidOut())
+            TransitionManager.beginDelayedTransition(
+                    parent,
+                    new TransitionSet()
+                            .setOrdering(TransitionSet.ORDERING_TOGETHER)
+                            .addTransition(new ChangeBounds())
+                            .addTransition(new Fade())
+                            .setDuration(160)
+                            .setInterpolator(new DecelerateInterpolator()));
+    }
+
+    static final class CheckBox extends android.widget.CheckBox {
+        CheckBox(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void setChecked(boolean checked) {
+            super.setChecked(checked);
+            if (!enabled(getContext())) jumpDrawablesToCurrentState();
+        }
     }
 
     static void press(View view) {

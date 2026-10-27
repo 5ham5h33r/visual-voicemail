@@ -268,7 +268,7 @@ public final class MainActivity extends MotionActivity {
         tools.addView(section, new LinearLayout.LayoutParams(0, -2, 1));
         selectControl = button("Select", false);
         selectControl.setTextSize(13);
-        selectControl.setOnClickListener(v -> { selecting = true; render(); });
+        selectControl.setOnClickListener(v -> { selecting = true; applySelection(true); });
         tools.addView(selectControl);
         refresh = button("Refresh", false);
         refresh.setOnClickListener(v -> sync()); tools.addView(refresh);
@@ -343,6 +343,7 @@ public final class MainActivity extends MotionActivity {
     }
 
     private void render() {
+        for (MessageRow row : rows.values()) row.dispose();
         messages.removeAllViews(); rows.clear();
         List<JSONObject> shown = new ArrayList<>(); int markedCount = 0;
         for (JSONObject message : inbox) {
@@ -414,14 +415,22 @@ public final class MainActivity extends MotionActivity {
             if (id >= 100 && id <= 102) {
                 filter = id - 100; render();
                 inboxScroll.post(() -> inboxScroll.jumpTo(inboxHeader.getHeight()));
-            } else if (id == 103) { selecting = true; render(); }
+            } else if (id == 103) { selecting = true; applySelection(true); }
             else if (id == 104) sync();
             return true;
         });
         inboxMenu.show();
     }
 
-    private void updateSelection() {
+    private void applySelection(boolean animate) {
+        updateSelection(animate);
+        for (MessageRow row : rows.values()) row.selectionState(animate);
+    }
+
+    private void updateSelection() { updateSelection(false); }
+
+    private void updateSelection(boolean animate) {
+        boolean modeChanged = selecting != (selectionBar.getVisibility() == View.VISIBLE);
         if (selecting && inboxHeader.getVisibility() != View.GONE) {
             getSystemService(InputMethodManager.class).hideSoftInputFromWindow(search.getWindowToken(), 0);
             search.clearFocus();
@@ -433,7 +442,16 @@ public final class MainActivity extends MotionActivity {
         inboxScroll.selectionMode(selecting);
         compactTitle.setText(filter == 1 ? "Unread voicemail" : filter == 2 ? "Marked voicemail" : "Voicemail");
         selectControl.setVisibility(!selecting && !shownMessages.isEmpty() ? View.VISIBLE : View.GONE);
-        selectionCount.setText(selectedIds.size() + " selected");
+        String count = selectedIds.size() + " selected";
+        boolean countChanged = !count.contentEquals(selectionCount.getText());
+        selectionCount.setText(count);
+        if (modeChanged) {
+            AppMotion.settle(selectionCount); AppMotion.settle(selectionBar); AppMotion.settle(headerBrand); AppMotion.settle(bulkBar);
+            if (animate) {
+                AppMotion.reveal(selecting ? selectionBar : headerBrand, 160, 0);
+                if (selecting) AppMotion.reveal(bulkBar, 160, 0);
+            }
+        } else if (animate && countChanged) AppMotion.reveal(selectionCount, 120, 0);
         selectAll.setText(!shownMessages.isEmpty() && selectedIds.size() == shownMessages.size() ? "Deselect all" : "Select all");
         selectAll.setContentDescription("Select or deselect all " + shownMessages.size() + " voicemails in current results");
         for (int i = 0; i < bulkBar.getChildCount(); i++)
@@ -453,15 +471,15 @@ public final class MainActivity extends MotionActivity {
     private void toggleSelection(JSONObject message) {
         String id = message.optString("objectid");
         if (!selectedIds.remove(id)) selectedIds.add(id);
-        render();
+        applySelection(true);
     }
 
-    private void clearSelection() { selectedIds.clear(); selecting = false; render(); }
+    private void clearSelection() { selectedIds.clear(); selecting = false; applySelection(true); }
 
     private void selectAllShown() {
         if (selectedIds.size() == shownMessages.size()) selectedIds.clear();
         else for (JSONObject message : shownMessages) selectedIds.add(message.optString("objectid"));
-        render();
+        applySelection(true);
     }
 
     private List<JSONObject> selectedMessages() {
@@ -498,7 +516,7 @@ public final class MainActivity extends MotionActivity {
                         : "Remove the deletion marks from these messages. Your recordings and transcripts are kept.")
                 .setPositiveButton(marked ? "Mark for deletion" : "Restore", (d, w) -> {
                     if (marks.setAll(ids, marked)) {
-                        clearSelection(); status.setTextColor(secondary);
+                        clearSelection(); render(); status.setTextColor(secondary);
                         status.setText(ids.size() + (marked ? " marked for deletion · Nothing erased" : " deletion marks removed"));
                     } else { status.setTextColor(error); status.setText("Couldn't save deletion marks. Nothing changed; try again."); }
                 }).setNegativeButton("Cancel", null).create());
@@ -569,26 +587,30 @@ public final class MainActivity extends MotionActivity {
         final LinearLayout root = column();
         final IconButton play = new IconButton("play", true);
         final TextView saved;
-        final String caller;
+        final String caller, id, when;
+        final LinearLayout heading = row();
+        final AppMotion.CheckBox check = new AppMotion.CheckBox(MainActivity.this);
+        final IconButton more = new IconButton("more", false);
+        final GradientDrawable fill = shape(surface, 18);
+        private final android.graphics.Rect visibleBounds = new android.graphics.Rect();
+        private android.animation.ValueAnimator selectionFill;
+        private int selectionColor = surface, selectionTarget = surface;
+        private boolean rowSelectionMode;
+
         MessageRow(JSONObject message) {
-            caller = caller(message);
+            caller = caller(message); id = message.optString("objectid"); when = date(message);
             root.setPadding(dp(16), dp(16), dp(16), dp(12));
-            root.setBackground(shape(selectedIds.contains(message.optString("objectid")) ? accentSurface : surface, 18));
-            LinearLayout heading = row(); heading.setGravity(Gravity.CENTER_VERTICAL);
+            root.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), fill, null));
+            heading.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout info = column();
             TextView name = text(caller, 16, primary, true);
             info.addView(name);
             if (contactNames.containsKey(ContactNames.number(message)))
                 add(info, text(formattedNumber(message), 12, secondary, false), 4);
             add(info, text(date(message) + " · " + duration((int)(message.optDouble("duration", 0) * 1000)), 12, secondary, false), 4);
-            if (selecting) {
-                android.widget.CheckBox check = new android.widget.CheckBox(MainActivity.this);
-                check.setButtonTintList(ColorStateList.valueOf(accent));
-                check.setChecked(selectedIds.contains(message.optString("objectid")));
-                check.setContentDescription("Select voicemail from " + caller);
-                check.setOnClickListener(v -> toggleSelection(message));
-                heading.addView(check, new LinearLayout.LayoutParams(dp(48), dp(48)));
-            }
+            check.setButtonTintList(ColorStateList.valueOf(accent));
+            check.setOnClickListener(v -> toggleSelection(message));
+            heading.addView(check, new LinearLayout.LayoutParams(dp(48), dp(48)));
             heading.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
             LinearLayout.LayoutParams playSize = new LinearLayout.LayoutParams(dp(48), dp(48)); playSize.setMarginStart(dp(12));
             heading.addView(play, playSize);
@@ -597,12 +619,10 @@ public final class MainActivity extends MotionActivity {
             play.setVisibility(selecting ? View.GONE : View.VISIBLE); root.addView(heading);
             root.setOnClickListener(v -> { if (selecting) toggleSelection(message); else openRecording(message, false); });
             root.setFocusable(true); AppMotion.press(root);
-            root.setContentDescription((selecting ? "Select" : "Open") + " voicemail from " + caller + ", " + date(message));
-            root.setSelected(selecting && selectedIds.contains(message.optString("objectid")));
-            if (selecting) root.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            root.setAccessibilityDelegate(new View.AccessibilityDelegate() {
                 @Override public void onInitializeAccessibilityNodeInfo(View host, android.view.accessibility.AccessibilityNodeInfo info) {
                     super.onInitializeAccessibilityNodeInfo(host, info);
-                    info.setCheckable(true); info.setChecked(host.isSelected());
+                    info.setCheckable(selecting); info.setChecked(host.isSelected());
                 }
             });
             String state = marks.contains(message.optString("objectid")) ? "Marked for deletion"
@@ -619,7 +639,6 @@ public final class MainActivity extends MotionActivity {
                 preview.setMaxLines(1); preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 add(root, preview, 8);
             }
-            IconButton more = new IconButton("more", false);
             more.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(surface, 24), null));
             more.setContentDescription("Actions for voicemail from " + caller);
             more.setOnClickListener(v -> { if (selecting) toggleSelection(message); else showActions(message); });
@@ -631,7 +650,54 @@ public final class MainActivity extends MotionActivity {
                 search.clearFocus();
                 return true;
             });
+            selectionState(false);
+        }
 
+        void selectionState(boolean animate) {
+            boolean visible = root.isAttachedToWindow() && root.getGlobalVisibleRect(visibleBounds);
+            boolean motion = animate && visible && AppMotion.enabled(MainActivity.this);
+            boolean selected = selecting && selectedIds.contains(id);
+            boolean changedMode = rowSelectionMode != selecting;
+            rowSelectionMode = selecting;
+            if (changedMode) AppMotion.selectionLayout(heading, motion);
+            check.setEnabled(selecting); check.setFocusable(selecting);
+            check.setImportantForAccessibility(selecting ? View.IMPORTANT_FOR_ACCESSIBILITY_AUTO : View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+            check.setVisibility(selecting ? View.VISIBLE : View.GONE);
+            play.setEnabled(!selecting); more.setEnabled(!selecting);
+            play.setVisibility(selecting ? View.GONE : View.VISIBLE);
+            more.setVisibility(selecting ? View.GONE : View.VISIBLE);
+            check.setChecked(selected);
+            if (!motion) check.jumpDrawablesToCurrentState();
+            check.setContentDescription((selected ? "Deselect" : "Select") + " voicemail from " + caller);
+            root.setSelected(selected);
+            root.setContentDescription((selecting ? "Select" : "Open") + " voicemail from " + caller + ", " + when);
+            int target = selected ? accentSurface : surface;
+            if (!motion) {
+                if (selectionFill != null) { selectionFill.cancel(); selectionFill = null; }
+                selectionColor = selectionTarget = target; fill.setColor(target);
+            } else if (selectionTarget != target) {
+                if (selectionFill != null) selectionFill.cancel();
+                selectionTarget = target;
+                android.animation.ValueAnimator animator = android.animation.ValueAnimator.ofArgb(selectionColor, target);
+                selectionFill = animator;
+                animator.setDuration(160);
+                animator.setInterpolator(new android.view.animation.DecelerateInterpolator());
+                animator.addUpdateListener(value -> {
+                    selectionColor = (Integer)value.getAnimatedValue(); fill.setColor(selectionColor);
+                });
+                animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                    @Override public void onAnimationEnd(android.animation.Animator animation) {
+                        if (selectionFill == animation) selectionFill = null;
+                    }
+                });
+                animator.start();
+            }
+        }
+
+        void dispose() {
+            if (selectionFill != null) { selectionFill.cancel(); selectionFill = null; }
+            android.transition.TransitionManager.endTransitions(heading);
+            check.jumpDrawablesToCurrentState(); root.animate().cancel();
         }
     }
 
@@ -972,6 +1038,7 @@ public final class MainActivity extends MotionActivity {
     }
     @Override protected void onDestroy() {
         destroyed = true;
+        for (MessageRow row : rows.values()) row.dispose();
         if (Build.VERSION.SDK_INT >= 33 && selectionBackRegistered)
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(selectionBack);
         handler.removeCallbacksAndMessages(null); worker.shutdown();

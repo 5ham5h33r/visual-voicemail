@@ -19,3 +19,5 @@
 - Keep the expanded inbox header and messages on one native scroll surface. Preserve scroll position and compact actions; respect Reduce motion. Avoid persistent explanatory footer text and scroll-driven header-height changes. See docs/inbox-header.md.
 
 - Settings search filters the actual controls, preserves section context and the query across navigation/recreation, and never changes preferences merely by filtering. Keep the clear affordance hidden for empty search fields.
+
+- Selection changes update retained row/checkbox views in place so native checkmark transitions can finish. Keep state/actions immediate, cancel/retarget interrupted animations, and settle selection drawables/colors with Reduce motion.
