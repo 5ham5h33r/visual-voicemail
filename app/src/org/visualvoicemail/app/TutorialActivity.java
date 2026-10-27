@@ -1,191 +1,378 @@
 package org.visualvoicemail.app;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.ColorStateList;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.RippleDrawable;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
+import android.widget.*;
 
-/** Offline, optional guide. It never connects, plays audio, or requests permissions. */
+/** A short introduction and optional permission setup, followed by tips on the real interface. */
 public final class TutorialActivity extends Activity {
-    private static final String SEEN = "tutorial_seen", PAGE = "tutorial_page";
-    private static final String[] TOPICS = {"Welcome", "Connect your mailbox", "Inbox & search", "Playback", "Save & organize", "Notifications", "Make it yours"};
-    private static final String[] TITLES = {"Your voicemail,\nin one place", "Start with your\nMint SIM", "Find the message\nyou need", "Listen your way", "Keep what matters", "Know when\nvoicemail arrives", "Make it feel\nlike your phone"};
-    private static final String[] SUMMARIES = {
-        "A quick tour of Voice Mail. Swipe through, choose a topic, or come back whenever you need.",
-        "Connect to the voicemail you already have. This build supports Mint Mobile.",
-        "Your messages, with simple filters and search that works on your saved inbox.",
-        "Tap Play on a voicemail to open its player. One recording plays at a time.",
-        "Save a separate audio file, change read status, or organize messages without erasing them.",
-        "Enable alerts when you're ready. We'll notify you when a check finds new unread voicemail.",
-        "Open the Settings gear to adjust appearance, playback, contacts, notifications, and storage."
-    };
-    // Short, grouped instructions instead of a wall of text on each slide.
-    private static final String[][] HEADINGS = {
-        {"Use your existing mailbox", "Stay with your phone app", "Return whenever you need"},
-        {"Choose Mint for mobile data", "Tap Connect in the inbox", "Keep listening offline"},
-        {"All, Unread, and Marked", "Search names, numbers, or dates", "Refresh when you need"},
-        {"Play, pause, and seek", "Choose your listening style", "Leaving the app pauses audio"},
-        {"Save audio copy", "Mark as read or unread", "Deletion marks are reversible"},
-        {"Allow notifications", "Choose your check interval", "Check sound and delivery"},
-        {"Light, Dark, or AMOLED", "Your data stays under your control", "Help is always here"}
-    };
-    private static final String[][] DETAILS = {
-        {"Your recordings stay in your carrier mailbox. No call-forwarding setup is needed.", "Keep Samsung Phone or your preferred default dialer.", "Replay this guide from Settings → Help & tutorial. Nothing here changes your mailbox."},
-        {"Turn on mobile data and select Mint as the data SIM before the first connection or renewed sign-in.", "Once connected, your messages appear in the inbox. Connection help and Reconnect mailbox are in Settings.", "Audio you've already played is cached privately. Uncached recordings need a connection; mailbox refresh can use Wi-Fi after setup."},
-        {"Switch filters to find unread messages or messages you've marked for deletion.", "Contact names are optional: enable them in Settings and allow Contacts access. Names stay on this phone.", "Tap Refresh to check the carrier mailbox. Settings shows the last update and controls refresh on open."},
-        {"Use the progress bar to jump within the recording, or the skip buttons to move backward and forward.", "Settings lets you change playback speed, skip length, and device/speaker/earpiece output. The player shows its actual audio route.", "Playback pauses when you leave Voice Mail. Return and tap Play to resume."},
-        {"Open a message's three-dot menu. Choose the destination under Settings → Storage → Download location. Clearing playback cache keeps these saved copies.", "Use the message menu to change read status in your carrier mailbox. Listening alone doesn't mark a message read.", "Mark for deletion only marks a message on this phone. Find it in Marked and restore it from the menu. Permanent deletion is not available yet."},
-        {"Enable New voicemail alerts in Settings, then allow Android's notification permission. Tapping an alert opens your unread inbox.", "Checks default to about every 15 minutes, with 30-minute and 1-hour options. Android may delay them; these aren't instant push alerts.", "Settings includes sound, vibration, lock-screen controls, and a test notification. Force-stopping the app pauses checks until you reopen it."},
-        {"Follow the device theme or pick your own. AMOLED uses true-black backgrounds.", "Contact lookup is optional. The Privacy page explains local storage and how saved audio copies are handled.", "Replay any topic from Settings → Help & tutorial. Transcription, transcript search, and permanent message deletion are not available in this build."}
-    };
-    private int page, background, surface, primary, secondary, accent, accentSurface, divider;
+    private Ui ui;
+    private int page;
     private boolean replay;
+    private LinearLayout root;
     private ScrollView scroll;
+    private static final String SEEN = "tutorial_seen", PAGE = "tutorial_page";
+    private static final String[] TITLES = {
+        "Your voicemail.\nA little clearer.",
+        "Catch up at\nyour own pace.",
+        "Read it.\nHear what matters.",
+        "A few things\nto make it yours."
+    };
+    private static final String[] COPY = {
+        "A calm place for the messages you missed. Keep your existing mailbox and your favorite"
+            + " phone app.",
+        "Find a caller, pick up where you left off, and keep your inbox in order.",
+        "Turn recordings into text on this phone. Tap a phrase to hear it, or find the detail"
+            + " you're looking for.",
+        "Choose what helps you. Everything here is optional, and you can change it later in"
+            + " Settings."
+    };
 
-    static boolean needed(Context context) { return !context.getSharedPreferences("settings", MODE_PRIVATE).getBoolean(SEEN, false); }
-    static Intent replay(Context context) { return new Intent(context, TutorialActivity.class).putExtra("replay", true); }
-    static void acknowledge(Context context) { context.getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean(SEEN, true).putInt(PAGE, 0).apply(); }
-    @Override protected void attachBaseContext(Context base) { super.attachBaseContext(AppAppearance.context(base)); }
-    @Override public void onCreate(Bundle state) {
-        AppAppearance.apply(this); super.onCreate(state); setTitle("Voice Mail tutorial");
-        background=AppAppearance.background(this); surface=color(R.color.surface); primary=color(R.color.primary_text);
-        secondary=color(R.color.secondary_text); accent=color(R.color.accent); accentSurface=color(R.color.accent_surface); divider=color(R.color.divider);
-        replay=getIntent().getBooleanExtra("replay", false);
-        if(Build.VERSION.SDK_INT>=33) getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,this::previousOrExit);
-        page=state!=null?state.getInt(PAGE,0):replay?0:getSharedPreferences("settings",MODE_PRIVATE).getInt(PAGE,0);
-        page=Math.max(0,Math.min(page,TOPICS.length-1)); build(false);
-        if(state!=null) { final int y=state.getInt("scroll",0); scroll.post(()->scroll.scrollTo(0,y)); }
+    static boolean needed(Context c) {
+        return !c.getSharedPreferences("settings", 0).getBoolean(SEEN, false);
     }
-    private void build(boolean announce) {
-        LinearLayout root=column(); root.setBackgroundColor(background); root.setPadding(dp(24),dp(16),dp(24),dp(12));
-        root.setOnApplyWindowInsetsListener((view,insets)->{
-            if(Build.VERSION.SDK_INT>=30) {
-                android.graphics.Insets bars=insets.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.displayCutout());
-                view.setPadding(dp(24)+bars.left,dp(12)+bars.top,dp(24)+bars.right,dp(12)+bars.bottom);
-            } else view.setPadding(dp(24),dp(12)+insets.getSystemWindowInsetTop(),dp(24),dp(12)+insets.getSystemWindowInsetBottom());
-            return insets;
-        });
-        LinearLayout top=row(); top.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand=text("VOICE MAIL",13,secondary,false); brand.setLetterSpacing(.08f); brand.setSingleLine(true); brand.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        top.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        Button topics=button("Topics",false); topics.setContentDescription("Choose a tutorial topic"); topics.setOnClickListener(v->topics()); top.addView(topics);
-        Button skip=button(replay?"Close":"Skip",false); skip.setContentDescription(replay?"Close tutorial and return to Settings":"Skip tutorial and open inbox"); skip.setOnClickListener(v->complete()); top.addView(skip); root.addView(top);
 
-        TextView progress=text((page+1)+" OF "+TOPICS.length+" · "+TOPICS[page].toUpperCase(java.util.Locale.ROOT),12,secondary,false);
-        progress.setPadding(0,dp(12),0,dp(12)); progress.setContentDescription("Step "+(page+1)+" of "+TOPICS.length+". "+TOPICS[page]); root.addView(progress);
-        LinearLayout indicator=row(); indicator.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        for(int i=0;i<TOPICS.length;i++) {
-            View bar=new View(this); bar.setBackground(shape(i<=page?accent:divider,3));
-            LinearLayout.LayoutParams part=new LinearLayout.LayoutParams(0,dp(4),1); if(i>0)part.setMarginStart(dp(5)); indicator.addView(bar,part);
+    static Intent replay(Context c) {
+        return new Intent(c, TutorialActivity.class).putExtra("replay", true);
+    }
+
+    static void acknowledge(Context c) {
+        c.getSharedPreferences("settings", 0).edit().putBoolean(SEEN, true).putInt(PAGE, 0).apply();
+    }
+
+    @Override
+    protected void attachBaseContext(Context c) {
+        super.attachBaseContext(AppAppearance.context(c));
+    }
+
+    @Override
+    public void onCreate(Bundle state) {
+        AppAppearance.apply(this);
+        super.onCreate(state);
+        ui = new Ui(this);
+        replay = getIntent().getBooleanExtra("replay", false);
+        page =
+                state != null
+                        ? state.getInt(PAGE)
+                        : replay ? 0 : getSharedPreferences("settings", 0).getInt(PAGE, 0);
+        page = Math.max(0, Math.min(3, page));
+        if (Build.VERSION.SDK_INT >= 33)
+            getOnBackInvokedDispatcher()
+                    .registerOnBackInvokedCallback(
+                            android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::back);
+        build(false);
+    }
+
+    private void build(boolean animate) {
+        root = ui.column();
+        root.setBackgroundColor(ui.bg);
+        root.setPadding(ui.dp(24), 0, ui.dp(24), ui.dp(16));
+        root.setOnApplyWindowInsetsListener(
+                (v, insets) -> {
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        android.graphics.Insets b =
+                                insets.getInsets(
+                                        WindowInsets.Type.systemBars()
+                                                | WindowInsets.Type.displayCutout());
+                        v.setPadding(
+                                ui.dp(24) + b.left,
+                                b.top,
+                                ui.dp(24) + b.right,
+                                ui.dp(16) + b.bottom);
+                    } else
+                        v.setPadding(
+                                ui.dp(24),
+                                insets.getSystemWindowInsetTop(),
+                                ui.dp(24),
+                                ui.dp(16) + insets.getSystemWindowInsetBottom());
+                    return insets;
+                });
+        LinearLayout nav = ui.row();
+        if (page > 0)
+            nav.addView(ui.icon("back", "Previous introduction screen", false, this::back));
+        TextView brand = ui.label("VOICE MAIL", 12, ui.secondary, true);
+        brand.setLetterSpacing(.12f);
+        nav.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        Button skip = ui.button(replay ? "Close" : "Skip", false, () -> complete(false));
+        skip.setBackgroundColor(0);
+        nav.addView(skip);
+        root.addView(nav);
+        scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        LinearLayout body = ui.column();
+        body.setPadding(0, ui.dp(28), 0, ui.dp(20));
+        if (page == 0) {
+            ImageView icon = new ImageView(this);
+            icon.setImageResource(R.mipmap.ic_launcher);
+            body.addView(icon, new LinearLayout.LayoutParams(ui.dp(88), ui.dp(88)));
         }
-        root.addView(indicator);
-        scroll=new SlideScrollView(this); scroll.setFillViewport(false); scroll.setVerticalScrollBarEnabled(true);
-        LinearLayout content=column(); content.setPadding(0,dp(24),0,dp(20));
-        Illustration icon=new Illustration(this,page); icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        LinearLayout.LayoutParams art=new LinearLayout.LayoutParams(dp(80),dp(80)); art.bottomMargin=dp(22); content.addView(icon,art);
-        TextView title=text(TITLES[page],32,primary,true); if(Build.VERSION.SDK_INT>=28)title.setAccessibilityHeading(true);
-        content.addView(title); TextView summary=text(SUMMARIES[page],16,secondary,false); summary.setPadding(0,dp(12),0,dp(22)); content.addView(summary);
-        LinearLayout card=column(); card.setPadding(dp(20),dp(6),dp(20),dp(6)); card.setBackground(shape(surface,24));
-        for(int i=0;i<HEADINGS[page].length;i++) {
-            if(i>0) { View line=new View(this); line.setBackgroundColor(divider); card.addView(line,new LinearLayout.LayoutParams(-1,dp(1))); }
-            TextView heading=text(HEADINGS[page][i],16,primary,true); heading.setPadding(0,dp(16),0,dp(6)); card.addView(heading);
-            TextView detail=text(DETAILS[page][i],14,secondary,false); detail.setPadding(0,0,0,dp(16)); card.addView(detail);
+        TextView title = ui.label(TITLES[page], 36, ui.text, true);
+        title.setLineSpacing(ui.dp(2), 1);
+        ui.add(body, title, page == 0 ? 28 : 4);
+        TextView subtitle = ui.label(COPY[page], 17, ui.secondary, false);
+        subtitle.setLineSpacing(ui.dp(5), 1);
+        ui.add(body, subtitle, 16);
+        if (page == 0) {
+            feature(
+                    body,
+                    "Your existing mailbox",
+                    "Connect with Mint mobile data. No forwarding setup.",
+                    "sound");
+            feature(
+                    body,
+                    "Your phone, your choice",
+                    "Keep Samsung Phone as your default dialer.",
+                    "transcript");
+        } else if (page == 1) {
+            TextView demo = ui.label("TRY A SAMPLE", 12, ui.secondary, true);
+            ui.add(body, demo, 28);
+            final TextView result =
+                    ui.label("Tap a sample message to see its actions.", 13, ui.secondary, false);
+            LinearLayout sample = ui.column();
+            sample.setPadding(ui.dp(18), ui.dp(18), ui.dp(18), ui.dp(18));
+            sample.setBackground(ui.shape(ui.surface, 22));
+            sample.addView(ui.label("Alex Morgan", 18, ui.text, true));
+            ui.add(sample, ui.label("Today · 0:24 · Sample voicemail", 13, ui.secondary, false), 8);
+            LinearLayout actions = ui.column();
+            Button read =
+                    ui.button(
+                            "Try marking as read",
+                            false,
+                            () -> {
+                                result.setText(
+                                        "Sample marked read. Your real messages are unchanged.");
+                            });
+            Button mark =
+                    ui.button(
+                            "Try a deletion mark",
+                            false,
+                            () ->
+                                    result.setText(
+                                            "A deletion mark is reversible. It doesn't erase a"
+                                                + " carrier message."));
+            actions.addView(read, new LinearLayout.LayoutParams(-1, -2));
+            ui.add(actions, mark, 10);
+            ui.add(sample, actions, 18);
+            ui.add(body, sample, 14);
+            ui.add(body, result, 14);
+            feature(
+                    body,
+                    "Find it quickly",
+                    "Search contact names, dates, and saved transcripts.",
+                    "search");
+        } else if (page == 2) {
+            TextView demo = ui.label("TRY TAPPING A PHRASE · SAMPLE", 12, ui.secondary, true);
+            ui.add(body, demo, 28);
+            TextView position = ui.label("0:00  ━━━━━━━━━━━  0:24", 13, ui.accent, true);
+            String[] phrases = {
+                "Hey, it's Alex. Just calling to catch up.",
+                "Give me a call when you have a moment."
+            };
+            LinearLayout samples = ui.column();
+            for (int i = 0; i < phrases.length; i++) {
+                final int index = i;
+                Button phrase =
+                        ui.button(
+                                (i == 0 ? "0:02  " : "0:12  ") + phrases[i],
+                                false,
+                                () -> {
+                                    position.setText(
+                                            (index == 0 ? "0:02" : "0:12")
+                                                    + "  ━━━━━━━━━━━  0:24 · Sample position");
+                                });
+                phrase.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+                ui.add(samples, phrase, 10);
+            }
+            ui.add(body, samples, 14);
+            ui.add(body, position, 20);
+            TextView note =
+                    ui.label(
+                            "English transcription uses a one-time 104 MB model download when you"
+                                + " first need it. Audio stays on this phone. Phrase timing and"
+                                + " recognized words can be imperfect.",
+                            14,
+                            ui.secondary,
+                            false);
+            note.setLineSpacing(ui.dp(4), 1);
+            ui.add(body, note, 24);
+        } else {
+            boolean contacts =
+                    checkSelfPermission(android.Manifest.permission.READ_CONTACTS)
+                                    == PackageManager.PERMISSION_GRANTED
+                            && getSharedPreferences("settings", 0)
+                                    .getBoolean("contact_names", false);
+            permission(
+                    body,
+                    "Recognize your callers",
+                    "Optional Contacts access. Names are looked up on this phone.",
+                    contacts ? "Contacts enabled" : "Enable contact names",
+                    contacts,
+                    () -> {
+                        if (checkSelfPermission(android.Manifest.permission.READ_CONTACTS)
+                                == PackageManager.PERMISSION_GRANTED) {
+                            getSharedPreferences("settings", 0)
+                                    .edit()
+                                    .putBoolean("contact_names", true)
+                                    .apply();
+                            build(false);
+                        } else
+                            requestPermissions(
+                                    new String[] {android.Manifest.permission.READ_CONTACTS}, 41);
+                    });
+            permission(
+                    body,
+                    "Know when there's a message",
+                    "Alerts follow mailbox checks, about every 15 minutes. Android may delay"
+                        + " checks.",
+                    VoicemailAlerts.enabled(this) ? "Manage alerts" : "Enable alerts",
+                    false,
+                    () -> {
+                        getSharedPreferences("settings", 0)
+                                .edit()
+                                .putBoolean("alerts_prompted", true)
+                                .apply();
+                        if (VoicemailAlerts.enabled(this))
+                            startActivity(VoicemailAlerts.systemSettings(this));
+                        else VoicemailAlerts.enable(this, 45);
+                        build(false);
+                    });
+            TextView note =
+                    ui.label(
+                            "Light, Dark, and true-black AMOLED are in Settings. We'll point out"
+                                + " the main controls next.",
+                            14,
+                            ui.secondary,
+                            false);
+            note.setLineSpacing(ui.dp(4), 1);
+            ui.add(body, note, 24);
         }
-        content.addView(card); scroll.addView(content); LinearLayout.LayoutParams body=new LinearLayout.LayoutParams(-1,0,1); body.topMargin=dp(4); root.addView(scroll,body);
-        LinearLayout footer=row(); footer.setPadding(0,dp(12),0,0);
-        Button back=button("Back",false); back.setEnabled(page>0); if(page==0)back.setAlpha(.45f); back.setOnClickListener(v->move(-1));
-        footer.addView(back,new LinearLayout.LayoutParams(0,-2,1));
-        Button next=button(page==TOPICS.length-1?(replay?"Done":"Open inbox"):"Next",true); next.setOnClickListener(v->{if(page==TOPICS.length-1)complete();else move(1);});
-        LinearLayout.LayoutParams nextSize=new LinearLayout.LayoutParams(0,-2,1); nextSize.setMarginStart(dp(12)); footer.addView(next,nextSize); root.addView(footer);
-        if(announce && Build.VERSION.SDK_INT>=28)root.setAccessibilityPaneTitle("Step "+(page+1)+" of "+TOPICS.length+". "+TOPICS[page]);
+        scroll.addView(body);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        LinearLayout progress = ui.row();
+        progress.setGravity(Gravity.CENTER);
+        progress.setPadding(0, ui.dp(8), 0, ui.dp(16));
+        for (int i = 0; i < 4; i++) {
+            View dot = new View(this);
+            dot.setBackground(ui.shape(i == page ? ui.accent : ui.divider, 4));
+            LinearLayout.LayoutParams p =
+                    new LinearLayout.LayoutParams(ui.dp(i == page ? 24 : 6), ui.dp(6));
+            p.setMargins(ui.dp(4), 0, ui.dp(4), 0);
+            progress.addView(dot, p);
+        }
+        progress.setContentDescription("Introduction " + (page + 1) + " of 4");
+        root.addView(progress);
+        root.addView(
+                ui.button(
+                        page == 3 ? "Get Started" : "Continue",
+                        true,
+                        () -> {
+                            if (page == 3) complete(true);
+                            else {
+                                page++;
+                                getSharedPreferences("settings", 0)
+                                        .edit()
+                                        .putInt(PAGE, page)
+                                        .apply();
+                                build(true);
+                            }
+                        }),
+                new LinearLayout.LayoutParams(-1, -2));
         setContentView(root);
-        if(announce && Build.VERSION.SDK_INT<28)progress.announceForAccessibility("Step "+(page+1)+" of "+TOPICS.length+". "+TOPICS[page]);
+        if (animate) ui.enter(body);
     }
-    private void move(int delta) { int next=page+delta; if(next>=0&&next<TOPICS.length)go(next); }
-    private void go(int next) {
-        page=next;
-        if(!replay)getSharedPreferences("settings",MODE_PRIVATE).edit().putInt(PAGE,page).apply();
-        build(true);
+
+    private void feature(LinearLayout body, String title, String detail, String icon) {
+        LinearLayout row = ui.row();
+        row.setPadding(0, ui.dp(14), 0, ui.dp(14));
+        Ui.Icon symbol = ui.icon(icon, title, false, () -> {});
+        symbol.setClickable(false);
+        symbol.setFocusable(false);
+        symbol.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(symbol);
+        LinearLayout labels = ui.column();
+        labels.setPadding(ui.dp(12), 0, 0, 0);
+        labels.addView(ui.label(title, 16, ui.text, true));
+        TextView note = ui.label(detail, 14, ui.secondary, false);
+        note.setLineSpacing(ui.dp(3), 1);
+        ui.add(labels, note, 7);
+        row.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+        ui.add(body, row, 18);
     }
-    private void topics() {
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Tutorial topics").setSingleChoiceItems(TOPICS,page,(d,choice)->{d.dismiss();go(choice);})
-            .setNegativeButton("Cancel",null).create();
-        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface,28)); dialog.getButton(-2).setAllCaps(false);
+
+    private void permission(
+            LinearLayout parent,
+            String title,
+            String body,
+            String action,
+            boolean enabled,
+            Runnable click) {
+        LinearLayout card = ui.column();
+        card.setPadding(ui.dp(20), ui.dp(20), ui.dp(20), ui.dp(20));
+        card.setBackground(ui.shape(ui.surface, 22));
+        card.addView(ui.label(title, 18, ui.text, true));
+        TextView note = ui.label(body, 14, ui.secondary, false);
+        note.setLineSpacing(ui.dp(4), 1);
+        ui.add(card, note, 10);
+        Button button = ui.button(action, false, click);
+        button.setEnabled(!enabled);
+        ui.add(card, button, 18);
+        ui.add(parent, card, 20);
     }
-    private void complete() { acknowledge(this); setResult(RESULT_OK); finish(); }
-    private void previousOrExit() { if(page>0)move(-1);else complete(); }
-    @Override public void onBackPressed() { previousOrExit(); }
-    @Override protected void onSaveInstanceState(Bundle state) { state.putInt(PAGE,page); state.putInt("scroll",scroll.getScrollY()); super.onSaveInstanceState(state); }
-    private final class SlideScrollView extends ScrollView {
-        private float startX,startY;
-        SlideScrollView(Context context) { super(context); }
-        @Override public boolean onTouchEvent(MotionEvent event) {
-            if(event.getActionMasked()==MotionEvent.ACTION_DOWN) { startX=event.getX(); startY=event.getY(); }
-            if(event.getActionMasked()==MotionEvent.ACTION_UP) {
-                float dx=event.getX()-startX,dy=event.getY()-startY;
-                if(Math.abs(dx)>dp(72)&&Math.abs(dx)>Math.abs(dy)*1.5f) {
-                    MotionEvent cancel=MotionEvent.obtain(event); cancel.setAction(MotionEvent.ACTION_CANCEL); super.onTouchEvent(cancel); cancel.recycle();
-                    move(dx<0?1:-1); return true;
-                }
-            }
-            return super.onTouchEvent(event);
+
+    private void complete(boolean guide) {
+        acknowledge(this);
+        if (page == 3)
+            getSharedPreferences("settings", 0).edit().putBoolean("alerts_prompted", true).apply();
+        if (guide) {
+            getSharedPreferences("settings", 0).edit().putBoolean("guide_recording", true).apply();
+            startActivity(
+                    new Intent(this, MainActivity.class)
+                            .addFlags(
+                                    Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                            | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            .putExtra("guide", true));
         }
+        setResult(RESULT_OK);
+        finish();
     }
-    private final class Illustration extends View {
-        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG); private final int topic;
-        Illustration(Context context,int topic) { super(context); this.topic=topic; }
-        @Override protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas); canvas.save(); canvas.scale(getWidth()/80f,getHeight()/80f);
-            paint.setStyle(Paint.Style.FILL); paint.setColor(accentSurface); canvas.drawRoundRect(0,0,80,80,24,24,paint);
-            paint.setColor(accent); paint.setStrokeWidth(3); paint.setStrokeCap(Paint.Cap.ROUND); paint.setStrokeJoin(Paint.Join.ROUND); paint.setStyle(Paint.Style.STROKE);
-            if(topic==0) { canvas.drawCircle(27,40,9,paint);canvas.drawCircle(53,40,9,paint);canvas.drawLine(27,49,53,49,paint); }
-            else if(topic==1) {
-                Path sim=new Path();sim.moveTo(25,18);sim.lineTo(45,18);sim.lineTo(56,29);sim.lineTo(56,61);sim.lineTo(25,61);sim.close();canvas.drawPath(sim,paint);
-                canvas.drawRoundRect(32,36,49,51,3,3,paint);canvas.drawLine(40,36,40,51,paint);canvas.drawLine(32,43,49,43,paint);
-            } else if(topic==2) { canvas.drawCircle(35,35,14,paint);canvas.drawLine(46,46,59,59,paint); }
-            else if(topic==3) {
-                paint.setStyle(Paint.Style.FILL);Path play=new Path();play.moveTo(32,23);play.lineTo(56,40);play.lineTo(32,57);play.close();canvas.drawPath(play,paint);
-            } else if(topic==4) {
-                canvas.drawLine(40,20,40,47,paint);canvas.drawLine(29,37,40,48,paint);canvas.drawLine(51,37,40,48,paint);
-                canvas.drawLine(22,51,22,60,paint);canvas.drawLine(22,60,58,60,paint);canvas.drawLine(58,60,58,51,paint);
-            } else if(topic==5) {
-                Path bell=new Path();bell.moveTo(23,54);bell.lineTo(28,46);bell.lineTo(28,34);bell.cubicTo(28,15,52,15,52,34);bell.lineTo(52,46);bell.lineTo(57,54);bell.close();canvas.drawPath(bell,paint);canvas.drawArc(34,53,46,64,0,180,false,paint);
-            } else {
-                canvas.drawCircle(40,40,20,paint);paint.setStyle(Paint.Style.FILL);canvas.drawArc(24,24,56,56,-90,180,true,paint);
-            }
-            canvas.restore();
+
+    private void back() {
+        if (page > 0) {
+            page--;
+            build(true);
+        } else complete(false);
+    }
+
+    @Override
+    public void onBackPressed() {
+        back();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle s) {
+        super.onSaveInstanceState(s);
+        s.putInt(PAGE, page);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(request, permissions, results);
+        if (request == 41) {
+            boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
+            getSharedPreferences("settings", 0).edit().putBoolean("contact_names", ok).apply();
         }
+        if (request == 45) {
+            VoicemailAlerts.ensureScheduled(this);
+            VoicemailAlerts.checkSoon(this);
+        }
+        build(false);
     }
-    private Button button(String label,boolean filled) {
-        Button button=new Button(this);button.setText(label);button.setAllCaps(false);button.setTextSize(15);button.setTextColor(filled?background:accent);
-        button.setMinWidth(0);button.setMinimumWidth(0);button.setMinHeight(dp(52));button.setMinimumHeight(dp(52));button.setPadding(dp(14),dp(8),dp(14),dp(8));
-        button.setBackground(new RippleDrawable(ColorStateList.valueOf(divider),shape(filled?accent:background,18),null));return button;
-    }
-    private TextView text(String value,int size,int color,boolean bold) {
-        TextView view=new TextView(this);view.setText(value);view.setTextSize(size);view.setTextColor(color);view.setLineSpacing(dp(2),1.05f);
-        view.setTypeface(Typeface.create(bold?"sans-serif-medium":"sans-serif",0));return view;
-    }
-    private LinearLayout row() { LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.HORIZONTAL);return layout; }
-    private LinearLayout column() { LinearLayout layout=row();layout.setOrientation(LinearLayout.VERTICAL);return layout; }
-    private GradientDrawable shape(int color,int radius) { GradientDrawable shape=new GradientDrawable();shape.setColor(color);shape.setCornerRadius(dp(radius));return shape; }
-    private int color(int id) { return getResources().getColor(id,getTheme()); }
-    private int dp(int value) { return Math.round(value*getResources().getDisplayMetrics().density); }
 }

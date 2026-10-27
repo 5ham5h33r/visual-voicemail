@@ -34,6 +34,9 @@ jobs:
       - name: Check native theme text contrast
         if: matrix.module == 'app'
         run: python3 research/check_ui_contrast.py
+      - name: Compile native device regression checks
+        if: matrix.module == 'app'
+        run: python3 research/check_device_ui.py --compile-only
       - name: Check inbox, storage, and notification behavior
         if: matrix.module == 'app'
         run: python3 research/check_inbox_query.py
