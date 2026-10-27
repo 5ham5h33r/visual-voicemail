@@ -58,6 +58,15 @@ public final class CarrierClient {
 
     public JSONObject diagnostics() { return diagnostics; }
 
+    public long lastSyncTime() {
+        JSONObject saved = store.get("inbox.bin");
+        return saved == null ? 0 : saved.optLong("synced_at", 0);
+    }
+
+    public synchronized List<JSONObject> reconnect() throws Exception {
+        token = ""; tokenExpires = 0; return sync();
+    }
+
     private void stage(String name) throws Exception {
         diagnostics.put("stage", name);
         saveDiagnostics();
@@ -311,7 +320,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.6 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.7 Android");
     }
 
     private static byte[] read(InputStream input, int maximum) throws IOException {

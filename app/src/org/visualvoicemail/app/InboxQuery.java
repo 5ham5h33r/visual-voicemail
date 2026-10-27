@@ -20,4 +20,14 @@ public final class InboxQuery {
     public static boolean isRead(String flag) {
         return "Seen".equalsIgnoreCase(flag) || "1".equals(flag);
     }
+    public static int compareDates(String left, String right, boolean oldestFirst) {
+        Long a = timestamp(left), b = timestamp(right);
+        if (a == null) return b == null ? 0 : 1;
+        if (b == null) return -1;
+        return oldestFirst ? Long.compare(a,b) : Long.compare(b,a);
+    }
+    private static Long timestamp(String date) {
+        try { return java.time.OffsetDateTime.parse(date).toInstant().toEpochMilli(); }
+        catch (Exception ignored) { return null; }
+    }
 }

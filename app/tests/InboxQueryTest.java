@@ -33,6 +33,11 @@ public final class InboxQueryTest {
         expect(InboxQuery.isRead("1"), "Numeric read representation");
         expect(!InboxQuery.isRead("Recent"), "Recent means unread");
         expect(!InboxQuery.isRead(""), "Missing read flag is not assumed read");
+        expect(InboxQuery.compareDates("2026-10-12T12:00:00Z","2026-09-12T12:00:00Z",false)<0,"Newest messages sort first");
+        expect(InboxQuery.compareDates("2026-09-12T12:00:00Z","2026-10-12T12:00:00Z",true)<0,"Oldest messages sort first");
+        expect(InboxQuery.compareDates("2026-09-12T12:00:00Z","2026-09-12T08:00:00-04:00",false)==0,"Sorting uses instants across timezones");
+        expect(InboxQuery.compareDates("invalid","2026-09-12T12:00:00Z",true)>0,"Unknown dates sort last in oldest mode");
+        expect(InboxQuery.compareDates("invalid","2026-09-12T12:00:00Z",false)>0,"Unknown dates sort last in newest mode");
         System.out.println("Passed " + checks + " inbox search/read-flag checks.");
     }
 }

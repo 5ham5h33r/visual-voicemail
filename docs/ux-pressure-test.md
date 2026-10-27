@@ -4,6 +4,8 @@ Reviewed 2026-10-26 using the user's five questions. This is a heuristic assessm
 
 Version 0.6 follow-up: optional local contact-name display/search now addresses the contact-lookup gap below. Name access is explained and requested only when enabled; declining permission retains number/date search. The rest of this review records the v0.4 assessment and its still-open acceptance criteria. Transcription remains deferred.
 
+Version 0.7 follow-up: Settings adds visible last-sync information, refresh-on-open, connection help/reconnect, actual audio-output selection, speed/skip preferences, and storage/privacy controls. Speaker and earpiece routes were verified on the S24 Ultra. The incomplete permanent-deletion lifecycle, notifications, broad accessibility/performance validation, and uncertain read-update recovery remain open.
+
 Verdict: useful playback prototype; the complete everyday voicemail experience is not release-ready. System/light/dark themes, saved playback, explicit read-status verification, and reversible marks are strengths. The unresolved flows below are product gaps, not visual polish requests. Transcription remains outside the current milestone.
 
 ## 1. Where would users abandon onboarding?
