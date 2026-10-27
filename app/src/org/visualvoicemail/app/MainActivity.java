@@ -20,10 +20,16 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.telephony.PhoneNumberUtils;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -43,22 +49,29 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
-/** Original native inbox. No dialer role, server mutations, or transcription. */
+/** Original native inbox. No dialer role or transcription. */
 public final class MainActivity extends Activity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, MessageRow> rows = new HashMap<>();
     private List<JSONObject> inbox = new ArrayList<>();
     private CarrierClient carrier;
+    private MessageMarks marks;
     private AudioManager audio;
     private AudioFocusRequest focus;
     private MediaPlayer player;
     private LinearLayout messages;
     private TextView status;
     private Button refresh;
+    private EditText search;
+    private View headerBrand, headerTitle;
+    private TextView section;
+    private final Button[] filters = new Button[3];
+    private String query = "";
+    private int filter;
     private String activeId = "";
     private int generation;
-    private boolean loading, prepared, visible, syncing, destroyed;
+    private boolean loading, prepared, visible, syncing, destroyed, updatingRead;
     private int background, surface, primary, secondary, accent, accentSurface, divider, error;
     private final Runnable ticker = new Runnable() {
         @Override public void run() {
@@ -86,6 +99,8 @@ public final class MainActivity extends Activity {
         accent = color(R.color.accent); accentSurface = color(R.color.accent_surface);
         divider = color(R.color.divider); error = color(R.color.error);
         carrier = new CarrierClient(this);
+        marks = new MessageMarks(this);
+        if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); }
         audio = getSystemService(AudioManager.class);
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
@@ -109,7 +124,11 @@ public final class MainActivity extends Activity {
             int left, top, right, bottom;
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                left = bars.left; top = bars.top; right = bars.right; bottom = bars.bottom;
+                left = bars.left; top = bars.top; right = bars.right;
+                bottom = Math.max(bars.bottom, insets.getInsets(WindowInsets.Type.ime()).bottom);
+                int headingVisibility = insets.isVisible(WindowInsets.Type.ime()) ? View.GONE : View.VISIBLE;
+                if (headerBrand != null) headerBrand.setVisibility(headingVisibility);
+                if (headerTitle != null) headerTitle.setVisibility(headingVisibility);
             } else {
                 left = insets.getSystemWindowInsetLeft(); top = insets.getSystemWindowInsetTop();
                 right = insets.getSystemWindowInsetRight(); bottom = insets.getSystemWindowInsetBottom();
@@ -118,6 +137,7 @@ public final class MainActivity extends Activity {
             return insets;
         });
         LinearLayout top = row(); top.setGravity(Gravity.CENTER_VERTICAL);
+        headerBrand = top;
         TextView brand = text("MINT MOBILE", 13, secondary, true);
         brand.setLetterSpacing(0.10f);
         top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
@@ -127,12 +147,53 @@ public final class MainActivity extends Activity {
         top.addView(appearance, new LinearLayout.LayoutParams(dp(48), dp(48)));
         root.addView(top);
         TextView title = text("Voicemail", 36, primary, true);
+        headerTitle = title;
         add(root, title, 24);
         status = text("", 15, secondary, false);
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         add(root, status, 8);
+        LinearLayout searchBox = row(); searchBox.setGravity(Gravity.CENTER_VERTICAL);
+        searchBox.setBackground(shape(surface, 16));
+        search = new EditText(this);
+        search.setSingleLine(true); search.setTextSize(15); search.setTextColor(primary); search.setHintTextColor(secondary);
+        search.setHint("Search numbers or dates"); search.setContentDescription("Search voicemail by number or date");
+        search.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        search.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
+        search.setBackgroundColor(android.graphics.Color.TRANSPARENT); search.setPadding(dp(16), 0, 0, 0);
+        search.setMinHeight(dp(52)); search.setText(query);
+        searchBox.addView(search, new LinearLayout.LayoutParams(0, -2, 1));
+        IconButton clear = new IconButton("clear", false);
+        clear.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(surface, 24), null));
+        clear.setContentDescription("Clear voicemail search"); clear.setOnClickListener(v -> search.setText(""));
+        searchBox.addView(clear, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        search.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence text, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence text, int start, int before, int count) {
+                query = text.toString(); if (messages != null) render();
+            }
+            @Override public void afterTextChanged(Editable text) { }
+        });
+        search.setOnEditorActionListener((field, action, event) -> {
+            if (action == EditorInfo.IME_ACTION_SEARCH) {
+                getSystemService(InputMethodManager.class).hideSoftInputFromWindow(search.getWindowToken(), 0);
+                search.clearFocus(); return true;
+            }
+            return false;
+        });
+        add(root, searchBox, 20);
+        LinearLayout filterRow = row();
+        for (int i = 0; i < filters.length; i++) {
+            final int choice = i;
+            filters[i] = button("", false); filters[i].setMinWidth(0); filters[i].setMinimumWidth(0);
+            filters[i].setPadding(dp(8), 0, dp(8), 0);
+            filters[i].setOnClickListener(v -> { filter = choice; render(); });
+            LinearLayout.LayoutParams item = new LinearLayout.LayoutParams(0, -2, 1);
+            if (i > 0) item.setMarginStart(dp(8));
+            filterRow.addView(filters[i], item);
+        }
+        add(root, filterRow, 12);
         LinearLayout tools = row(); tools.setGravity(Gravity.CENTER_VERTICAL);
-        TextView section = text("INBOX", 13, secondary, true);
+        section = text("INBOX", 13, secondary, true);
         section.setLetterSpacing(0.08f);
         tools.addView(section, new LinearLayout.LayoutParams(0, -2, 1));
         refresh = button("Refresh", false);
@@ -161,7 +222,7 @@ public final class MainActivity extends Activity {
     }
 
     private void sync() {
-        if (syncing) return;
+        if (syncing || updatingRead) return;
         syncing = true; refresh.setEnabled(false); refresh.setText("Refreshing…");
         status.setTextColor(secondary); status.setText("Checking your mailbox…");
         worker.execute(() -> {
@@ -192,15 +253,41 @@ public final class MainActivity extends Activity {
 
     private void render() {
         messages.removeAllViews(); rows.clear();
-        if (inbox.isEmpty()) {
+        List<JSONObject> shown = new ArrayList<>(); int markedCount = 0;
+        for (JSONObject message : inbox) {
+            boolean marked = marks.contains(message.optString("objectid"));
+            if (marked) markedCount++;
+            if (filter == 1 && InboxQuery.isRead(message.optString("flag"))) continue;
+            if (filter == 2 && !marked) continue;
+            if (InboxQuery.matches(query, message.optString("returnnumber"), caller(message), message.optString("date"), date(message))) shown.add(message);
+        }
+        String[] labels = {"All", "Unread", "Marked" + (markedCount == 0 ? "" : " (" + markedCount + ")")};
+        for (int i = 0; i < filters.length; i++) {
+            filters[i].setText(labels[i]); filters[i].setSelected(filter == i);
+            filters[i].setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(filter == i ? accentSurface : background, 24), null));
+            filters[i].setContentDescription(labels[i] + " voicemails" + (filter == i ? ", selected" : ""));
+        }
+        section.setText(query.trim().isEmpty() && filter == 0 ? "INBOX" : shown.size() + (shown.size() == 1 ? " RESULT" : " RESULTS"));
+        boolean activeShown = false;
+        for (JSONObject message : shown) if (activeId.equals(message.optString("objectid"))) activeShown = true;
+        if (!activeShown && player != null && prepared && player.isPlaying()) pause("filtered_out");
+        try {
+            carrier.diagnostics().put("search_result_count", shown.size()).put("search_active", !query.trim().isEmpty())
+                .put("deletion_mark_count", markedCount).put("inbox_filter", filter);
+            carrier.saveDiagnostics();
+        } catch (Exception ignored) { }
+        if (shown.isEmpty()) {
             LinearLayout empty = column(); empty.setPadding(dp(24), dp(32), dp(24), dp(32));
             empty.setBackground(shape(surface, 24));
-            empty.addView(text(carrier.hasSession() ? "No voicemails" : "Your voicemail, here", 18, primary, true));
-            add(empty, text(carrier.hasSession() ? "Refresh to check for new messages."
+            boolean narrowed = !query.trim().isEmpty() || filter != 0;
+            empty.addView(text(narrowed ? "No matching voicemails" : carrier.hasSession() ? "No voicemails" : "Your voicemail, here", 18, primary, true));
+            add(empty, text(narrowed ? "Try a different search or choose All."
+                : carrier.hasSession() ? "Refresh to check for new messages."
                 : "Connect once using Mint mobile data. Your messages will appear here, ready to play.", 15, secondary, false), 12);
             messages.addView(empty); return;
         }
-        for (JSONObject message : inbox) {
+        if (filter == 2) add(messages, text("Marked on this phone. No recordings have been deleted. Use Restore to remove a mark.", 13, secondary, false), 8);
+        for (JSONObject message : shown) {
             String id = message.optString("objectid");
             MessageRow card = new MessageRow(message);
             rows.put(id, card); add(messages, card.root, 12);
@@ -235,8 +322,17 @@ public final class MainActivity extends Activity {
             heading.addView(play, playSize);
             play.setContentDescription("Play voicemail from " + caller);
             play.setOnClickListener(v -> toggle(message)); root.addView(heading);
-            saved = text(carrier.cachedAudio(message) == null ? "Tap play to download" : "Saved on this phone", 13, secondary, false);
-            add(root, saved, 16);
+            String state = marks.contains(message.optString("objectid")) ? "Marked for deletion"
+                : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
+            saved = text(state + " · " + (carrier.cachedAudio(message) == null ? "Tap play to download" : "Saved on this phone"), 13, secondary, false);
+            LinearLayout details = row(); details.setGravity(Gravity.CENTER_VERTICAL);
+            details.addView(saved, new LinearLayout.LayoutParams(0, -2, 1));
+            IconButton more = new IconButton("more", false);
+            more.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(surface, 24), null));
+            more.setContentDescription("Actions for voicemail from " + caller);
+            more.setOnClickListener(v -> showActions(message));
+            details.addView(more, new LinearLayout.LayoutParams(dp(48), dp(48))); add(root, details, 8);
+            root.setOnLongClickListener(v -> { showActions(message); return true; });
             seek.setProgressTintList(ColorStateList.valueOf(accent));
             seek.setThumbTintList(ColorStateList.valueOf(accent));
             seek.setProgressBackgroundTintList(ColorStateList.valueOf(divider));
@@ -266,6 +362,44 @@ public final class MainActivity extends Activity {
             transport.setVisibility(activeId.equals(message.optString("objectid")) ? View.VISIBLE : View.GONE);
             add(root, transport, 8);
         }
+    }
+
+    private void showActions(JSONObject message) {
+        boolean read = InboxQuery.isRead(message.optString("flag"));
+        String id = message.optString("objectid"); boolean marked = marks.contains(id);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Voicemail actions")
+            .setItems(new String[]{read ? "Mark as unread" : "Mark as read", marked ? "Restore from deletion marks" : "Mark for deletion"}, (selection, action) -> {
+                if (action == 0) changeRead(message, !read);
+                else if (marks.set(id, !marked)) {
+                    render(); status.setTextColor(secondary);
+                    status.setText(marked ? "Deletion mark removed" : "Marked for deletion on this phone · Nothing erased");
+                } else { status.setTextColor(error); status.setText("Couldn't save the deletion mark. Try again."); }
+            }).setNegativeButton("Cancel", null).create();
+        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setAllCaps(false);
+    }
+
+    private void changeRead(JSONObject message, boolean read) {
+        if (updatingRead || syncing) { status.setText("Wait for the current mailbox update, then try again."); return; }
+        updatingRead = true; refresh.setEnabled(false);
+        status.setTextColor(secondary); status.setText(read ? "Marking as read…" : "Marking as unread…");
+        worker.execute(() -> {
+            try {
+                List<JSONObject> result = carrier.setRead(message.optString("objectid"), read);
+                runOnUiThread(() -> {
+                    if (destroyed) return;
+                    updatingRead = false; refresh.setEnabled(true); inbox = result; render();
+                    status.setTextColor(secondary); status.setText(read ? "Marked as read · Synced with carrier" : "Marked as unread · Synced with carrier");
+                });
+            } catch (Exception exception) {
+                carrier.saveDiagnostics();
+                runOnUiThread(() -> {
+                    if (destroyed) return;
+                    updatingRead = false; refresh.setEnabled(true); status.setTextColor(error);
+                    status.setText("Couldn't confirm read status. Refresh to check your mailbox, then retry.");
+                });
+            }
+        });
     }
 
     private void toggle(JSONObject message) {
@@ -398,6 +532,11 @@ public final class MainActivity extends Activity {
                 Path triangle = new Path(); triangle.moveTo(-5,-9); triangle.lineTo(9,0); triangle.lineTo(-5,9); triangle.close(); canvas.drawPath(triangle, paint);
             } else if ("pause".equals(symbol)) {
                 canvas.drawRoundRect(-7,-9,-2,9,1,1,paint); canvas.drawRoundRect(2,-9,7,9,1,1,paint);
+            } else if ("clear".equals(symbol)) {
+                paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.8f);
+                canvas.drawLine(-5,-5,5,5,paint); canvas.drawLine(-5,5,5,-5,paint);
+            } else if ("more".equals(symbol)) {
+                canvas.drawCircle(-6,0,1.6f,paint); canvas.drawCircle(0,0,1.6f,paint); canvas.drawCircle(6,0,1.6f,paint);
             } else {
                 paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.8f); canvas.drawCircle(0,0,9,paint);
                 paint.setStyle(Paint.Style.FILL); canvas.drawArc(-7,-7,7,7,-90,180,true,paint);
@@ -453,6 +592,9 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(top); parent.addView(child, params);
     }
     @Override protected void onStart() { super.onStart(); visible = true; handler.post(ticker); }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString("query", query); state.putInt("filter", filter); super.onSaveInstanceState(state);
+    }
     @Override protected void onStop() {
         visible = false; handler.removeCallbacks(ticker); pause("background_paused"); super.onStop();
     }
