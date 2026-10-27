@@ -13,6 +13,7 @@ An independently signed Android app now authenticates to Mint's existing voicema
 - [Protected sessions and offline playback](docs/offline-inbox.md)
 - [Native inbox, light/dark themes, and playback controls](docs/inbox-design.md)
 - [Search, read/unread status, and reversible deletion marks](docs/search-actions.md)
+- [Five-question UX pressure test and open findings](docs/ux-pressure-test.md)
 - [Build the voicemail app](app/README.md)
 - [Build the diagnostic Android app](probe/README.md)
 
