@@ -4,11 +4,12 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The intended app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-An independently signed Android app now authenticates to Mint's existing voicemail service and loads the real mailbox without carrier privileges or a default-dialer role. Playback is the next milestone. Transcription is intentionally deferred until the user has tried playback.
+An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Transcription is intentionally deferred until the user has tried playback.
 
 - [Carrier protocol and device findings](docs/carrier-research.md)
 - [Independent probe results and limits](docs/independent-probe.md)
 - [Mailbox access validation](docs/mailbox-access.md)
+- [Live playback validation](docs/playback-validation.md)
 - [Build the diagnostic Android app](probe/README.md)
 
 ## Development
