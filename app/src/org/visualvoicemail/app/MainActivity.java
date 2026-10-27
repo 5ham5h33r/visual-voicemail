@@ -82,6 +82,7 @@ public final class MainActivity extends Activity {
     private Button refresh;
     private EditText search;
     private View headerBrand, headerTitle;
+    private TextView carrierName;
     private TextView section;
     private final Button[] filters = new Button[3];
     private String query = "";
@@ -150,9 +151,11 @@ public final class MainActivity extends Activity {
         });
         LinearLayout top = row(); top.setGravity(Gravity.CENTER_VERTICAL);
         headerBrand = top;
-        TextView brand = text("MINT MOBILE", 13, secondary, true);
-        brand.setLetterSpacing(0.10f);
-        top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        carrierName = text("", 13, secondary, true);
+        carrierName.setLetterSpacing(0.10f); carrierName.setSingleLine(true);
+        carrierName.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        updateCarrierName();
+        top.addView(carrierName, new LinearLayout.LayoutParams(0, -2, 1));
         IconButton settings = new IconButton("settings", false);
         settings.setContentDescription("Settings");
         settings.setOnClickListener(v -> startActivityForResult(new Intent(this, SettingsActivity.class), SETTINGS_REQUEST));
@@ -744,6 +747,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         if (displayedAppearance!=AppAppearance.mode(this)) { recreate(); return; }
+        updateCarrierName();
         // A background check may have updated the persisted inbox while this screen was stopped.
         if (!syncing && !updatingRead) inbox = carrier.cachedInbox();
         render();
@@ -760,6 +764,11 @@ public final class MainActivity extends Activity {
                 getSharedPreferences("settings",MODE_PRIVATE).edit().putLong("last_open_refresh_attempt",now).apply(); sync();
             }
         }
+    }
+    private void updateCarrierName() {
+        String name=SimCarrier.name(this);
+        carrierName.setText(name.toUpperCase(Locale.ROOT));
+        carrierName.setContentDescription("Carrier: "+name);
     }
     private void offerAlerts() {
         if (!visible || !carrier.hasSession() || isFinishing() || getSharedPreferences("settings",MODE_PRIVATE).getBoolean("alerts_prompted",false)) return;
