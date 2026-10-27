@@ -72,7 +72,7 @@ public final class MainActivity extends MotionActivity {
     private List<JSONObject> inbox = new ArrayList<>();
     private final java.util.Set<String> selectedIds = new java.util.LinkedHashSet<>();
     private List<JSONObject> shownMessages = new ArrayList<>();
-    private boolean selecting, selectionBackRegistered;
+    private boolean selecting, selectionBackRegistered, displayedSelection;
     private LinearLayout selectionBar, bulkBar, batchPanel, inboxTools;
     private TextView selectionCount, batchText;
     private Button selectAll, selectControl, batchCancel, batchDismiss;
@@ -185,7 +185,10 @@ public final class MainActivity extends MotionActivity {
         settings.setContentDescription("Settings");
         settings.setOnClickListener(v -> startActivityForResult(new Intent(this, SettingsActivity.class), SETTINGS_REQUEST));
         top.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        root.addView(top);
+        SelectionChrome.Toolbar toolbar = new SelectionChrome.Toolbar(this);
+        toolbar.setMinimumHeight(dp(48));
+        toolbar.addView(top,new FrameLayout.LayoutParams(-1,-2,Gravity.CENTER_VERTICAL));
+        root.addView(toolbar);
         selectionBar = row(); selectionBar.setGravity(Gravity.CENTER_VERTICAL);
         IconButton close = new IconButton("clear", false);
         close.setContentDescription("Cancel voicemail selection");
@@ -202,12 +205,12 @@ public final class MainActivity extends MotionActivity {
         bulkMore.setContentDescription("More selected voicemail actions");
         bulkMore.setOnClickListener(v -> showBulkActions());
         selectionBar.addView(bulkMore, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        root.addView(selectionBar);
+        toolbar.addView(selectionBar,new FrameLayout.LayoutParams(-1,-2,Gravity.CENTER_VERTICAL));
         inboxScroll = new InboxScrollView(this);
         inboxScroll.setClipToPadding(false); inboxScroll.setFillViewport(true);
         inboxScroll.setVerticalScrollBarEnabled(false);
         LinearLayout scrollContent = column();
-        inboxHeader = column();
+        inboxHeader = new SelectionChrome.Header(this);
         TextView title = text("Voicemail", Ui.PAGE_TITLE, primary, true);
         headerTitle = title;
         add(inboxHeader, title, 12);
@@ -290,7 +293,7 @@ public final class MainActivity extends MotionActivity {
             if (i > 0) size.setMarginStart(dp(6));
             bulkBar.addView(control, size);
         }
-        add(root, bulkBar, 4);
+        add(root, bulkBar, 0);
         batchPanel = column();
         batchText = text("", 13, secondary, false);
         batchText.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
@@ -308,6 +311,7 @@ public final class MainActivity extends MotionActivity {
         inboxScroll.addView(scrollContent);
         root.addView(inboxScroll, new LinearLayout.LayoutParams(-1, 0, 1));
         inboxScroll.bind(inboxHeader, title, carrierName, compact, searchAction, filterAction);
+        inboxScroll.bindSelection(toolbar,top,selectionBar,bulkBar);
         setContentView(root);
     }
 
@@ -430,28 +434,21 @@ public final class MainActivity extends MotionActivity {
     private void updateSelection() { updateSelection(false); }
 
     private void updateSelection(boolean animate) {
-        boolean modeChanged = selecting != (selectionBar.getVisibility() == View.VISIBLE);
+        boolean modeChanged = selecting != displayedSelection;
+        displayedSelection = selecting;
         if (selecting && inboxHeader.getVisibility() != View.GONE) {
             getSystemService(InputMethodManager.class).hideSoftInputFromWindow(search.getWindowToken(), 0);
             search.clearFocus();
         }
-        selectionBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
-        inboxTools.setVisibility(selecting ? View.GONE : View.VISIBLE);
-        bulkBar.setVisibility(selecting ? View.VISIBLE : View.GONE);
-        headerBrand.setVisibility(selecting ? View.GONE : View.VISIBLE);
-        inboxScroll.selectionMode(selecting);
+        inboxScroll.selectionMode(selecting, animate);
+        inboxTools.setVisibility(View.VISIBLE);
         compactTitle.setText(filter == 1 ? "Unread voicemail" : filter == 2 ? "Marked voicemail" : "Voicemail");
-        selectControl.setVisibility(!selecting && !shownMessages.isEmpty() ? View.VISIBLE : View.GONE);
+        selectControl.setVisibility(!shownMessages.isEmpty() ? View.VISIBLE : View.GONE);
         String count = selectedIds.size() + " selected";
         boolean countChanged = !count.contentEquals(selectionCount.getText());
         selectionCount.setText(count);
-        if (modeChanged) {
-            AppMotion.settle(selectionCount); AppMotion.settle(selectionBar); AppMotion.settle(headerBrand); AppMotion.settle(bulkBar);
-            if (animate) {
-                AppMotion.reveal(selecting ? selectionBar : headerBrand, 160, 0);
-                if (selecting) AppMotion.reveal(bulkBar, 160, 0);
-            }
-        } else if (animate && countChanged) AppMotion.reveal(selectionCount, 120, 0);
+        if (modeChanged) AppMotion.settle(selectionCount);
+        else if (animate && countChanged) AppMotion.reveal(selectionCount, 120, 0);
         selectAll.setText(!shownMessages.isEmpty() && selectedIds.size() == shownMessages.size() ? "Deselect all" : "Select all");
         selectAll.setContentDescription("Select or deselect all " + shownMessages.size() + " voicemails in current results");
         for (int i = 0; i < bulkBar.getChildCount(); i++)
@@ -1025,7 +1022,7 @@ public final class MainActivity extends MotionActivity {
         });
     }
     @Override protected void onSaveInstanceState(Bundle state) {
-        state.putInt("inbox_scroll", inboxScroll.getScrollY());
+        state.putInt("inbox_scroll", inboxScroll.savedOffset());
         state.putBoolean("selection_expand", inboxScroll.expandOnExit());
         state.putBoolean("selecting", selecting);
         state.putStringArrayList("selected_ids", new ArrayList<>(selectedIds));

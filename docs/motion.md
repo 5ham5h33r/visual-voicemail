@@ -24,3 +24,13 @@ Rapid changes cancel and retarget the current card color, while entering/leaving
 Reduce motion and Android's disabled-animation state settle checkmark drawables, card colors, and layout changes immediately. Native checkbox press/ripple behavior is retained; no tap waits for an animation. The S24 Ultra passed 30 selection checks, with an active native checkbox animation observed, plus retained-view identity, immediate model changes, color completion, rapid reversals, Select all, rapid mode exit/re-entry, accessibility states, and reduced motion. Synthetic inbox entries were view-only; no carrier flags or personal audio were changed.
 
 The build also passed 43 bulk-action checks (including waiting for inbox window focus after dismissing a dialog), 38 header, 32 onboarding, 28 quality/motion, and 33 navigation regressions: 204 phone checks in total. All 108 host checks and native theme contrast checks passed.
+
+## Coordinated selection chrome in version 0.22
+
+Long-press selection no longer removes the expanded header in one layout step. One 220 ms animator coordinates header height/opacity, bulk-action height, toolbar crossfade, and the native list offset. Both toolbar states share one frame, so swapping titles does not change their footprint. The expanded header and the list move together; an already-scrolled inbox keeps its list-relative position.
+
+A reversal starts from the current rendered height and opacity. Only the logically active toolbar receives touches or accessibility focus during the fade; the outgoing search/header controls cannot take input. Selection state and row/checkmark feedback still update immediately. Reduced motion settles the complete layout without a transition. Saving state during a transition uses the target coordinate system rather than a partially collapsed header.
+
+The native gesture check samples real pre-draw frames from a physical long press on a synthetic inbox. It checks a partial visible header, gradual list movement, the final state, physical toolbar taps, reversal, scrolled-list preservation, reduced motion, and recreation mid-transition. No carrier writes or personal audio are involved.
+
+The S24 Ultra passed 19 transition checks, sampling 40 rendered frames with a largest list-position step of 58 physical pixels across a 927-pixel header. The existing 30 selection, 43 bulk-action, 38 header, 32 onboarding, 33 navigation, and 28 quality/motion checks also passed: 223 phone checks total. All 108 host behavior checks and native theme contrast checks passed. App preferences were restored and version 0.22 was reopened with the normal inbox.
