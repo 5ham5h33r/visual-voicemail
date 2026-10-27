@@ -6,13 +6,13 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-Version 0.17 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and reversible deletion marks.
+Version 0.18 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and reversible deletion marks.
 
 English transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
 
 ## Screenshots
 
-Screenshots show the compact interface on the S24 Ultra, including version 0.17 bulk selection and version 0.16 model choices. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
+Screenshots show the compact interface on the S24 Ultra, including version 0.18 expanded/collapsed headers and bulk selection. Long-inbox and selection examples use synthetic messages; the model-choice page is from version 0.16. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
 
 <table>
   <tr><th>Recording · Dark</th><th>Recording · Light</th><th>Recording · AMOLED</th></tr>
@@ -26,6 +26,12 @@ Screenshots show the compact interface on the S24 Ultra, including version 0.17 
     <td><a href="docs/screenshots/inbox-dark.png"><img src="docs/screenshots/inbox-dark.png" width="230" alt="Dark inbox with personal details hidden"></a></td>
     <td><a href="docs/screenshots/inbox-light.png"><img src="docs/screenshots/inbox-light.png" width="230" alt="Light inbox with personal details hidden"></a></td>
     <td><a href="docs/screenshots/inbox-amoled.png"><img src="docs/screenshots/inbox-amoled.png" width="230" alt="True-black inbox with personal details hidden"></a></td>
+  </tr>
+  <tr><th>Scrolled inbox · Light</th><th>Scrolled inbox · Dark</th><th>Scrolled inbox · AMOLED</th></tr>
+  <tr>
+    <td><a href="docs/screenshots/collapsed-light.png"><img src="docs/screenshots/collapsed-light.png" width="230" alt="Sample inbox with compact toolbar in Light"></a></td>
+    <td><a href="docs/screenshots/collapsed-dark.png"><img src="docs/screenshots/collapsed-dark.png" width="230" alt="Sample inbox with compact toolbar in Dark"></a></td>
+    <td><a href="docs/screenshots/collapsed-amoled.png"><img src="docs/screenshots/collapsed-amoled.png" width="230" alt="Sample inbox with compact toolbar in AMOLED"></a></td>
   </tr>
   <tr><th>Guided controls</th><th>Interactive introduction</th><th>Settings</th></tr>
   <tr>
@@ -53,6 +59,7 @@ Screenshots show the compact interface on the S24 Ultra, including version 0.17 
 - [Native inbox, light/dark themes, and playback controls](docs/inbox-design.md)
 - [Search, read/unread status, and reversible deletion marks](docs/search-actions.md)
 - [Inbox selection and bulk actions](docs/bulk-actions.md)
+- [Scrolling inbox header](docs/inbox-header.md)
 - [App settings and playback preferences](docs/settings.md)
 - [Motion and responsive tap feedback](docs/motion.md)
 - [Compact layout and back navigation](docs/compact-interface.md)

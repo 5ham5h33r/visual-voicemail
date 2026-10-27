@@ -13,3 +13,5 @@ Version 0.15 refreshes the full current gallery for the compact layout. Every sc
 Version 0.16 refreshes the transcription-quality screenshot with the three real downloaded model choices, including full Whisper Large v3. This page contains only public model information and was visually reviewed before committing. Other screenshots retain the unchanged compact 0.15 interface.
 
 Version 0.17 adds reviewed bulk-selection captures in Light, Dark, and AMOLED. Caller names/numbers, dates, and transcript previews were replaced in native views before capture. The images contain no personal voicemail text or audio. Original theme and refresh preferences were restored; no message flags or deletion marks were changed by capture.
+
+Version 0.18 refreshes expanded inbox, guided inbox, and bulk-selection images, and adds scrolled-inbox examples in Light, Dark, and AMOLED. Long inbox and selection captures use synthetic messages; scrolled examples are labeled Sample inbox. All caller/date details are hidden in native views. All ten updated images were visually reviewed before copying them here. Preferences were restored and the normal inbox was reopened after capture/tests.
