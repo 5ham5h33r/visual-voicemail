@@ -2,6 +2,8 @@
 
 Original Android application for Mint's existing carrier voicemail mailbox. This milestone authenticates over Mint cellular data, displays the actual inbox, downloads recordings privately, and plays them through Android's native player. Samsung Phone remains the default dialer. The app has no carrier privileges. Network access is required; Contacts access is optional for caller-name lookup and search.
 
+View the [screenshot gallery](../README.md#screenshots) for the inbox, player, settings, themes, and tutorial. Caller details are hidden in the documentation images.
+
 Build with Python 3.9+ and Java 17+:
 
 ```sh
