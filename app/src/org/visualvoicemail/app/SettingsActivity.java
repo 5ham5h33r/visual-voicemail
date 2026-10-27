@@ -34,6 +34,7 @@ import java.util.Locale;
 public final class SettingsActivity extends Activity {
     static final int REFRESH = 1, RECONNECT = 2, CLEAR_DOWNLOADS = 3;
     private static final int CONTACT_PERMISSION = 41;
+    private static final int DOWNLOAD_FOLDER = 43;
     static final String ACTION = "settings_action";
     private SharedPreferences preferences;
     private LinearLayout content;
@@ -123,19 +124,21 @@ public final class SettingsActivity extends Activity {
         note(mailbox,"New-message alerts are not available in this build. Open the inbox or refresh it to check for voicemail.");
 
         LinearLayout storage = group("STORAGE");
+        row(storage,"Download location",DownloadFolder.describe(this),()->downloadLocation());
+        note(storage,"Used by Save audio copy in a message's menu. Saved copies are ordinary audio files in your selected folder. Playback uses a separate private cache; existing copies are not moved.");
         try {
             long[] stats = RecordingCache.stats(new File(getFilesDir(),"audio"));
-            note(storage,stats[0]+(stats[0]==1?" downloaded recording":" downloaded recordings")+" · "+size(stats[1]));
+            note(storage,stats[0]+(stats[0]==1?" privately cached recording":" privately cached recordings")+" · "+size(stats[1]));
         } catch (Exception ignored) { note(storage,"Downloaded storage is currently unavailable."); }
-        row(storage,"Clear downloaded audio","Keep carrier messages and the saved inbox", () -> confirm("Clear downloaded audio?",
-            "Remove downloaded recording files from this phone. Keep the saved inbox and carrier messages. A connection may be needed to play recordings again.",
-            "Clear downloads", () -> action(CLEAR_DOWNLOADS)));
+        row(storage,"Clear playback cache","Keep saved audio copies, carrier messages, and the inbox", () -> confirm("Clear playback cache?",
+            "Remove the app's private playback files. Saved copies in your download folder, the inbox, and carrier messages are kept. A connection may be needed to play recordings again.",
+            "Clear cache", () -> action(CLEAR_DOWNLOADS)));
 
         LinearLayout privacy = group("PRIVACY & PERMISSIONS");
         row(privacy,"App permissions","Manage Contacts and other Android app permissions", () ->
             open(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()))));
         row(privacy,"Privacy","How messages, contacts, and downloads are handled", () -> info("Privacy",
-            "Mailbox credentials and inbox metadata are encrypted on this phone using Android Keystore. Recordings use app-private storage.\n\nContact names are looked up locally and kept in memory. Names and search queries are not sent to the carrier or a project server.\n\nThere are no analytics or advertising services. Mailbox authentication and message requests communicate with the carrier."));
+            "Mailbox credentials and inbox metadata are encrypted on this phone using Android Keystore. Playback files use app-private storage. Saved audio copies go to your chosen folder and follow that folder's access and backup rules.\n\nContact names are looked up locally and kept in memory. Names and search queries are not sent to the carrier or a project server.\n\nThere are no analytics or advertising services. Mailbox authentication and message requests communicate with the carrier."));
 
         LinearLayout about = group("ABOUT");
         String version;
@@ -159,6 +162,25 @@ public final class SettingsActivity extends Activity {
     }
 
     static float speed(Context context) { return SPEED_VALUES[clamp(context.getSharedPreferences("settings",MODE_PRIVATE).getInt("playback_speed",1),SPEED_VALUES.length)]; }
+    private void downloadLocation() {
+        AlertDialog.Builder builder=new AlertDialog.Builder(this).setTitle("Download location")
+            .setMessage(DownloadFolder.describe(this)+"\n\nChoose where Save audio copy writes recordings. Other apps with folder access can open saved copies. Changing this location does not move existing files or the private playback cache.")
+            .setPositiveButton("Choose folder",(d,w)->{
+                try { startActivityForResult(DownloadFolder.picker(this),DOWNLOAD_FOLDER); }
+                catch(android.content.ActivityNotFoundException ignored) { info("Folder picker unavailable","No file manager is available to choose a folder."); }
+            }).setNegativeButton("Cancel",null);
+        if(DownloadFolder.selected(this)!=null) builder.setNeutralButton("Forget folder",(d,w)->{
+            if(DownloadFolder.forget(this)) build(); else info("Location not changed","The download location couldn't be cleared. Try again.");
+        });
+        show(builder.create());
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data);
+        if(request==DOWNLOAD_FOLDER&&result==RESULT_OK) {
+            try { DownloadFolder.remember(this,data); build(); }
+            catch(Exception failed) { info("Location not changed",failed.getMessage()==null?"Choose another folder and try again.":failed.getMessage()); }
+        }
+    }
     private static int clamp(int value,int size) { return Math.max(0,Math.min(value,size-1)); }
     private void contactSettings() {
         boolean granted=checkSelfPermission(android.Manifest.permission.READ_CONTACTS)==PackageManager.PERMISSION_GRANTED;

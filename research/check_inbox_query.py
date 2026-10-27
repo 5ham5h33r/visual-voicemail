@@ -15,6 +15,9 @@ subprocess.run([JAVA, '-jar', str(TOOLS / 'ecj.jar'), '-8', '-encoding', 'UTF-8'
                 '-d', str(output), str(ROOT / 'app/src/org/visualvoicemail/app/InboxQuery.java'),
                 str(ROOT / 'app/tests/InboxQueryTest.java'),
                 str(ROOT / 'app/src/org/visualvoicemail/app/RecordingCache.java'),
-                str(ROOT / 'app/tests/SettingsLogicTest.java')], check=True)
+                str(ROOT / 'app/tests/SettingsLogicTest.java'),
+                str(ROOT / 'app/src/org/visualvoicemail/app/ExportAudioFormat.java'),
+                str(ROOT / 'app/tests/ExportAudioFormatTest.java')], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.InboxQueryTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.SettingsLogicTest'], check=True)
+subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.ExportAudioFormatTest'], check=True)

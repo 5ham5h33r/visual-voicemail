@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.content.pm.PackageManager;
 import android.os.CancellationSignal;
 import android.content.res.ColorStateList;
@@ -64,6 +65,9 @@ public final class MainActivity extends Activity {
     private int displayedAppearance, pendingSettingsAction, requestedOutput;
     private boolean clearingDownloads;
     private static final int SETTINGS_REQUEST = 42;
+    private static final int DOWNLOAD_FOLDER_REQUEST = 44;
+    private String pendingSaveId = "";
+    private boolean savingCopy;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, MessageRow> rows = new HashMap<>();
     private List<JSONObject> inbox = new ArrayList<>();
@@ -106,7 +110,7 @@ public final class MainActivity extends Activity {
         divider = color(R.color.divider); error = color(R.color.error);
         carrier = new CarrierClient(this);
         marks = new MessageMarks(this);
-        if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); pendingSettingsAction = state.getInt("settings_action", 0); }
+        if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); pendingSettingsAction = state.getInt("settings_action", 0); pendingSaveId=state.getString("pending_save",""); }
         audio = getSystemService(AudioManager.class);
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
@@ -373,8 +377,9 @@ public final class MainActivity extends Activity {
         boolean read = InboxQuery.isRead(message.optString("flag"));
         String id = message.optString("objectid"); boolean marked = marks.contains(id);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Voicemail actions")
-            .setItems(new String[]{read ? "Mark as unread" : "Mark as read", marked ? "Restore from deletion marks" : "Mark for deletion"}, (selection, action) -> {
+            .setItems(new String[]{read ? "Mark as unread" : "Mark as read", marked ? "Restore from deletion marks" : "Mark for deletion", "Save audio copy"}, (selection, action) -> {
                 if (action == 0) changeRead(message, !read);
+                else if(action==2) saveCopy(message);
                 else if (marks.set(id, !marked)) {
                     render(); status.setTextColor(secondary);
                     status.setText(marked ? "Deletion mark removed" : "Marked for deletion on this phone · Nothing erased");
@@ -382,6 +387,41 @@ public final class MainActivity extends Activity {
             }).setNegativeButton("Cancel", null).create();
         dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setAllCaps(false);
+    }
+
+    private void saveCopy(JSONObject message) {
+        if(savingCopy || clearingDownloads) { status.setText("Wait for the current file operation, then try again."); return; }
+        Uri destination=DownloadFolder.selected(this);
+        if(!DownloadFolder.accessible(this,destination)) {
+            AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Choose download location")
+                .setMessage("Choose a folder for saved audio copies. These are ordinary audio files that other apps with folder access can open. Carrier messages and the private playback cache are kept.")
+                .setPositiveButton("Choose folder",(d,w)->{
+                    pendingSaveId=message.optString("objectid");
+                    try { startActivityForResult(DownloadFolder.picker(this),DOWNLOAD_FOLDER_REQUEST); }
+                    catch(android.content.ActivityNotFoundException unavailable) { pendingSaveId=""; status.setText("No file manager is available to choose a download folder."); }
+                }).setNegativeButton("Cancel",null).create();
+            dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
+            dialog.getButton(-1).setAllCaps(false); dialog.getButton(-2).setAllCaps(false); return;
+        }
+        savingCopy=true; status.setTextColor(secondary); status.setText("Saving audio copy…");
+        worker.execute(()->{
+            try {
+                File recording=carrier.audio(message);
+                DownloadFolder.save(getApplicationContext(),destination,recording,message.optString("date"));
+                record("audio_copy_saved",true);
+                runOnUiThread(()->{
+                    if(destroyed)return;
+                    savingCopy=false; render(); status.setTextColor(secondary); status.setText("Audio copy saved · "+DownloadFolder.describe(this));
+                });
+            } catch(Exception failure) {
+                record("audio_copy_saved",false);
+                runOnUiThread(()->{
+                    if(destroyed)return;
+                    savingCopy=false; status.setTextColor(error);
+                    status.setText("Couldn't save the audio copy. Check Download location in Settings and your connection, then retry.");
+                });
+            }
+        });
     }
 
     private void changeRead(JSONObject message, boolean read) {
@@ -408,6 +448,7 @@ public final class MainActivity extends Activity {
     }
 
     private void toggle(JSONObject message) {
+        if(clearingDownloads) { status.setText("Wait for the playback cache to finish clearing."); return; }
         String id = message.optString("objectid");
         if (activeId.equals(id) && player != null && prepared) {
             if (player.isPlaying()) pause("paused"); else start();
@@ -686,6 +727,15 @@ public final class MainActivity extends Activity {
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
         if (request==SETTINGS_REQUEST && result==RESULT_OK && data!=null) pendingSettingsAction=data.getIntExtra(SettingsActivity.ACTION,0);
+        if(request==DOWNLOAD_FOLDER_REQUEST) {
+            String requested=pendingSaveId; pendingSaveId="";
+            if(result!=RESULT_OK) return;
+            try {
+                DownloadFolder.remember(this,data);
+                for(JSONObject message:inbox) if(requested.equals(message.optString("objectid"))) { saveCopy(message); return; }
+                status.setText("Download location saved. Refresh the inbox and choose a message to save.");
+            } catch(Exception failed) { status.setTextColor(error); status.setText("Download location couldn't be saved. Choose another folder and try again."); }
+        }
     }
     @Override protected void onResume() {
         super.onResume();
@@ -705,19 +755,20 @@ public final class MainActivity extends Activity {
     }
     private void clearDownloads() {
         if (clearingDownloads) return;
-        clearingDownloads=true; release(); activeId=""; refresh.setEnabled(false); status.setText("Clearing downloaded audio…");
+        clearingDownloads=true; release(); activeId=""; refresh.setEnabled(false); status.setText("Clearing playback cache…");
         worker.execute(()->{
             try {
                 RecordingCache.clear(new File(getFilesDir(),"audio"));
-                runOnUiThread(()->{ if(destroyed)return; clearingDownloads=false; refresh.setEnabled(true); render(); status.setTextColor(secondary); status.setText("Downloads cleared · Carrier messages kept"); });
+                runOnUiThread(()->{ if(destroyed)return; clearingDownloads=false; refresh.setEnabled(true); render(); status.setTextColor(secondary); status.setText("Playback cache cleared · Saved copies and carrier messages kept"); });
             } catch(Exception failed) {
-                runOnUiThread(()->{ if(destroyed)return; clearingDownloads=false; refresh.setEnabled(true); render(); status.setTextColor(error); status.setText("Some downloads couldn't be cleared. Try again."); });
+                runOnUiThread(()->{ if(destroyed)return; clearingDownloads=false; refresh.setEnabled(true); render(); status.setTextColor(error); status.setText("Some playback files couldn't be cleared. Try again."); });
             }
         });
     }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putString("query", query); state.putInt("filter", filter); super.onSaveInstanceState(state);
         state.putInt("settings_action",pendingSettingsAction);
+        state.putString("pending_save",pendingSaveId);
     }
     @Override protected void onStop() {
         visible = false; handler.removeCallbacks(ticker); pause("background_paused"); super.onStop();
