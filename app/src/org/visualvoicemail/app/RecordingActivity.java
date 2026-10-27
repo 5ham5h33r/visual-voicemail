@@ -1,6 +1,5 @@
 package org.visualvoicemail.app;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.res.ColorStateList;
@@ -21,7 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** Recording detail: one player, a persistent local transcript, and audio-backed phrase anchors. */
-public final class RecordingActivity extends Activity {
+public final class RecordingActivity extends MotionActivity {
     private Ui ui;
     private JSONObject message;
     private String id, find = "";
@@ -37,7 +36,9 @@ public final class RecordingActivity extends Activity {
     private TextView time, remaining, playerState, transcriptState, matchCount;
     private LinearLayout transcriptBody, transcriptTools, findBox;
     private ScrollView scroll;
-    private Button speechAction, cancelSpeech, speed;
+    private Button speechAction, cancelSpeech, speed, qualityControl;
+    private boolean transcribeAfterDownload;
+    private String setupQuality = "";
     private EditText search;
     private Transcript transcript;
     private final List<TextView> lines = new ArrayList<>();
@@ -77,6 +78,9 @@ public final class RecordingActivity extends Activity {
         }
         find = state == null ? getIntent().getStringExtra("find") : state.getString("find", "");
         if (find == null) find = "";
+        transcribeAfterDownload =
+                state != null && state.getBoolean("transcribe_after_download", false);
+        setupQuality = state == null ? "" : state.getString("setup_quality", "");
         pendingPosition = state == null ? 0 : state.getInt("position", 0);
         selectedMatch = state == null ? 0 : state.getInt("match", 0);
         autoPlay = state == null && getIntent().getBooleanExtra("play", false);
@@ -240,10 +244,7 @@ public final class RecordingActivity extends Activity {
                         "Find in transcript",
                         false,
                         () -> {
-                            findBox.setVisibility(
-                                    findBox.getVisibility() == View.VISIBLE
-                                            ? View.GONE
-                                            : View.VISIBLE);
+                            AppMotion.visibility(findBox, findBox.getVisibility() != View.VISIBLE);
                             if (findBox.getVisibility() == View.VISIBLE) {
                                 search.requestFocus();
                                 getSystemService(android.view.inputmethod.InputMethodManager.class)
@@ -252,6 +253,18 @@ public final class RecordingActivity extends Activity {
                         });
         heading.addView(transcriptSearch);
         ui.add(content, heading, 28);
+        qualityControl =
+                ui.button(
+                        "",
+                        false,
+                        () ->
+                                startActivity(
+                                        new android.content.Intent(
+                                                this, TranscriptionSettingsActivity.class)));
+        qualityControl.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        qualityControl.setTextSize(14);
+        qualityControl.setPadding(ui.dp(12), 0, ui.dp(12), 0);
+        ui.add(content, qualityControl, 10);
         findBox = ui.column();
         LinearLayout findRow = ui.row();
         findRow.setBackground(ui.shape(ui.surface, 14));
@@ -340,6 +353,7 @@ public final class RecordingActivity extends Activity {
                                         : "Timing unavailable. ")
                                 + s.text);
                 line.setFocusable(true);
+                AppMotion.press(line);
                 line.setOnClickListener(
                         v -> {
                             if (s.start >= 0) seekTo(s.start, true);
@@ -451,8 +465,12 @@ public final class RecordingActivity extends Activity {
     }
 
     private void updateSpeech() {
+        TranscriptionQuality quality = Transcription.selected(this);
+        boolean ready = Transcription.ready(this);
         String state =
-                Transcription.busy
+                quality.key
+                        + ready
+                        + Transcription.busy
                         + "|"
                         + Transcription.job
                         + "|"
@@ -463,53 +481,89 @@ public final class RecordingActivity extends Activity {
                         + Transcription.cancelled;
         if (state.equals(lastSpeechState)) return;
         lastSpeechState = state;
+        qualityControl.setText(quality.label() + "  ›");
+        qualityControl.setContentDescription(
+                "Transcription quality. " + quality.label() + ". Change quality");
+        if (transcribeAfterDownload
+                && (!quality.key.equals(setupQuality)
+                        || (!Transcription.busy && Transcription.cancelled)))
+            transcribeAfterDownload = false;
         if (wasBusy && !Transcription.busy) {
+            if (!Transcription.failure.isEmpty()) transcribeAfterDownload = false;
             transcript = Transcription.cached(this, id);
             showTranscript();
-            if (transcript == null && Transcription.ready(this) && Transcription.failure.isEmpty())
-                Transcription.generate(this, message);
+            if (id.equals(Transcription.job) && Transcription.failure.isEmpty())
+                AppMotion.reveal(transcriptBody, 180, 6);
+        }
+        if (transcribeAfterDownload
+                && !Transcription.busy
+                && ready
+                && Transcription.failure.isEmpty()) {
+            transcribeAfterDownload = false;
+            Transcription.generate(this, message);
         }
         wasBusy = Transcription.busy;
         boolean own =
                 Transcription.busy && (Transcription.downloading || id.equals(Transcription.job));
+        boolean changed = transcript != null && !quality.key.equals(transcript.quality);
+        String work =
+                Transcription.cancelled
+                        ? "Cancelling after the current operation…"
+                        : Transcription.status;
+        String problem =
+                (!Transcription.failure.isEmpty()
+                                && (id.equals(Transcription.job)
+                                        || Transcription.job.equals("model")))
+                        ? Transcription.failure
+                        : "";
         if (transcript != null) {
+            String saved = TranscriptionQuality.forKey(transcript.quality).title;
             transcriptState.setText(
-                    transcript.segments.isEmpty()
-                            ? "No speech detected. You can still listen to the recording."
-                            : "English · Saved on this phone\n"
-                                  + "Tap a phrase to play. Phrase timing is approximate; check"
-                                  + " important details against the audio.");
-            transcriptTools.setVisibility(View.GONE);
+                    own
+                            ? work
+                            : !problem.isEmpty()
+                                    ? problem + " Your previous transcript is kept."
+                                    : transcript.segments.isEmpty()
+                                            ? "No speech detected. You can still listen to the"
+                                                    + " recording."
+                                            : "English · Saved with "
+                                                    + saved
+                                                    + "\n"
+                                                    + (changed
+                                                            ? "Choose Update transcript to use "
+                                                                    + quality.title
+                                                                    + "."
+                                                            : "Tap a phrase to play. Phrase timing"
+                                                                    + " is approximate."));
+            transcriptTools.setVisibility(changed || own ? View.VISIBLE : View.GONE);
         } else {
             transcriptTools.setVisibility(View.VISIBLE);
-            if (own)
-                transcriptState.setText(
-                        Transcription.cancelled
-                                ? "Cancelling after the current operation…"
-                                : Transcription.status);
-            else if (!Transcription.failure.isEmpty()
-                    && (id.equals(Transcription.job) || Transcription.job.equals("model")))
-                transcriptState.setText(Transcription.failure);
-            else
-                transcriptState.setText(
-                        Transcription.ready(this)
-                                ? "Create a transcript privately on this phone."
-                                : "Read your voicemail here. Download the English speech model once"
-                                      + " (104 MB); recordings stay on this phone.");
-            speechAction.setText(
+            transcriptState.setText(
                     own
-                            ? "Working…"
-                            : Transcription.ready(this)
-                                    ? "Transcribe recording"
-                                    : "Set up transcription");
-            speechAction.setEnabled(!Transcription.busy);
-            cancelSpeech.setVisibility(own ? View.VISIBLE : View.GONE);
-            cancelSpeech.setEnabled(!Transcription.cancelled);
+                            ? work
+                            : !problem.isEmpty()
+                                    ? problem
+                                    : ready
+                                            ? "Create a transcript privately on this phone."
+                                            : "Download "
+                                                    + quality.label()
+                                                    + " once ("
+                                                    + quality.sizeLabel()
+                                                    + "). Recordings stay on this phone.");
             if (Transcription.busy && !own)
                 transcriptState.setText(
                         "Another recording is being transcribed. You can listen while it"
-                            + " finishes.");
+                                + " finishes.");
         }
+        speechAction.setText(
+                own
+                        ? "Working…"
+                        : transcript != null
+                                ? "Update transcript"
+                                : ready ? "Transcribe recording" : "Set up transcription");
+        speechAction.setEnabled(!Transcription.busy);
+        cancelSpeech.setVisibility(own ? View.VISIBLE : View.GONE);
+        cancelSpeech.setEnabled(!Transcription.cancelled);
     }
 
     private void speechAction() {
@@ -518,19 +572,31 @@ public final class RecordingActivity extends Activity {
             updateSpeech();
             return;
         }
+        TranscriptionQuality quality = Transcription.selected(this);
         ui.show(
                 new AlertDialog.Builder(this)
-                        .setTitle("On-device transcription")
+                        .setTitle("Download " + quality.title + "?")
                         .setMessage(
-                                "Download the English Whisper model (104 MB) from its public model"
-                                    + " host. Wi-Fi is recommended. Your audio and transcript stay"
-                                    + " on this phone. Listening works while setup finishes.")
+                                quality.label()
+                                        + " needs a one-time "
+                                        + quality.sizeLabel()
+                                        + " download from its public model host. Wi-Fi is"
+                                        + " recommended. Audio and transcripts stay on this phone."
+                                        + " Listening remains available.")
                         .setPositiveButton(
                                 "Download",
                                 (d, w) -> {
+                                    transcribeAfterDownload = true;
+                                    setupQuality = quality.key;
                                     Transcription.download(this);
                                     updateSpeech();
                                 })
+                        .setNeutralButton(
+                                "Change quality",
+                                (d, w) ->
+                                        startActivity(
+                                                new android.content.Intent(
+                                                        this, TranscriptionSettingsActivity.class)))
                         .setNegativeButton("Not now", null)
                         .create());
     }
@@ -798,10 +864,10 @@ public final class RecordingActivity extends Activity {
                 new AlertDialog.Builder(this)
                         .setTitle("Recording options")
                         .setItems(
-                                new String[] {"Find in transcript", "Transcribe again"},
+                                new String[] {"Find in transcript", "Update transcript"},
                                 (d, w) -> {
                                     if (w == 0) {
-                                        findBox.setVisibility(View.VISIBLE);
+                                        AppMotion.visibility(findBox, true);
                                         search.requestFocus();
                                     } else if (!Transcription.busy) {
                                         if (!Transcription.ready(this)) {
@@ -809,8 +875,6 @@ public final class RecordingActivity extends Activity {
                                             return;
                                         }
                                         Transcription.generate(this, message);
-                                        transcript = null;
-                                        showTranscript();
                                         updateSpeech();
                                     }
                                 })
@@ -826,21 +890,21 @@ public final class RecordingActivity extends Activity {
                         play,
                         "Listen at your pace",
                         "Play and pause here. Use the progress bar or the small skip controls to"
-                            + " move through the recording.",
+                                + " move through the recording.",
                         false));
         tips.add(
                 new GuideOverlay.Tip(
                         transcriptHeading,
                         "Read along",
                         "Set up the English model once. Transcripts stay on this phone, and tapping"
-                            + " a phrase plays that part of the audio.",
+                                + " a phrase plays that part of the audio.",
                         false));
         tips.add(
                 new GuideOverlay.Tip(
                         transcriptSearch,
                         "Find the detail",
                         "Search a word or phrase, then use previous and next to move between"
-                            + " matches. Searching won't start playback.",
+                                + " matches. Searching won't start playback.",
                         false));
         GuideOverlay.show(
                 this,
@@ -908,6 +972,11 @@ public final class RecordingActivity extends Activity {
     protected void onResume() {
         super.onResume();
         visible = true;
+        if (transcript == null
+                && !Transcription.busy
+                && Transcription.ready(this)
+                && getSharedPreferences("settings", 0).getBoolean("auto_transcribe", true)
+                && Transcription.failure.isEmpty()) Transcription.generate(this, message);
         handler.removeCallbacks(tick);
         handler.post(tick);
     }
@@ -932,6 +1001,8 @@ public final class RecordingActivity extends Activity {
     protected void onSaveInstanceState(Bundle s) {
         super.onSaveInstanceState(s);
         s.putString("find", find);
+        s.putBoolean("transcribe_after_download", transcribeAfterDownload);
+        s.putString("setup_quality", setupQuality);
         s.putInt("match", selectedMatch);
         s.putInt("position", prepared ? player.getCurrentPosition() : pendingPosition);
         s.putInt("scroll", scroll.getScrollY());

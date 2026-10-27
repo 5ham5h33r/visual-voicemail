@@ -31,7 +31,7 @@ import java.util.Date;
 import java.util.Locale;
 
 /** User settings with working preferences and explicit boundaries for unavailable features. */
-public final class SettingsActivity extends Activity {
+public final class SettingsActivity extends MotionActivity {
     static final int REFRESH = 1, RECONNECT = 2, CLEAR_DOWNLOADS = 3;
     private static final int CONTACT_PERMISSION = 41;
     private static final int DOWNLOAD_FOLDER = 43;
@@ -86,6 +86,8 @@ public final class SettingsActivity extends Activity {
                 preferences.edit().putInt("appearance",choice).apply(); recreate();
             }));
 
+        toggle(appearance,"Reduce motion","Use immediate feedback without scaling or content animations. Android's Remove animations setting is also respected.","reduce_motion",false);
+
         LinearLayout help = group("HELP & TUTORIAL");
         row(help,"App tutorial","Replay the guide to setup, messages, playback, saving, and alerts",()->startActivity(TutorialActivity.replay(this)));
 
@@ -113,15 +115,14 @@ public final class SettingsActivity extends Activity {
         note(playback,"Playback pauses when you leave the app. A selected phone output must be available before playback starts.");
 
         LinearLayout transcription = group("TRANSCRIPTION");
+        row(transcription,"Transcription quality",Transcription.selected(this).label()+" · "+(Transcription.ready(this)?"Ready":Transcription.selected(this).sizeLabel()+" download"),()->startActivity(new Intent(this,TranscriptionSettingsActivity.class)));
         toggle(transcription,"Transcribe on open","Once the English model is ready, transcribe recordings as you open them.","auto_transcribe",true);
-        note(transcription,Transcription.ready(this)?"English model ready · Recognition runs on this phone":"English transcription · One-time 104 MB model download from the recording screen");
+        note(transcription,"English recognition runs on this phone. Choose Standard for speed or Enhanced for a larger model; download and manage either option under Transcription quality.");
         note(transcription,"Opening a recording generates a transcript once the model is ready. Speech detection supplies approximate phrase anchors. Tap a phrase to play from there; use Find in transcript to search. Check important details against the audio.");
         row(transcription,"Clear saved transcripts","Keep recordings, carrier messages, and the speech model",()->confirm("Clear saved transcripts?","Transcripts saved on this phone will be removed. Open a recording to generate its transcript again.","Clear transcripts",()->{
             info("Saved transcripts",Transcription.clear(this,false)?"Saved transcripts cleared.":"Wait for transcription or a model download to finish, then retry.");build();
         }));
-        row(transcription,"Remove speech model","Free about 104 MB; keep saved transcripts and recordings",()->confirm("Remove speech model?","Existing transcripts remain readable and searchable. A new model download will be needed to transcribe more recordings.","Remove model",()->{
-            info("Speech model",Transcription.clear(this,true)?"Speech model removed.":"Wait for transcription or a model download to finish, then retry.");build();
-        }));
+
 
         LinearLayout mailbox = group("MAILBOX & SYNC");
         CarrierClient client = CarrierClient.get(this);
@@ -266,7 +267,8 @@ public final class SettingsActivity extends Activity {
         show(new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton(label,(d,w)->confirmed.run()).setNegativeButton("Cancel",null).create());
     }
     private void show(AlertDialog dialog) {
-        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
+        if(!AppMotion.enabled(this))dialog.getWindow().setWindowAnimations(0);
+        dialog.show(); AppMotion.buttons(dialog); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
         for (int which:new int[]{-1,-2,-3}) if (dialog.getButton(which)!=null) dialog.getButton(which).setAllCaps(false);
     }
     private void action(int action) { setResult(RESULT_OK,new Intent().putExtra(ACTION,action)); finish(); }
@@ -284,15 +286,15 @@ public final class SettingsActivity extends Activity {
         TextView view=text("",16,primary); view.setText(label(title,detail)); view.setPadding(dp(20),dp(16),dp(20),dp(16));
         view.setMinHeight(dp(72)); view.setGravity(Gravity.CENTER_VERTICAL); view.setFocusable(true); view.setClickable(true);
         view.setBackground(new RippleDrawable(ColorStateList.valueOf(divider),null,shape(surface,0)));
-        view.setContentDescription(title+". "+detail); view.setOnClickListener(v->action.run()); parent.addView(view,new LinearLayout.LayoutParams(-1,-2));
+        view.setContentDescription(title+". "+detail); AppMotion.press(view); view.setOnClickListener(v->action.run()); parent.addView(view,new LinearLayout.LayoutParams(-1,-2));
     }
     private void toggle(LinearLayout parent,String title,String detail,String key,boolean fallback) {
-        Switch toggle=new Switch(this); toggle.setText(label(title,detail)); toggle.setTextSize(16); toggle.setTextColor(primary);
+        Switch toggle=new AppMotion.Switch(this); toggle.setText(label(title,detail)); toggle.setTextSize(16); toggle.setTextColor(primary);
         toggle.setPadding(dp(20),dp(16),dp(20),dp(16)); toggle.setMinHeight(dp(72)); toggle.setSwitchPadding(dp(16));
         int[][] states={new int[]{android.R.attr.state_checked},new int[]{}};
         toggle.setThumbTintList(new ColorStateList(states,new int[]{accent,secondary}));
         toggle.setTrackTintList(new ColorStateList(states,new int[]{color(R.color.accent_surface),divider}));
-        toggle.setChecked(preferences.getBoolean(key,fallback)); toggle.setOnCheckedChangeListener((v,checked)->preferences.edit().putBoolean(key,checked).apply());
+        toggle.setChecked(preferences.getBoolean(key,fallback)); toggle.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean(key,checked).apply();AppMotion.configure(this);});
         parent.addView(toggle,new LinearLayout.LayoutParams(-1,-2));
     }
     private void note(LinearLayout parent,String detail) { TextView view=text(detail,13,secondary); view.setPadding(dp(20),dp(16),dp(20),dp(16)); parent.addView(view); }

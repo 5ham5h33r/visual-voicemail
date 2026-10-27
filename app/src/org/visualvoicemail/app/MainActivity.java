@@ -48,7 +48,7 @@ import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
 /** Native carrier inbox with local transcript search; no dialer role. */
-public final class MainActivity extends Activity {
+public final class MainActivity extends MotionActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ExecutorService contactWorker = Executors.newSingleThreadExecutor();
     private Map<String, String> contactNames = new HashMap<>();
@@ -183,7 +183,7 @@ public final class MainActivity extends Activity {
             final int choice = i;
             filters[i] = button("", false); filters[i].setMinWidth(0); filters[i].setMinimumWidth(0);
             filters[i].setPadding(dp(8), 0, dp(8), 0);
-            filters[i].setOnClickListener(v -> { filter = choice; render(); });
+            filters[i].setOnClickListener(v -> { if(filter==choice)return; filter = choice; render(); AppMotion.reveal(messages,140,4); });
             LinearLayout.LayoutParams item = new LinearLayout.LayoutParams(0, -2, 1);
             if (i > 0) item.setMarginStart(dp(8));
             filterRow.addView(filters[i], item);
@@ -306,7 +306,7 @@ public final class MainActivity extends Activity {
             play.setContentDescription("Play voicemail from " + caller);
             play.setOnClickListener(v -> openRecording(message, true)); root.addView(heading);
             root.setOnClickListener(v -> openRecording(message, false));
-            root.setFocusable(true);
+            root.setFocusable(true); AppMotion.press(root);
             root.setContentDescription("Open voicemail from " + caller + ", " + date(message));
             String state = marks.contains(message.optString("objectid")) ? "Marked for deletion"
                 : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
@@ -364,7 +364,7 @@ public final class MainActivity extends Activity {
                     status.setText(marked ? "Deletion mark removed" : "Marked for deletion on this phone · Nothing erased");
                 } else { status.setTextColor(error); status.setText("Couldn't save the deletion mark. Try again."); }
             }).setNegativeButton("Cancel", null).create();
-        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
+        if(!AppMotion.enabled(this))dialog.getWindow().setWindowAnimations(0); dialog.show(); AppMotion.buttons(dialog); dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setAllCaps(false);
     }
 
@@ -379,7 +379,7 @@ public final class MainActivity extends Activity {
                     try { startActivityForResult(DownloadFolder.picker(this),DOWNLOAD_FOLDER_REQUEST); }
                     catch(android.content.ActivityNotFoundException unavailable) { pendingSaveId=""; status.setText("No file manager is available to choose a download folder."); }
                 }).setNegativeButton("Cancel",null).create();
-            dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
+            if(!AppMotion.enabled(this))dialog.getWindow().setWindowAnimations(0); dialog.show(); AppMotion.buttons(dialog); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
             dialog.getButton(-1).setAllCaps(false); dialog.getButton(-2).setAllCaps(false); return;
         }
         savingCopy=true; status.setTextColor(secondary); status.setText("Saving audio copy…");
@@ -432,6 +432,7 @@ public final class MainActivity extends Activity {
         IconButton(String symbol, boolean filled) {
             super(MainActivity.this); this.symbol = symbol; this.filled = filled;
             setFocusable(true); setClickable(true); setMinimumWidth(dp(48)); setMinimumHeight(dp(48));
+            AppMotion.press(this);
             setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(filled ? accentSurface : background, 28), null));
         }
         @Override public CharSequence getAccessibilityClassName() { return Button.class.getName(); }
@@ -506,7 +507,7 @@ public final class MainActivity extends Activity {
         Button button = new Button(this); button.setText(label); button.setAllCaps(false); button.setTextSize(15);
         button.setTextColor(accent); button.setMinHeight(dp(48)); button.setMinimumHeight(dp(48));
         button.setMinWidth(dp(80)); button.setMinimumWidth(dp(80)); button.setPadding(dp(16), 0, dp(16), 0);
-        button.setStateListAnimator(null);
+        button.setStateListAnimator(null); AppMotion.press(button);
         button.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), shape(filled ? accentSurface : background, 24), null));
         return button;
     }
@@ -603,7 +604,7 @@ public final class MainActivity extends Activity {
             .setMessage("Get a notification when a check finds new unread voicemail. Background checks run about every "+VoicemailAlerts.interval(this)+" minutes; Android may delay them to save battery. Caller details stay out of the alert. You can change this in Settings.")
             .setPositiveButton("Enable",(d,w)->VoicemailAlerts.enable(this,ALERT_PERMISSION))
             .setNegativeButton("Not now",(d,w)->VoicemailAlerts.disable(this)).create();
-        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
+        if(!AppMotion.enabled(this))dialog.getWindow().setWindowAnimations(0); dialog.show(); AppMotion.buttons(dialog); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
         dialog.getButton(-1).setAllCaps(false); dialog.getButton(-2).setAllCaps(false);
     }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results) {

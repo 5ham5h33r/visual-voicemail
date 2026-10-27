@@ -21,33 +21,46 @@ import java.util.concurrent.Executors;
 /** Process-scoped, single-job local speech recognition. Never sends audio or text to a server. */
 final class Transcription {
     private static final ExecutorService WORK = Executors.newSingleThreadExecutor();
-    private static final String BASE =
-            "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-tiny.en/resolve/d026532c022fa99fd789d6b32446a1df7b6bfc43/";
-    private static final String[] NAMES = {
-        "tiny.en-encoder.int8.onnx",
-        "tiny.en-decoder.int8.onnx",
-        "tiny.en-tokens.txt",
-        "silero_vad.onnx"
-    };
-    private static final long[] SIZES = {12937772, 89853865, 835554, 643854};
-    private static final String[] HASHES = {
-        "0ce578b827c94a961aacb8fa14b02f096504b337e5c94be37c36238cbe3e8bc6",
-        "06c0e6ff6348d427e51839219d1c886c18cfdf411e629e33f5e1679bff9c1527",
-        "306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930",
-        "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
-    };
     static volatile String job = "", status = "", failure = "";
     static volatile boolean busy, downloading, cancelled;
     static volatile int progress;
 
-    private static File directory(Context c) {
-        File f = new File(c.getFilesDir(), "speech-model");
+    static TranscriptionQuality selected(Context c) {
+        return TranscriptionQuality.forKey(
+                c.getSharedPreferences("settings", 0)
+                        .getString("transcription_quality", "standard"));
+    }
+
+    static synchronized boolean select(Context c, String key) {
+        if (!key.equals("standard") && !key.equals("enhanced")) return false;
+        if (busy && !selected(c).key.equals(key)) return false;
+        if (!busy && !selected(c).key.equals(key)) {
+            failure = "";
+            status = "";
+            job = "";
+        }
+        c.getSharedPreferences("settings", 0)
+                .edit()
+                .putString("transcription_quality", key)
+                .apply();
+        return true;
+    }
+
+    private static File directory(Context c, TranscriptionQuality quality) {
+        File base = new File(c.getFilesDir(), "speech-model");
+        File f = quality.directory.isEmpty() ? base : new File(base, quality.directory);
         f.mkdirs();
         return f;
     }
 
     static boolean ready(Context c) {
-        File root = directory(c);
+        return ready(c, selected(c));
+    }
+
+    static boolean ready(Context c, TranscriptionQuality quality) {
+        String[] NAMES = quality.names();
+        long[] SIZES = quality.sizes();
+        File root = directory(c, quality);
         for (int i = 0; i < NAMES.length; i++)
             if (new File(root, NAMES[i]).length() != SIZES[i]) return false;
         return new File(root, "verified-v1").exists();
@@ -70,19 +83,22 @@ final class Transcription {
     static synchronized void download(Context context) {
         if (busy) return;
         final Context c = context.getApplicationContext();
+        final TranscriptionQuality quality = selected(c);
+        final String[] NAMES = quality.names(), HASHES = quality.hashes();
+        final long[] SIZES = quality.sizes();
         busy = true;
         downloading = true;
         cancelled = false;
         job = "model";
         failure = "";
         progress = 0;
-        status = "Downloading English model…";
+        status = "Downloading " + quality.title + "…";
         WORK.execute(
                 () -> {
                     File temporary = null;
                     try {
-                        File root = directory(c);
-                        if (root.getUsableSpace() < 230000000)
+                        File root = directory(c, quality);
+                        if (root.getUsableSpace() < quality.bytes() * 2 + 20000000)
                             throw new java.io.IOException("storage");
                         long completed = 0, total = 0;
                         for (long size : SIZES) total += size;
@@ -92,11 +108,7 @@ final class Transcription {
                                 completed += SIZES[i];
                                 continue;
                             }
-                            URL url =
-                                    new URL(
-                                            i == 3
-                                                    ? "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
-                                                    : BASE + NAMES[i]);
+                            URL url = new URL(quality.url(i));
                             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                             connection.setConnectTimeout(20000);
                             connection.setReadTimeout(20000);
@@ -118,7 +130,12 @@ final class Transcription {
                                         out.write(buffer, 0, n);
                                         hash.update(buffer, 0, n);
                                         progress = (int) ((completed + received) * 100 / total);
-                                        status = "Downloading English model · " + progress + "%";
+                                        status =
+                                                "Downloading "
+                                                        + quality.title
+                                                        + " · "
+                                                        + progress
+                                                        + "%";
                                     }
                                     out.getFD().sync();
                                 }
@@ -137,13 +154,13 @@ final class Transcription {
                                 new FileOutputStream(new File(root, "verified-v1"))) {
                             marker.write(1);
                         }
-                        status = "English model ready";
+                        status = quality.title + " ready";
                     } catch (Exception e) {
                         failure =
                                 cancelled
                                         ? "Download cancelled. You can resume when ready."
                                         : "Model download didn't finish. Check your connection and"
-                                              + " free space, then retry.";
+                                                + " free space, then retry.";
                     } finally {
                         if (temporary != null) temporary.delete();
                         downloading = false;
@@ -155,6 +172,8 @@ final class Transcription {
     static synchronized void generate(Context context, JSONObject message) {
         if (busy || !ready(context)) return;
         final Context c = context.getApplicationContext();
+        final TranscriptionQuality quality = selected(c);
+        final String[] NAMES = quality.names();
         busy = true;
         downloading = false;
         cancelled = false;
@@ -171,7 +190,7 @@ final class Transcription {
                         if (cancelled) throw new java.io.InterruptedIOException();
                         status = "Reading audio on this phone…";
                         float[] samples = AudioSamples.read(audio);
-                        File root = directory(c);
+                        File root = directory(c, quality);
                         SileroVadModelConfig silero = new SileroVadModelConfig();
                         silero.setModel(new File(root, NAMES[3]).getAbsolutePath());
                         silero.setMinSilenceDuration(.45f);
@@ -195,6 +214,7 @@ final class Transcription {
                         vad.release();
                         vad = null;
                         Transcript result = new Transcript();
+                        result.quality = quality.key;
                         if (!ranges.isEmpty()) {
                             OfflineWhisperModelConfig whisper = new OfflineWhisperModelConfig();
                             whisper.setEncoder(new File(root, NAMES[0]).getAbsolutePath());
@@ -241,7 +261,7 @@ final class Transcription {
                                 cancelled
                                         ? "Transcription cancelled. Your recording is unchanged."
                                         : "Couldn't transcribe this recording. You can still"
-                                              + " listen, or try again.";
+                                                + " listen, or try again.";
                     } finally {
                         if (vad != null) vad.release();
                         if (recognizer != null) recognizer.release();
@@ -272,8 +292,10 @@ final class Transcription {
 
     static synchronized boolean clear(Context c, boolean model) {
         if (busy) return false;
+        TranscriptionQuality quality = selected(c);
+        String[] NAMES = quality.names();
         boolean okay = true;
-        File[] files = model ? directory(c).listFiles() : c.getFilesDir().listFiles();
+        File[] files = model ? directory(c, quality).listFiles() : c.getFilesDir().listFiles();
         if (files == null) return false;
         for (File file : files) {
             boolean selected =
