@@ -263,6 +263,14 @@ public final class InboxNavigationCheck extends DeviceCheckInstrumentation {
             Thread.sleep(300);
             check(page() == 0);
             // Read-only fixtures allow honest empty Unread and All states.
+            Class<?> transcript=Class.forName("org.visualvoicemail.app.Transcript");
+            Method parse=transcript.getDeclaredMethod("parse",JSONObject.class);parse.setAccessible(true);
+            Object translated=parse.invoke(null,new JSONObject("{\"version\":2,\"task\":\"translate\",\"segments\":[{\"start\":100,\"end\":900,\"text\":\"translationfixtureunique\"}]}"));
+            ((Map)field(screen,"translations")).put("navigation-sample-0",translated);
+            ui(()->search.setText("translationfixtureunique"));
+            check(((List<?>)field(screen,"shownMessages")).size()==1);
+            check(named("English · translationfixtureunique")!=null);
+            ((Map)field(screen,"translations")).clear();ui(()->search.setText(""));
             fixtures.clear();
             fixtures.add(
                     new JSONObject()

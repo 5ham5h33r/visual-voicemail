@@ -41,10 +41,21 @@ public final class RecordingActivity extends MotionActivity {
     private String setupQuality = "";
     private EditText search;
     private Transcript transcript;
+    private Transcript original, english;
+    private boolean englishVisible;
+    private LinearLayout outputTabs;
+    private Button originalTab, englishTab;
+    private Ui.Icon callControl, outputControl;
+    private String playbackProblem = "";
     private final List<TextView> lines = new ArrayList<>();
     private final List<int[]> matches = new ArrayList<>();
     private String lastSpeechState = "";
     private View transcriptHeading, transcriptSearch;
+    private Ui.Icon clearFind;
+    private AppMenu transcriptMenu;
+    private AppMenu shareMenu;
+    private Ui.Icon shareControl;
+    private boolean preparingShare;
     private boolean wasBusy;
     private final Runnable tick =
             new Runnable() {
@@ -95,7 +106,11 @@ public final class RecordingActivity extends MotionActivity {
                                 },
                                 handler)
                         .build();
-        transcript = Transcription.cached(this, id);
+        englishVisible =
+                state == null
+                        ? getIntent().getBooleanExtra("english", SpeechOptions.english(this))
+                        : state.getBoolean("english", false);
+        loadTranscriptOutput();
         build();
         loadAudio();
         if (getSharedPreferences("settings", 0).getBoolean("guide_recording", false))
@@ -103,7 +118,7 @@ public final class RecordingActivity extends MotionActivity {
         if (getSharedPreferences("settings", 0).getBoolean("auto_transcribe", true)
                 && Transcription.ready(this)
                 && transcript == null
-                && !Transcription.busy) Transcription.generate(this, message);
+                && !Transcription.busy) Transcription.generate(this, message, englishVisible);
         if (state != null) {
             int y = state.getInt("scroll", 0);
             scroll.post(() -> scroll.scrollTo(0, y));
@@ -137,10 +152,11 @@ public final class RecordingActivity extends MotionActivity {
                 });
         LinearLayout nav = ui.row();
         nav.setPadding(ui.dp(12), ui.dp(4), ui.dp(16), 0);
-        nav.addView(ui.icon("back", "Back to voicemail", false, this::navigateUp));
+        nav.addView(icon("back", "Back to voicemail", false, this::navigateUp));
         TextView title = ui.label("Voicemail", 17, ui.text, true);
         nav.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        nav.addView(ui.icon("more", "Recording options", false, this::options));
+        shareControl = icon("share", "Share voicemail", false, () -> showShareOptions());
+        nav.addView(shareControl);
         root.addView(nav);
         scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -150,8 +166,9 @@ public final class RecordingActivity extends MotionActivity {
         content.setPadding(ui.dp(20), ui.dp(16), ui.dp(20), ui.dp(24));
         String caller = getIntent().getStringExtra("caller");
         if (caller == null || caller.isEmpty()) caller = "Unknown caller";
-        TextView name = ui.label(caller, Ui.DETAIL_TITLE, ui.text, true);
-        ui.add(content, name, 0);
+        TextView name = ui.label(caller, 22, ui.text, true);
+        LinearLayout callerRow = ui.row(), callerDetails = ui.column();
+        callerDetails.addView(name);
         TextView date =
                 ui.label(
                         displayDate()
@@ -160,10 +177,34 @@ public final class RecordingActivity extends MotionActivity {
                         12,
                         ui.secondary,
                         false);
-        ui.add(content, date, 6);
+        ui.add(callerDetails, date, 6);
+        callerRow.addView(callerDetails, new LinearLayout.LayoutParams(0, -2, 1));
+        android.content.Intent callback = callIntent(message);
+        callControl =
+                icon(
+                        "phone",
+                        "Call caller",
+                        false,
+                        () -> {
+                            if (callback == null) return;
+                            pause();
+                            try {
+                                startActivity(callback);
+                            } catch (android.content.ActivityNotFoundException unavailable) {
+                                Toast.makeText(
+                                                this,
+                                                "No phone app is available to call this number.",
+                                                Toast.LENGTH_LONG)
+                                        .show();
+                            }
+                        });
+        callControl.setContentDescription("Call " + caller + " in your phone app");
+        callControl.setVisibility(callback == null ? View.GONE : View.VISIBLE);
+        callerRow.addView(callControl);
+        ui.add(content, callerRow, 0);
 
         LinearLayout card = ui.column();
-        card.setPadding(ui.dp(16), ui.dp(10), ui.dp(16), ui.dp(8));
+        card.setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14));
         card.setBackground(ui.shape(ui.surface, 20));
         seek = new SeekBar(this);
         seek.setProgressTintList(ColorStateList.valueOf(ui.accent));
@@ -185,20 +226,20 @@ public final class RecordingActivity extends MotionActivity {
         card.addView(times);
         LinearLayout controls = ui.row();
         controls.setGravity(Gravity.CENTER);
-        controls.setPadding(0, ui.dp(4), 0, 0);
+        controls.setPadding(0, ui.dp(8), 0, ui.dp(8));
         int skip = getSharedPreferences("settings", 0).getInt("skip_seconds", 10);
         controls.addView(
-                ui.icon(
+                icon(
                         "rewind" + skip,
                         "Skip back " + skip + " seconds",
                         false,
                         () -> jump(-skip * 1000)));
-        play = ui.icon("play", "Play recording", true, this::toggle);
-        LinearLayout.LayoutParams center = new LinearLayout.LayoutParams(ui.dp(56), ui.dp(56));
-        center.setMargins(ui.dp(16), 0, ui.dp(16), 0);
+        play = icon("play", "Play recording", true, this::toggle);
+        LinearLayout.LayoutParams center = new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48));
+        center.setMargins(ui.dp(8), 0, ui.dp(8), 0);
         controls.addView(play, center);
         controls.addView(
-                ui.icon(
+                icon(
                         "forward" + skip,
                         "Skip forward " + skip + " seconds",
                         false,
@@ -206,19 +247,34 @@ public final class RecordingActivity extends MotionActivity {
         card.addView(controls);
         LinearLayout tools = ui.row();
         speed = ui.button(speedLabel(), false, this::chooseSpeed);
-        speed.setMinWidth(0);
-        speed.setMinimumWidth(0);
+        speed.setMinWidth(ui.dp(48));
+        speed.setMinimumWidth(ui.dp(48));
         speed.setMinHeight(ui.dp(48));
-        speed.setPadding(ui.dp(12), 0, ui.dp(12), 0);
+        speed.setTextSize(13);
+        speed.setPadding(ui.dp(8), 0, ui.dp(8), 0);
         speed.setBackgroundColor(0);
         speed.setContentDescription("Playback speed, " + speedLabel());
         tools.addView(speed);
         playerState = ui.label("Opening recording…", 12, ui.secondary, false);
         playerState.setGravity(Gravity.CENTER);
         tools.addView(playerState, new LinearLayout.LayoutParams(0, -2, 1));
-        tools.addView(ui.icon("sound", "Choose audio output", false, this::chooseOutput));
+        outputControl = icon("sound", "Choose audio output", false, this::chooseOutput);
+        tools.addView(outputControl);
+        if (getResources().getConfiguration().fontScale <= 1.2f
+                && getResources().getConfiguration().screenWidthDp >= 360) {
+            tools.removeView(speed);
+            tools.removeView(outputControl);
+            tools.removeView(playerState);
+            center.setMargins(0, 0, 0, 0);
+            play.setLayoutParams(center);
+            controls.addView(speed, 0);
+            controls.addView(new View(this), 1, new LinearLayout.LayoutParams(0, 1, 1));
+            controls.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+            controls.addView(outputControl);
+            tools.addView(playerState, new LinearLayout.LayoutParams(-1, -2));
+        }
         card.addView(tools);
-        ui.add(content, card, 20);
+        ui.add(content, card, 16);
         seek.setOnSeekBarChangeListener(
                 new SeekBar.OnSeekBarChangeListener() {
                     public void onStartTrackingTouch(SeekBar s) {
@@ -235,22 +291,15 @@ public final class RecordingActivity extends MotionActivity {
                     }
                 });
         LinearLayout heading = ui.row();
-        TextView transcriptTitle = ui.label("Transcript", Ui.SECTION_TITLE, ui.text, true);
+        TextView transcriptTitle = ui.label("Transcript", 18, ui.text, true);
         transcriptHeading = transcriptTitle;
         heading.addView(transcriptTitle, new LinearLayout.LayoutParams(0, -2, 1));
         transcriptSearch =
-                ui.icon(
-                        "search",
-                        "Find in transcript",
+                icon(
+                        "more",
+                        "Transcript options",
                         false,
-                        () -> {
-                            AppMotion.visibility(findBox, findBox.getVisibility() != View.VISIBLE);
-                            if (findBox.getVisibility() == View.VISIBLE) {
-                                search.requestFocus();
-                                getSystemService(android.view.inputmethod.InputMethodManager.class)
-                                        .showSoftInput(search, 0);
-                            }
-                        });
+                        () -> showTranscriptOptions(transcriptSearch));
         heading.addView(transcriptSearch);
         ui.add(content, heading, 20);
         qualityControl =
@@ -272,9 +321,15 @@ public final class RecordingActivity extends MotionActivity {
         if (getResources().getConfiguration().fontScale <= 1.2f
                 && getResources().getConfiguration().screenWidthDp >= 360) {
             heading.removeView(transcriptSearch);
-            heading.addView(qualityControl, new LinearLayout.LayoutParams(-2, ui.dp(48)));
-            heading.addView(transcriptSearch);
+            heading.addView(qualityControl, 1, new LinearLayout.LayoutParams(-2, ui.dp(48)));
+            heading.addView(transcriptSearch, 2);
         } else content.addView(qualityControl, new LinearLayout.LayoutParams(-2, -2));
+        outputTabs = ui.row();
+        originalTab = ui.button("Original", false, () -> switchOutput(false));
+        englishTab = ui.button("English", false, () -> switchOutput(true));
+        outputTabs.addView(originalTab, new LinearLayout.LayoutParams(0, -2, 1));
+        outputTabs.addView(englishTab, new LinearLayout.LayoutParams(0, -2, 1));
+        ui.add(content, outputTabs, 6);
         findBox = ui.column();
         LinearLayout findRow = ui.row();
         findRow.setBackground(ui.shape(ui.surface, 14));
@@ -295,15 +350,16 @@ public final class RecordingActivity extends MotionActivity {
                 EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
         search.setText(find);
         findRow.addView(search, new LinearLayout.LayoutParams(0, -2, 1));
-        findRow.addView(
-                ui.icon("close", "Clear transcript search", false, () -> search.setText("")));
+        clearFind = icon("close", "Clear transcript search", false, () -> search.setText(""));
+        clearFind.setVisibility(find.isEmpty() ? View.GONE : View.VISIBLE);
+        findRow.addView(clearFind);
         findBox.addView(findRow);
         LinearLayout findNav = ui.row();
         matchCount = ui.label("", 13, ui.secondary, false);
         matchCount.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         findNav.addView(matchCount, new LinearLayout.LayoutParams(0, -2, 1));
-        findNav.addView(ui.icon("back", "Previous transcript match", false, () -> navigate(-1)));
-        findNav.addView(ui.icon("next", "Next transcript match", false, () -> navigate(1)));
+        findNav.addView(icon("back", "Previous transcript match", false, () -> navigate(-1)));
+        findNav.addView(icon("next", "Next transcript match", false, () -> navigate(1)));
         findBox.addView(findNav);
         findBox.setVisibility(find.isEmpty() ? View.GONE : View.VISIBLE);
         ui.add(content, findBox, 10);
@@ -315,12 +371,13 @@ public final class RecordingActivity extends MotionActivity {
 
                     public void onTextChanged(CharSequence s, int a, int b, int c) {
                         find = s.toString();
+                        clearFind.setVisibility(find.isEmpty() ? View.GONE : View.VISIBLE);
                         selectedMatch = 0;
                         rebuildMatches();
                         styleLines();
                     }
                 });
-        transcriptState = ui.label("", 13, ui.secondary, false);
+        transcriptState = ui.label("", 12, ui.secondary, false);
         transcriptState.setLineSpacing(ui.dp(3), 1);
         transcriptState.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         ui.add(content, transcriptState, 8);
@@ -348,15 +405,28 @@ public final class RecordingActivity extends MotionActivity {
     }
 
     private void showTranscript() {
+        if (outputTabs != null) {
+            outputTabs.setVisibility(english != null || englishVisible ? View.VISIBLE : View.GONE);
+            originalTab.setSelected(!englishVisible);
+            englishTab.setSelected(englishVisible);
+            originalTab.setTextColor(!englishVisible ? ui.accent : ui.secondary);
+            englishTab.setTextColor(englishVisible ? ui.accent : ui.secondary);
+            originalTab.setBackground(ui.shape(!englishVisible ? ui.tint : 0, 14));
+            englishTab.setBackground(ui.shape(englishVisible ? ui.tint : 0, 14));
+            originalTab.setContentDescription(
+                    "Original language transcript" + (!englishVisible ? ", selected" : ""));
+            englishTab.setContentDescription(
+                    "English translation" + (englishVisible ? ", selected" : ""));
+        }
         transcriptBody.removeAllViews();
         lines.clear();
         if (transcript != null) {
             for (int i = 0; i < transcript.segments.size(); i++) {
                 Transcript.Segment s = transcript.segments.get(i);
-                TextView line = ui.label("", 16, ui.text, false);
+                TextView line = ui.label("", 15, ui.text, false);
                 line.setLineSpacing(ui.dp(3), 1);
-                line.setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10));
-                line.setMinHeight(ui.dp(52));
+                line.setPadding(ui.dp(10), ui.dp(8), ui.dp(10), ui.dp(8));
+                line.setMinHeight(ui.dp(48));
                 line.setContentDescription(
                         (s.start >= 0
                                         ? "Play phrase from " + duration(s.start) + ". "
@@ -381,6 +451,190 @@ public final class RecordingActivity extends MotionActivity {
         rebuildMatches();
         styleLines();
         if (!matches.isEmpty()) revealMatch();
+    }
+
+    private void loadTranscriptOutput() {
+        original = Transcription.cached(this, id);
+        english = Transcription.cachedEnglish(this, id);
+        transcript = englishVisible ? english : original;
+    }
+
+    static android.content.Intent callIntent(JSONObject message) {
+        String raw = message.optString("returnnumber", "").replaceFirst("(?i)^tel:", "").trim();
+        if (!raw.matches("[+()0-9 .-]+")) return null;
+        String number = android.telephony.PhoneNumberUtils.normalizeNumber(raw);
+        if (!number.matches("\\+?[0-9]{3,20}")) return null;
+        return new android.content.Intent(
+                android.content.Intent.ACTION_DIAL, android.net.Uri.fromParts("tel", number, null));
+    }
+
+    private void showShareOptions() {
+        if (shareMenu != null) shareMenu.dismiss();
+        shareMenu = new AppMenu(this, shareControl);
+        shareMenu
+                .getMenu()
+                .add(0, 1, 0, "Transcript")
+                .setEnabled(
+                        (original != null && !original.segments.isEmpty())
+                                || (english != null && !english.segments.isEmpty()));
+        shareMenu.getMenu().add(0, 2, 1, "Voice recording").setEnabled(!preparingShare);
+        shareMenu.setOnMenuItemClickListener(
+                item -> {
+                    if (item.getItemId() == 2) shareAudio();
+                    else if (original != null
+                            && !original.segments.isEmpty()
+                            && english != null
+                            && !english.segments.isEmpty()) {
+                        final Transcript source = original, translated = english;
+                        ui.show(
+                                new AlertDialog.Builder(this)
+                                        .setTitle("Share transcript")
+                                        .setItems(
+                                                new String[] {
+                                                    "Original language", "English translation"
+                                                },
+                                                (d, which) ->
+                                                        startShare(
+                                                                ShareIntents.transcript(
+                                                                        which == 0
+                                                                                ? source
+                                                                                : translated)))
+                                        .setNegativeButton("Cancel", null)
+                                        .create());
+                    } else
+                        startShare(
+                                ShareIntents.transcript(
+                                        original != null && !original.segments.isEmpty()
+                                                ? original
+                                                : english));
+                    return true;
+                });
+        shareMenu.show();
+    }
+
+    private void shareAudio() {
+        if (preparingShare) return;
+        preparingShare = true;
+        shareControl.setEnabled(false);
+        Toast.makeText(this, "Preparing recording to share…", Toast.LENGTH_SHORT).show();
+        worker.execute(
+                () -> {
+                    try {
+                        android.net.Uri uri =
+                                ShareProvider.prepare(
+                                        this,
+                                        CarrierClient.get(this).audio(message),
+                                        message.optString("date"));
+                        String type = getContentResolver().getType(uri);
+                        android.content.Intent share = ShareIntents.audio(uri, type);
+                        handler.post(
+                                () -> {
+                                    if (destroyed) return;
+                                    preparingShare = false;
+                                    shareControl.setEnabled(true);
+                                    startShare(share);
+                                });
+                    } catch (Exception failure) {
+                        handler.post(
+                                () -> {
+                                    if (destroyed) return;
+                                    preparingShare = false;
+                                    shareControl.setEnabled(true);
+                                    Toast.makeText(
+                                                    this,
+                                                    "Couldn't prepare this recording. Check your"
+                                                        + " connection and free space, then retry.",
+                                                    Toast.LENGTH_LONG)
+                                            .show();
+                                });
+                    }
+                });
+    }
+
+    private void startShare(android.content.Intent payload) {
+        pause();
+        try {
+            startActivity(android.content.Intent.createChooser(payload, "Share voicemail"));
+        } catch (android.content.ActivityNotFoundException unavailable) {
+            Toast.makeText(this, "No app is available to share this content.", Toast.LENGTH_LONG)
+                    .show();
+        }
+    }
+
+    private void switchOutput(boolean translated) {
+        englishVisible = translated;
+        selectedMatch = 0;
+        activeSegment = -1;
+        transcript = englishVisible ? english : original;
+        showTranscript();
+        lastSpeechState = "";
+        updateSpeech();
+        AppMotion.reveal(transcriptBody, 140, 2);
+    }
+
+    private void showTranscriptOptions(View anchor) {
+        if (transcriptMenu != null) transcriptMenu.dismiss();
+        AppMenu menu = new AppMenu(this, anchor);
+        transcriptMenu = menu;
+        menu.getMenu().add(0, 0, 0, "Find in transcript");
+        menu.getMenu()
+                .add(
+                        0,
+                        1,
+                        0,
+                        "Language · "
+                                + SpeechOptions.label(
+                                        SpeechOptions.language(
+                                                this, Transcription.selected(this))));
+        menu.getMenu().add(0, 2, 1, "Transcription quality");
+        menu.getMenu()
+                .add(
+                        0,
+                        3,
+                        2,
+                        english == null ? "Translate to English" : "Update English translation")
+                .setEnabled(!Transcription.busy);
+        menu.getMenu()
+                .add(
+                        0,
+                        4,
+                        3,
+                        original == null
+                                ? "Generate original transcript"
+                                : "Update original transcript")
+                .setEnabled(!Transcription.busy);
+        menu.setOnMenuItemClickListener(
+                item -> {
+                    if (item.getItemId() == 0) {
+                        AppMotion.visibility(findBox, true);
+                        search.requestFocus();
+                        getSystemService(android.view.inputmethod.InputMethodManager.class)
+                                .showSoftInput(search, 0);
+                    } else if (item.getItemId() == 1)
+                        SpeechOptions.chooseLanguage(
+                                this,
+                                () -> {
+                                    lastSpeechState = "";
+                                    updateSpeech();
+                                });
+                    else if (item.getItemId() == 2)
+                        startActivity(
+                                new android.content.Intent(
+                                        this, TranscriptionSettingsActivity.class));
+                    else if (item.getItemId() == 3)
+                        SpeechOptions.requireMultilingual(
+                                this,
+                                () -> {
+                                    switchOutput(true);
+                                    speechAction();
+                                });
+                    else {
+                        switchOutput(false);
+                        speechAction();
+                    }
+                    return true;
+                });
+        menu.show();
     }
 
     private void rebuildMatches() {
@@ -488,7 +742,9 @@ public final class RecordingActivity extends MotionActivity {
                         + "|"
                         + Transcription.failure
                         + "|"
-                        + Transcription.cancelled;
+                        + Transcription.cancelled
+                        + englishVisible
+                        + SpeechOptions.language(this, quality);
         if (state.equals(lastSpeechState)) return;
         lastSpeechState = state;
         qualityControl.setText(quality.compactLabel() + "  ›");
@@ -500,7 +756,7 @@ public final class RecordingActivity extends MotionActivity {
             transcribeAfterDownload = false;
         if (wasBusy && !Transcription.busy) {
             if (!Transcription.failure.isEmpty()) transcribeAfterDownload = false;
-            transcript = Transcription.cached(this, id);
+            loadTranscriptOutput();
             showTranscript();
             if (id.equals(Transcription.job) && Transcription.failure.isEmpty())
                 AppMotion.reveal(transcriptBody, 180, 6);
@@ -510,12 +766,16 @@ public final class RecordingActivity extends MotionActivity {
                 && ready
                 && Transcription.failure.isEmpty()) {
             transcribeAfterDownload = false;
-            Transcription.generate(this, message);
+            Transcription.generate(this, message, englishVisible);
         }
         wasBusy = Transcription.busy;
         boolean own =
                 Transcription.busy && (Transcription.downloading || id.equals(Transcription.job));
-        boolean changed = transcript != null && !quality.key.equals(transcript.quality);
+        boolean changed =
+                transcript != null
+                        && (!quality.key.equals(transcript.quality)
+                                || !SpeechOptions.language(this, quality)
+                                        .equals(transcript.language));
         String work =
                 Transcription.cancelled
                         ? "Cancelling after the current operation…"
@@ -540,7 +800,12 @@ public final class RecordingActivity extends MotionActivity {
                                                             + saved
                                                             + " · Update transcript for "
                                                             + quality.title
-                                                    : "Tap a phrase to play · Approximate timing");
+                                                    : englishVisible
+                                                            ? "English translation · Tap a phrase"
+                                                                  + " to hear the source audio."
+                                                                  + " Timing is approximate."
+                                                            : "Tap a phrase to play · Approximate"
+                                                                  + " timing");
             transcriptTools.setVisibility(changed || own ? View.VISIBLE : View.GONE);
         } else {
             transcriptTools.setVisibility(View.VISIBLE);
@@ -550,7 +815,10 @@ public final class RecordingActivity extends MotionActivity {
                             : !problem.isEmpty()
                                     ? problem
                                     : ready
-                                            ? "Create a transcript privately on this phone."
+                                            ? englishVisible
+                                                    ? "Translate to English on this phone. Your"
+                                                          + " original transcript is kept."
+                                                    : "Create a transcript privately on this phone."
                                             : "Download "
                                                     + quality.label()
                                                     + " once ("
@@ -565,16 +833,35 @@ public final class RecordingActivity extends MotionActivity {
                 own
                         ? "Working…"
                         : transcript != null
-                                ? "Update transcript"
-                                : ready ? "Transcribe recording" : "Set up transcription");
+                                ? englishVisible
+                                        ? "Update English translation"
+                                        : "Update transcript"
+                                : ready
+                                        ? englishVisible
+                                                ? "Translate to English"
+                                                : "Transcribe recording"
+                                        : "Set up transcription");
         speechAction.setEnabled(!Transcription.busy);
         cancelSpeech.setVisibility(own ? View.VISIBLE : View.GONE);
         cancelSpeech.setEnabled(!Transcription.cancelled);
+        transcriptState.setVisibility(
+                transcript != null
+                                && !transcript.segments.isEmpty()
+                                && !changed
+                                && !own
+                                && problem.isEmpty()
+                                && !englishVisible
+                        ? View.GONE
+                        : View.VISIBLE);
     }
 
     private void speechAction() {
+        if (englishVisible && Transcription.selected(this) != TranscriptionQuality.HIGHEST) {
+            SpeechOptions.requireMultilingual(this, this::speechAction);
+            return;
+        }
         if (Transcription.ready(this)) {
-            Transcription.generate(this, message);
+            Transcription.generate(this, message, englishVisible);
             updateSpeech();
             return;
         }
@@ -590,7 +877,11 @@ public final class RecordingActivity extends MotionActivity {
                                         + " recommended. Audio and transcripts stay on this phone."
                                         + " Listening remains available."
                                         + (quality == TranscriptionQuality.HIGHEST
-                                                ? "\n\nAllow about 3.6 GB of free storage for setup. Large v3 uses several GB of memory and can take minutes per recording. Keep the app open."
+                                                ? "\n\n"
+                                                      + "Allow about 3.6 GB of free storage for"
+                                                      + " setup. Large v3 uses several GB of memory"
+                                                      + " and can take minutes per recording. Keep"
+                                                      + " the app open."
                                                 : ""))
                         .setPositiveButton(
                                 "Download",
@@ -613,6 +904,7 @@ public final class RecordingActivity extends MotionActivity {
     private void loadAudio() {
         if (loading || prepared) return;
         loading = true;
+        playbackProblem = "";
         final int version = ++request;
         updatePlayer();
         worker.execute(
@@ -629,7 +921,7 @@ public final class RecordingActivity extends MotionActivity {
                                 () -> {
                                     if (destroyed || version != request) return;
                                     loading = false;
-                                    playerState.setText("Couldn't open audio. Tap Play to retry.");
+                                    playerProblem("Couldn't open audio. Tap Play to retry.");
                                     play.setEnabled(true);
                                 });
                     }
@@ -682,8 +974,7 @@ public final class RecordingActivity extends MotionActivity {
                                                         != AudioDeviceInfo
                                                                 .TYPE_BUILTIN_SPEAKER_SAFE))) {
                             pause();
-                            playerState.setText(
-                                    "Selected output unavailable. Choose another output.");
+                            playerProblem("Selected output unavailable. Choose another output.");
                         }
                     },
                     handler);
@@ -695,13 +986,13 @@ public final class RecordingActivity extends MotionActivity {
             p.setOnErrorListener(
                     (failed, a, b) -> {
                         release();
-                        playerState.setText("Couldn't play audio. Tap Play to retry.");
+                        playerProblem("Couldn't play audio. Tap Play to retry.");
                         return true;
                     });
             p.prepareAsync();
         } catch (Exception e) {
             release();
-            playerState.setText("Couldn't open audio. Tap Play to retry.");
+            playerProblem("Couldn't open audio. Tap Play to retry.");
         }
     }
 
@@ -718,7 +1009,7 @@ public final class RecordingActivity extends MotionActivity {
     private void start() {
         if (!prepared || !visible) return;
         if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            playerState.setText("Audio is in use. Try again.");
+            playerProblem("Audio is in use. Try again.");
             return;
         }
         try {
@@ -732,9 +1023,10 @@ public final class RecordingActivity extends MotionActivity {
                 if (device.getType() == type) preferred = device;
             if ((type != 0 && preferred == null) || !player.setPreferredDevice(preferred)) {
                 audio.abandonAudioFocusRequest(focus);
-                playerState.setText("Choose an available audio output.");
+                playerProblem("Choose an available audio output.");
                 return;
             }
+            playbackProblem = "";
             if (player.getCurrentPosition() >= player.getDuration() - 80) player.seekTo(0);
             player.setPlaybackParams(
                     new PlaybackParams().setSpeed(SettingsActivity.speed(this)).setPitch(1));
@@ -743,7 +1035,7 @@ public final class RecordingActivity extends MotionActivity {
             updatePlayer();
         } catch (RuntimeException e) {
             pause();
-            playerState.setText("Playback couldn't start. Try 1× speed.");
+            playerProblem("Playback couldn't start. Try 1× speed.");
         }
     }
 
@@ -812,7 +1104,9 @@ public final class RecordingActivity extends MotionActivity {
                                     : route.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
                                             ? "Phone speaker"
                                             : "Device audio";
-            playerState.setText(playing ? output : "Paused");
+            outputControl.setContentDescription("Audio output · " + output);
+            playerState.setText(playbackProblem);
+            playerState.setVisibility(playbackProblem.isEmpty() ? View.GONE : View.VISIBLE);
             int active = -1;
             if (transcript != null)
                 for (int i = 0; i < transcript.segments.size(); i++) {
@@ -826,7 +1120,22 @@ public final class RecordingActivity extends MotionActivity {
                 activeSegment = active;
                 styleLines();
             }
-        } else if (loading) playerState.setText("Opening recording…");
+        } else if (loading) {
+            playerState.setText("Opening recording…");
+            playerState.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private Ui.Icon icon(String name, String label, boolean solid, Runnable click) {
+        Ui.Icon control = ui.icon(name, label, solid, click);
+        control.glyphSize(20);
+        return control;
+    }
+
+    private void playerProblem(String message) {
+        playbackProblem = message;
+        playerState.setText(message);
+        playerState.setVisibility(View.VISIBLE);
     }
 
     private void chooseSpeed() {
@@ -868,29 +1177,6 @@ public final class RecordingActivity extends MotionActivity {
                         .create());
     }
 
-    private void options() {
-        ui.show(
-                new AlertDialog.Builder(this)
-                        .setTitle("Recording options")
-                        .setItems(
-                                new String[] {"Find in transcript", "Update transcript"},
-                                (d, w) -> {
-                                    if (w == 0) {
-                                        AppMotion.visibility(findBox, true);
-                                        search.requestFocus();
-                                    } else if (!Transcription.busy) {
-                                        if (!Transcription.ready(this)) {
-                                            speechAction();
-                                            return;
-                                        }
-                                        Transcription.generate(this, message);
-                                        updateSpeech();
-                                    }
-                                })
-                        .setNegativeButton("Cancel", null)
-                        .create());
-    }
-
     private void showGuide() {
         if (!visible || destroyed || isFinishing()) return;
         List<GuideOverlay.Tip> tips = new ArrayList<>();
@@ -905,15 +1191,15 @@ public final class RecordingActivity extends MotionActivity {
                 new GuideOverlay.Tip(
                         transcriptHeading,
                         "Read along",
-                        "Set up the English model once. Transcripts stay on this phone, and tapping"
+                        "Set up a speech model once. Transcripts stay on this phone, and tapping"
                                 + " a phrase plays that part of the audio.",
                         false));
         tips.add(
                 new GuideOverlay.Tip(
                         transcriptSearch,
                         "Find the detail",
-                        "Search a word or phrase, then use previous and next to move between"
-                                + " matches. Searching won't start playback.",
+                        "Open Transcript options to find a word or phrase, then use previous and"
+                            + " next to move between matches. Searching won't start playback.",
                         false));
         GuideOverlay.show(
                 this,
@@ -981,11 +1267,15 @@ public final class RecordingActivity extends MotionActivity {
     protected void onResume() {
         super.onResume();
         visible = true;
+        loadTranscriptOutput();
+        showTranscript();
+        lastSpeechState = "";
         if (transcript == null
                 && !Transcription.busy
                 && Transcription.ready(this)
                 && getSharedPreferences("settings", 0).getBoolean("auto_transcribe", true)
-                && Transcription.failure.isEmpty()) Transcription.generate(this, message);
+                && (!id.equals(Transcription.job) || Transcription.failure.isEmpty()))
+            Transcription.generate(this, message, englishVisible);
         handler.removeCallbacks(tick);
         handler.post(tick);
     }
@@ -1010,6 +1300,7 @@ public final class RecordingActivity extends MotionActivity {
     protected void onSaveInstanceState(Bundle s) {
         super.onSaveInstanceState(s);
         s.putString("find", find);
+        s.putBoolean("english", englishVisible);
         s.putBoolean("transcribe_after_download", transcribeAfterDownload);
         s.putString("setup_quality", setupQuality);
         s.putInt("match", selectedMatch);
@@ -1020,6 +1311,8 @@ public final class RecordingActivity extends MotionActivity {
     @Override
     protected void onDestroy() {
         destroyed = true;
+        if (transcriptMenu != null) transcriptMenu.dismiss();
+        if (shareMenu != null) shareMenu.dismiss();
         handler.removeCallbacksAndMessages(null);
         release();
         worker.shutdown();

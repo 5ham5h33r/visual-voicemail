@@ -98,37 +98,67 @@ final class Ui {
         dialog.show();
         AppMotion.buttons(dialog);
         dialog.getWindow().setBackgroundDrawable(shape(surface, 24));
-        android.widget.ListView list=dialog.getListView();
-        if(list!=null && list.getAdapter()!=null) {
-            final android.widget.ListAdapter original=list.getAdapter();
-            android.util.SparseBooleanArray checked=list.getCheckedItemPositions();
-            final android.util.SparseBooleanArray savedChecks=checked==null?new android.util.SparseBooleanArray():checked.clone();
-            list.setAdapter(new android.widget.BaseAdapter() {
-                public int getCount(){return original.getCount();}
-                public Object getItem(int position){return original.getItem(position);}
-                public long getItemId(int position){return original.getItemId(position);}
-                public int getItemViewType(int position){return original.getItemViewType(position);}
-                public int getViewTypeCount(){return original.getViewTypeCount();}
-                public boolean areAllItemsEnabled(){return original.areAllItemsEnabled();}
-                public boolean isEnabled(int position){return original.isEnabled(position);}
-                public View getView(int position,View recycled,android.view.ViewGroup parent) {
-                    View row=original.getView(position,recycled,parent);
-                    row.setMinimumHeight(dp(52));
-                    if(row instanceof TextView) {
-                        TextView label=(TextView)row;label.setTextSize(15);label.setTextColor(text);
-                        label.setTypeface(Typeface.create("sans-serif",0));label.setPadding(dp(24),dp(12),dp(24),dp(12));
-                    }
-                    return row;
-                }
-            });
-            for(int i=0;i<savedChecks.size();i++) if(savedChecks.valueAt(i)) list.setItemChecked(savedChecks.keyAt(i),true);
-            list.setSelector(new RippleDrawable(ColorStateList.valueOf(divider),shape(0,12),null));
+        android.widget.ListView list = dialog.getListView();
+        if (list != null && list.getAdapter() != null) {
+            final android.widget.ListAdapter original = list.getAdapter();
+            android.util.SparseBooleanArray checked = list.getCheckedItemPositions();
+            final android.util.SparseBooleanArray savedChecks =
+                    checked == null ? new android.util.SparseBooleanArray() : checked.clone();
+            list.setAdapter(
+                    new android.widget.BaseAdapter() {
+                        public int getCount() {
+                            return original.getCount();
+                        }
+
+                        public Object getItem(int position) {
+                            return original.getItem(position);
+                        }
+
+                        public long getItemId(int position) {
+                            return original.getItemId(position);
+                        }
+
+                        public int getItemViewType(int position) {
+                            return original.getItemViewType(position);
+                        }
+
+                        public int getViewTypeCount() {
+                            return original.getViewTypeCount();
+                        }
+
+                        public boolean areAllItemsEnabled() {
+                            return original.areAllItemsEnabled();
+                        }
+
+                        public boolean isEnabled(int position) {
+                            return original.isEnabled(position);
+                        }
+
+                        public View getView(
+                                int position, View recycled, android.view.ViewGroup parent) {
+                            View row = original.getView(position, recycled, parent);
+                            row.setMinimumHeight(dp(52));
+                            if (row instanceof TextView) {
+                                TextView label = (TextView) row;
+                                label.setTextSize(15);
+                                label.setTextColor(text);
+                                label.setTypeface(Typeface.create("sans-serif", 0));
+                                label.setPadding(dp(24), dp(12), dp(24), dp(12));
+                            }
+                            return row;
+                        }
+                    });
+            for (int i = 0; i < savedChecks.size(); i++)
+                if (savedChecks.valueAt(i)) list.setItemChecked(savedChecks.keyAt(i), true);
+            list.setSelector(
+                    new RippleDrawable(ColorStateList.valueOf(divider), shape(0, 12), null));
         }
         for (int which : new int[] {-1, -2, -3}) {
             Button b = dialog.getButton(which);
             if (b != null) {
                 b.setAllCaps(false);
-                b.setTextColor(accent); b.setTextSize(15);
+                b.setTextColor(accent);
+                b.setTextSize(15);
                 b.setMinHeight(dp(48));
             }
         }
@@ -149,6 +179,13 @@ final class Ui {
     final class Icon extends View {
         String name;
         final boolean solid;
+        private float glyphScale = 1;
+
+        void glyphSize(float size) {
+            glyphScale = size / 24f;
+            invalidate();
+        }
+
         private final Paint p = new Paint(3);
 
         Icon(String name, boolean solid) {
@@ -173,7 +210,7 @@ final class Ui {
             super.onDraw(c);
             c.save();
             c.translate(getWidth() / 2f, getHeight() / 2f);
-            c.scale(dp(1), dp(1));
+            c.scale(dp(1) * glyphScale, dp(1) * glyphScale);
             p.setColor(solid ? bg : accent);
             p.setStrokeWidth(1.8f);
             p.setStrokeCap(Paint.Cap.ROUND);
@@ -214,6 +251,27 @@ final class Ui {
             } else if (name.equals("more")) {
                 p.setStyle(Paint.Style.FILL);
                 for (int x = -6; x <= 6; x += 6) c.drawCircle(x, 0, 1.5f, p);
+            } else if (name.equals("share")) {
+                c.drawLine(-6, 0, 7, -8, p);
+                c.drawLine(-6, 0, 7, 8, p);
+                p.setStyle(Paint.Style.FILL);
+                c.drawCircle(-7, 0, 3, p);
+                c.drawCircle(7, -8, 3, p);
+                c.drawCircle(7, 8, 3, p);
+            } else if (name.equals("phone")) {
+                Path handset = new Path();
+                handset.moveTo(-8, -10);
+                handset.lineTo(-4, -10);
+                handset.lineTo(-2, -5);
+                handset.lineTo(-5, -2);
+                handset.cubicTo(-3, 2, 0, 5, 4, 6);
+                handset.lineTo(7, 3);
+                handset.lineTo(11, 6);
+                handset.lineTo(10, 10);
+                handset.quadTo(9, 12, 6, 11);
+                handset.cubicTo(-2, 9, -9, 2, -11, -6);
+                handset.quadTo(-12, -9, -8, -10);
+                c.drawPath(handset, p);
             } else if (name.equals("close")) {
                 c.drawLine(-6, -6, 6, 6, p);
                 c.drawLine(-6, 6, 6, -6, p);

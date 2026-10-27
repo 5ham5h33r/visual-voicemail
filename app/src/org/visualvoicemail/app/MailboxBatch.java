@@ -107,6 +107,7 @@ final class MailboxBatch {
                                             new java.io.File(
                                                     c.getFilesDir(), Transcription.key(id)))
                                     .delete();
+                            new android.util.AtomicFile(new java.io.File(c.getFilesDir(), Transcription.translationKey(id))).delete();
                             removed++;
                         } catch (Exception kept) {
                         }

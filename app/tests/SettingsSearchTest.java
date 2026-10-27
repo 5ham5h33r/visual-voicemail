@@ -51,6 +51,9 @@ public final class SettingsSearchTest {
                         "foldersettingmissing", "STORAGE", "Download location", "Chosen folder"));
         check(SettingsSearch.matches("隐私", "隐私", "Privacy", "Data handling"));
         check(!SettingsSearch.active(" \t"));
+        check(SettingsSearch.matches("translate English","TRANSCRIPTION","Transcript output","Original language"));
+        check(SettingsSearch.matches("Spanish","TRANSCRIPTION","Recording language","English"));
+        check(!SettingsSearch.matches("Spanish","PLAYBACK","Audio output","Follow device"));
         System.out.println("Passed " + checks + " settings search checks.");
     }
 }

@@ -192,8 +192,10 @@ public final class SettingsActivity extends MotionActivity {
 
         LinearLayout transcription = group("TRANSCRIPTION");
         row(transcription,"Transcription quality",Transcription.selected(this).label()+" · "+(Transcription.ready(this)?"Ready":Transcription.selected(this).sizeLabel()+" download"),()->startActivity(new Intent(this,TranscriptionSettingsActivity.class)));
-        toggle(transcription,"Transcribe on open","Once the English model is ready, transcribe recordings as you open them.","auto_transcribe",true);
-        note(transcription,"English transcription stays on this phone. Choose speed or accuracy under Transcription quality.");
+        row(transcription,"Recording language",SpeechOptions.label(SpeechOptions.language(this,Transcription.selected(this))),()->SpeechOptions.chooseLanguage(this,()->build()));
+        row(transcription,"Transcript output",SpeechOptions.english(this)?"Original + English translation":"Original language",()->SpeechOptions.chooseOutput(this,()->build()));
+        toggle(transcription,"Transcribe on open","Once the selected model is ready, generate text as you open recordings.","auto_transcribe",true);
+        note(transcription,"Recognition and English translation stay on this phone. Tiny and Base are English-only; other languages and translation use Large v3. Existing saved text is kept until you update it.");
         note(transcription,"Tap transcript phrases to listen; use Find to search. Timing and recognized words can be imperfect.");
         row(transcription,"Clear saved transcripts","Keep recordings, carrier messages, and the speech model",()->confirm("Clear saved transcripts?","Transcripts saved on this phone will be removed. Open a recording to generate its transcript again.","Clear transcripts",()->{
             info("Saved transcripts",Transcription.clear(this,false)?"Saved transcripts cleared.":"Wait for transcription or a model download to finish, then retry.");build();

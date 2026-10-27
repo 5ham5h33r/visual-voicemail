@@ -49,6 +49,10 @@ final class SettingsSearch {
                            + " english speech voice to text accuracy";
             case "Transcribe on open":
                 return "automatic auto transcription transcript transcripts speech";
+            case "Recording language":
+                return "language multilingual detect automatic spanish french german arabic hindi urdu portuguese japanese korean chinese russian italian";
+            case "Transcript output":
+                return "translation translate english original language multilingual speech";
             case "Clear saved transcripts":
                 return "remove delete erase transcript text storage";
             case "Refresh on open":

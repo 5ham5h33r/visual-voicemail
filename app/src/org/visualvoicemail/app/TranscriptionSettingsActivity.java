@@ -12,6 +12,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
     private LinearLayout content;
     private TextView state;
     private Button download, cancel, remove;
+    private Button language, output;
     private ProgressBar progress;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final TranscriptionQuality[] qualities = TranscriptionQuality.values();
@@ -72,12 +73,39 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
         content.addView(ui.label("Transcription quality", Ui.DETAIL_TITLE, ui.text, true));
         TextView explanation =
                 ui.label(
-                        "English transcription on your phone. Choose speed or accuracy.",
+                        "Transcription on your phone. Tiny and Base are English-only. Large v3"
+                            + " supports other languages and English translation.",
                         14,
                         ui.secondary,
                         false);
         explanation.setLineSpacing(ui.dp(4), 1);
         ui.add(content, explanation, 14);
+        language =
+                ui.button(
+                        "",
+                        false,
+                        () ->
+                                SpeechOptions.chooseLanguage(
+                                        this,
+                                        () -> {
+                                            previous = "";
+                                            update();
+                                        }));
+        output =
+                ui.button(
+                        "",
+                        false,
+                        () ->
+                                SpeechOptions.chooseOutput(
+                                        this,
+                                        () -> {
+                                            previous = "";
+                                            update();
+                                        }));
+        language.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        output.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        ui.add(content, language, 8);
+        ui.add(content, output, 0);
         for (int i = 0; i < qualities.length; i++) {
             TranscriptionQuality q = qualities[i];
             LinearLayout card = ui.column();
@@ -211,14 +239,20 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                         new AlertDialog.Builder(this)
                                                 .setTitle("About transcription quality")
                                                 .setMessage(
-                                                        "Standard uses Whisper tiny.en. Enhanced"
-                                                            + " uses Whisper base.en, a larger"
-                                                            + " speech-recognition model. Highest"
-                                                            + " quality uses the full Whisper"
-                                                            + " large-v3 (int8), not Turbo. It is"
-                                                            + " much slower and needs an 8 GB or"
-                                                            + " larger phone with enough available"
-                                                            + " memory. Larger models can improve"
+                                                        "Standard (Whisper Tiny): English-only."
+                                                            + " Fast results with a smaller"
+                                                            + " download.\n\n"
+                                                            + "Enhanced (Whisper Base):"
+                                                            + " English-only. A larger model that"
+                                                            + " may recognize difficult speech"
+                                                            + " better.\n\n"
+                                                            + "Highest quality (Whisper Large v3):"
+                                                            + " Multilingual recognition and"
+                                                            + " English translation. Full int8"
+                                                            + " model. Much slower; needs an 8 GB"
+                                                            + " or larger phone with enough"
+                                                            + " available memory.\n\n"
+                                                            + "Larger models can improve"
                                                             + " recognition, but no model is always"
                                                             + " correct. Check important names,"
                                                             + " dates, and numbers against the"
@@ -249,11 +283,11 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                         + " recordings and transcripts stay on this phone."
                                         + (q == TranscriptionQuality.HIGHEST
                                                 ? "\n\n"
-                                                      + "Allow about 3.6 GB of free storage for"
-                                                      + " setup. Large v3 can take minutes per"
-                                                      + " recording and use several GB of memory."
-                                                      + " Keep the app open; choose Standard or"
-                                                      + " Enhanced for faster results."
+                                                        + "Allow about 3.6 GB of free storage for"
+                                                        + " setup. Large v3 can take minutes per"
+                                                        + " recording and use several GB of memory."
+                                                        + " Keep the app open; choose Standard or"
+                                                        + " Enhanced for faster results."
                                                 : ""))
                         .setPositiveButton(
                                 "Download",
@@ -275,9 +309,17 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                         + Transcription.busy
                         + Transcription.status
                         + Transcription.failure
-                        + Transcription.cancelled;
+                        + Transcription.cancelled
+                        + SpeechOptions.language(this, q)
+                        + SpeechOptions.english(this);
         if (current.equals(previous)) return;
         previous = current;
+        language.setText(
+                "Language · " + SpeechOptions.label(SpeechOptions.language(this, q)) + "  ›");
+        output.setText(
+                SpeechOptions.english(this)
+                        ? "Output · Original + English  ›"
+                        : "Output · Original language  ›");
         boolean active = Transcription.busy;
         for (View v : choices) v.setEnabled(!active);
         if (active)

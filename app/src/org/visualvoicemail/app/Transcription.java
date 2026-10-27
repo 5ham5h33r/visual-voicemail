@@ -80,6 +80,14 @@ final class Transcription {
         return Transcript.parse(new PrivateStore(c).get(key(id)));
     }
 
+    static String translationKey(String id) {
+        return key(id).replace("transcript-", "translation-");
+    }
+
+    static Transcript cachedEnglish(Context c, String id) {
+        return Transcript.parse(new PrivateStore(c).get(translationKey(id)));
+    }
+
     static synchronized void download(Context context) {
         if (busy) return;
         final Context c = context.getApplicationContext();
@@ -174,14 +182,22 @@ final class Transcription {
     static volatile long batchVersion;
 
     static synchronized void generate(Context context, JSONObject message) {
+        generate(context, message, SpeechOptions.english(context));
+    }
+
+    static synchronized void generate(Context context, JSONObject message, boolean english) {
         if (busy || MailboxBatch.removingSaved || !ready(context)) return;
         final Context c = context.getApplicationContext();
         final TranscriptionQuality quality = selected(c);
+        if (english && quality != TranscriptionQuality.HIGHEST) return;
+        final String language = SpeechOptions.language(c, quality);
         begin(message.optString("objectid"));
         WORK.execute(
                 () -> {
                     try {
-                        transcribe(c, quality, message);
+                        if (english && cached(c, message.optString("objectid")) == null)
+                            transcribe(c, quality, language, message, false);
+                        transcribe(c, quality, language, message, english);
                     } catch (Exception | LinkageError | OutOfMemoryError e) {
                         failure = failureMessage(e);
                     } finally {
@@ -195,9 +211,12 @@ final class Transcription {
      */
     static synchronized boolean generateBatch(
             Context context, List<JSONObject> messages, boolean replace) {
-        if (busy || MailboxBatch.removingSaved || !ready(context) || messages.isEmpty()) return false;
+        if (busy || MailboxBatch.removingSaved || !ready(context) || messages.isEmpty())
+            return false;
         final Context c = context.getApplicationContext();
         final TranscriptionQuality quality = selected(c);
+        final String language = SpeechOptions.language(c, quality);
+        final boolean english = SpeechOptions.english(c);
         final List<JSONObject> snapshot = new ArrayList<>(messages);
         begin("batch");
         batch = true;
@@ -211,18 +230,21 @@ final class Transcription {
                             JSONObject message = snapshot.get(i);
                             job = message.optString("objectid");
                             batchStatus =
-                                    "Transcribing "
+                                    (english ? "Translating " : "Transcribing ")
                                             + (i + 1)
                                             + " of "
                                             + snapshot.size()
                                             + " · "
                                             + quality.title;
-                            if (!replace && cached(c, job) != null) {
+                            if (!replace
+                                    && (english ? cachedEnglish(c, job) : cached(c, job)) != null) {
                                 skipped++;
                                 continue;
                             }
                             try {
-                                transcribe(c, quality, message);
+                                if (english && cached(c, job) == null)
+                                    transcribe(c, quality, language, message, false);
+                                transcribe(c, quality, language, message, english);
                                 saved++;
                             } catch (Exception | LinkageError | OutOfMemoryError e) {
                                 if (cancelled) break;
@@ -278,12 +300,18 @@ final class Transcription {
         return cancelled
                 ? "Transcription cancelled. Your recording is unchanged."
                 : e instanceof InsufficientModelMemory || e instanceof OutOfMemoryError
-                        ? "Not enough available memory for this model. Choose Standard or Enhanced,"
-                              + " or retry after closing other apps. Your saved transcript is kept."
+                        ? "Not enough available memory for this model. Close other apps and retry."
+                              + " Standard and Enhanced offer English-only transcription. Your"
+                              + " saved text is kept."
                         : "Couldn't transcribe this recording. You can still listen, or try again.";
     }
 
-    private static void transcribe(Context c, TranscriptionQuality quality, JSONObject message)
+    private static void transcribe(
+            Context c,
+            TranscriptionQuality quality,
+            String language,
+            JSONObject message,
+            boolean english)
             throws Exception {
         final String[] NAMES = quality.names();
         final String id = message.optString("objectid");
@@ -317,10 +345,13 @@ final class Transcription {
             vad = null;
             Transcript result = new Transcript();
             result.quality = quality.key;
+            result.language = language;
+            result.task = english ? "translate" : "transcribe";
             if (!ranges.isEmpty()) {
                 if (quality == TranscriptionQuality.HIGHEST) {
                     android.app.ActivityManager manager =
-                            (android.app.ActivityManager) c.getSystemService(Context.ACTIVITY_SERVICE);
+                            (android.app.ActivityManager)
+                                    c.getSystemService(Context.ACTIVITY_SERVICE);
                     android.app.ActivityManager.MemoryInfo memory =
                             new android.app.ActivityManager.MemoryInfo();
                     manager.getMemoryInfo(memory);
@@ -332,6 +363,9 @@ final class Transcription {
                 OfflineWhisperModelConfig whisper = new OfflineWhisperModelConfig();
                 whisper.setEncoder(new File(root, NAMES[0]).getAbsolutePath());
                 whisper.setDecoder(new File(root, NAMES[1]).getAbsolutePath());
+                whisper.setLanguage("auto".equals(language) ? "" : language);
+                whisper.setTask(english ? "translate" : "transcribe");
+                whisper.setTailPaddings(quality == TranscriptionQuality.HIGHEST ? 300 : 50);
                 OfflineModelConfig model = new OfflineModelConfig();
                 model.setWhisper(whisper);
                 model.setTokens(new File(root, NAMES[2]).getAbsolutePath());
@@ -342,14 +376,28 @@ final class Transcription {
                 recognizer = new OfflineRecognizer(null, config);
                 for (int i = 0; i < ranges.size(); i++) {
                     if (cancelled) throw new java.io.InterruptedIOException();
-                    status = "Transcribing on this phone · " + (i + 1) + " of " + ranges.size();
+                    status =
+                            (english
+                                            ? "Translating to English on this phone · "
+                                            : "Transcribing on this phone · ")
+                                    + (i + 1)
+                                    + " of "
+                                    + ranges.size();
                     int[] range = ranges.get(i);
                     OfflineStream stream = recognizer.createStream();
                     try {
                         stream.acceptWaveform(
                                 Arrays.copyOfRange(samples, range[0], range[1]), 16000);
                         recognizer.decode(stream);
-                        String text = recognizer.getResult(stream).getText().trim();
+                        OfflineRecognizerResult decoded = recognizer.getResult(stream);
+                        String text = decoded.getText().trim();
+                        String reported = decoded.getLang();
+                        if (reported != null && !reported.isEmpty())
+                            result.reportedLanguage =
+                                    result.reportedLanguage.isEmpty()
+                                                    || result.reportedLanguage.equals(reported)
+                                            ? reported
+                                            : "mul";
                         if (!text.isEmpty())
                             result.segments.add(
                                     new Transcript.Segment(range[0] / 16, range[1] / 16, text));
@@ -359,12 +407,14 @@ final class Transcription {
                 }
             }
             if (cancelled) throw new java.io.InterruptedIOException();
-            if (!new PrivateStore(c).put(key(id), result.json()))
+            if (!new PrivateStore(c).put(english ? translationKey(id) : key(id), result.json()))
                 throw new java.io.IOException("storage");
             status =
                     result.segments.isEmpty()
                             ? "No speech detected"
-                            : "Transcript saved on this phone";
+                            : english
+                                    ? "English translation saved on this phone"
+                                    : "Transcript saved on this phone";
         } finally {
             if (vad != null) vad.release();
             if (recognizer != null) recognizer.release();
@@ -407,7 +457,8 @@ final class Transcription {
                     model
                             ? file.getName().equals("verified-v1")
                             : file.getName()
-                                    .matches("transcript-[0-9a-f]{64}\\.enc(?:\\.bak|\\.new)?");
+                                    .matches(
+                                            "(?:transcript|translation)-[0-9a-f]{64}\\.enc(?:\\.bak|\\.new)?");
             if (model)
                 for (String name : NAMES)
                     if (file.getName().equals(name) || file.getName().equals(name + ".part"))

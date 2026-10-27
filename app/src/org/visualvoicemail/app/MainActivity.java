@@ -57,6 +57,7 @@ public final class MainActivity extends MotionActivity {
     private int contactGeneration;
     private boolean contactsLoading;
     private final Map<String, Transcript> transcripts = new HashMap<>();
+    private final Map<String, Transcript> translations = new HashMap<>();
     private int displayedAppearance, pendingSettingsAction;
     private boolean clearingDownloads;
     private static final int SETTINGS_REQUEST = 42;
@@ -417,7 +418,8 @@ public final class MainActivity extends MotionActivity {
             if (choice==1 && InboxQuery.isRead(message.optString("flag"))) continue;
             if (choice==2 && !message.optBoolean("_saved") && !marks.contains(message.optString("objectid"))) continue;
             if (InboxQuery.matches(query,message.optString("returnnumber"),caller(message),message.optString("date"),date(message))
-                    || transcripts.containsKey(message.optString("objectid")) && transcripts.get(message.optString("objectid")).matches(query)) shown.add(message);
+                    || transcripts.containsKey(message.optString("objectid")) && transcripts.get(message.optString("objectid")).matches(query)
+                    || translations.containsKey(message.optString("objectid")) && translations.get(message.optString("objectid")).matches(query)) shown.add(message);
         }
         boolean oldest = getSharedPreferences("settings",MODE_PRIVATE).getBoolean("oldest_first",false);
         shown.sort((x,y) -> InboxQuery.compareDates(x.optString("date"),y.optString("date"),oldest));
@@ -651,9 +653,10 @@ public final class MainActivity extends MotionActivity {
                     .setNegativeButton("Not now", null).create()); return;
         }
         int existing = 0;
-        for (JSONObject message : selected) if (Transcription.cached(this, message.optString("objectid")) != null) existing++;
+        for (JSONObject message : selected) if ((SpeechOptions.english(this) ? Transcription.cachedEnglish(this, message.optString("objectid")) : Transcription.cached(this, message.optString("objectid"))) != null) existing++;
         AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle("Transcribe " + selected.size() + " voicemails?")
-                .setMessage(Transcription.selected(this).label() + " · On this phone. Missing recordings download from your carrier. Keep the app open. "
+                .setMessage(Transcription.selected(this).label() + " · " + SpeechOptions.label(SpeechOptions.language(this, Transcription.selected(this)))
+                        + (SpeechOptions.english(this) ? " · English translation. Originals are kept." : " · Original language.") + " On this phone. Missing recordings download from your carrier. Keep the app open. "
                         + existing + " already have transcripts; Generate missing keeps them. Cancel stops at the next phrase boundary."
                         + (Transcription.selected(this) == TranscriptionQuality.HIGHEST ? " Large v3 can take minutes per message." : ""))
                 .setPositiveButton("Generate missing", (d, w) -> startTranscripts(selected, false))
@@ -742,13 +745,16 @@ public final class MainActivity extends MotionActivity {
                 : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
             saved = text(state + " · " + (transcripts.containsKey(message.optString("objectid")) ? "Transcript available" : carrier.cachedAudio(message) == null ? "Open to listen" : "Saved on this phone"), 12, secondary, false);
             Transcript transcript = transcripts.get(message.optString("objectid"));
+            boolean englishMatch = !query.trim().isEmpty() && translations.containsKey(id) && translations.get(id).matches(query)
+                    && (transcript == null || !transcript.matches(query));
+            if (englishMatch) transcript = translations.get(id);
             if (transcript != null && !transcript.text().isEmpty()) {
                 String excerpt = transcript.text();
                 if (!query.trim().isEmpty()) {
                     java.util.List<int[]> found = TranscriptSearch.find(excerpt, query);
                     if (!found.isEmpty()) excerpt = excerpt.substring(Math.max(0, found.get(0)[0]-30));
                 }
-                preview = text(excerpt, 14, secondary, false);
+                preview = text((englishMatch ? "English · " : "") + excerpt, 14, secondary, false);
                 preview.setMaxLines(1); preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
                 add(root, preview, 8);
             }
@@ -821,19 +827,25 @@ public final class MainActivity extends MotionActivity {
 
     private void openRecording(JSONObject message, boolean play) {
         startActivity(new Intent(this, RecordingActivity.class).putExtra("id", message.optString("objectid"))
-            .putExtra("caller", caller(message)).putExtra("find", query).putExtra("play", play));
+            .putExtra("caller", caller(message)).putExtra("find", query).putExtra("play", play)
+            .putExtra("english", !query.trim().isEmpty() && translations.containsKey(message.optString("objectid"))
+                && translations.get(message.optString("objectid")).matches(query)
+                && (!transcripts.containsKey(message.optString("objectid")) || !transcripts.get(message.optString("objectid")).matches(query))));
     }
 
     private void loadTranscripts() {
         final List<JSONObject> snapshot = new ArrayList<>(inbox);
         worker.execute(() -> {
             Map<String, Transcript> loaded = new HashMap<>();
+            Map<String, Transcript> english = new HashMap<>();
             for (JSONObject item : snapshot) {
                 String id = item.optString("objectid");
                 Transcript value = Transcription.cached(this, id);
                 if (value != null) loaded.put(id, value);
+                Transcript translated = Transcription.cachedEnglish(this, id);
+                if (translated != null) english.put(id, translated);
             }
-            runOnUiThread(() -> { if (!destroyed) { transcripts.clear(); transcripts.putAll(loaded); render(); } });
+            runOnUiThread(() -> { if (!destroyed) { transcripts.clear(); transcripts.putAll(loaded); translations.clear(); translations.putAll(english); render(); } });
         });
     }
 
