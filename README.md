@@ -11,6 +11,8 @@ An independently signed Android app now authenticates to Mint's existing voicema
 - [Mailbox access validation](docs/mailbox-access.md)
 - [Live playback validation](docs/playback-validation.md)
 - [Protected sessions and offline playback](docs/offline-inbox.md)
+- [Native inbox, light/dark themes, and playback controls](docs/inbox-design.md)
+- [Build the voicemail app](app/README.md)
 - [Build the diagnostic Android app](probe/README.md)
 
 ## Development

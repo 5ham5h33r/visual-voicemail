@@ -15,4 +15,6 @@ Authentication establishes an independent service instance and retrieves a servi
 
 Mailbox credentials and the inbox are persisted with authenticated AES-GCM encryption using a key held in Android Keystore. On reopening, the saved inbox appears immediately and downloaded recordings can play from app-private storage. A valid restored token can refresh the mailbox over Wi-Fi; initial authentication or renewal still needs Mint cellular data. Tokens and subscriber identifiers are never written to diagnostic output or sent to a project server.
 
-No delete, mark-read, greeting, forwarding, PIN, or push-registration requests are implemented. Recordings are cached in the app's private storage. Pause/resume and completion are supported; the playback interface is being improved next. Transcription is deferred at the user's request.
+The native inbox has system-following light/dark themes and saved appearance overrides, formatted phone numbers and local dates, and an expandable player with seeking and ten-second skips. One recording plays at a time. Leaving the app or losing audio focus pauses playback; returning does not automatically resume it. Refresh preserves the active player when its message remains in the inbox.
+
+No delete, mark-read, greeting, forwarding, PIN, or push-registration requests are implemented. Recordings are cached in the app's private storage, using atomic writes. Background notifications and transcription are deferred. See [design and device validation](../docs/inbox-design.md) for the current milestone and its limits.
