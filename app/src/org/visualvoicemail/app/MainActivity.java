@@ -40,6 +40,11 @@ public final class MainActivity extends Activity {
         messages = new LinearLayout(this); messages.setOrientation(LinearLayout.VERTICAL);
         root.addView(messages);
         ScrollView scroll = new ScrollView(this); scroll.addView(root); setContentView(scroll);
+        java.util.List<JSONObject> cached = carrier.cachedInbox();
+        if (!cached.isEmpty()) {
+            render(cached); status.setText(cached.size() + " saved voicemail" + (cached.size() == 1 ? "" : "s"));
+            refresh.setText("Refresh");
+        }
     }
 
     private void sync() {
@@ -48,9 +53,21 @@ public final class MainActivity extends Activity {
             try {
                 java.util.List<JSONObject> inbox = carrier.sync();
                 runOnUiThread(() -> {
-                    messages.removeAllViews();
                     status.setText(inbox.size() + (inbox.size() == 1 ? " voicemail" : " voicemails"));
                     refresh.setText("Refresh"); refresh.setEnabled(true);
+                    render(inbox);
+                });
+            } catch (Exception error) {
+                carrier.saveDiagnostics();
+                runOnUiThread(() -> { status.setText(error.getMessage()); refresh.setEnabled(true); });
+            }
+        });
+    }
+
+    private void render(java.util.List<JSONObject> inbox) {
+                    if (player != null) { player.release(); player = null; }
+                    activePlay = null;
+                    messages.removeAllViews();
                     for (JSONObject message : inbox) {
                         TextView row = new TextView(this);
                         row.setText(message.optString("returnnumber", "Unknown caller") + "\n"
@@ -62,12 +79,6 @@ public final class MainActivity extends Activity {
                         play.setOnClickListener(v -> play(message, play));
                         messages.addView(play);
                     }
-                });
-            } catch (Exception error) {
-                carrier.saveDiagnostics();
-                runOnUiThread(() -> { status.setText(error.getMessage()); refresh.setEnabled(true); });
-            }
-        });
     }
 
     private void play(JSONObject message, Button button) {

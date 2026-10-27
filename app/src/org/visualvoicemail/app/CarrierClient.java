@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -37,12 +38,22 @@ public final class CarrierClient {
     private final ConnectivityManager connectivity;
     private String number = "";
     private String token = "";
+    private long tokenExpires;
+    private final PrivateStore store;
     private int nextMessage = 1;
     private final JSONObject diagnostics = new JSONObject();
 
     public CarrierClient(Context context) {
         this.context = context.getApplicationContext();
         connectivity = context.getSystemService(ConnectivityManager.class);
+        store = new PrivateStore(context);
+        JSONObject session = store.get("session.bin");
+        if (session != null) {
+            number = session.optString("number", "");
+            token = session.optString("token", "");
+            tokenExpires = session.optLong("expires", 0);
+            try { diagnostics.put("session_restored", !token.isEmpty()); } catch (Exception ignored) { }
+        }
     }
 
     public JSONObject diagnostics() { return diagnostics; }
@@ -54,18 +65,32 @@ public final class CarrierClient {
 
     public synchronized List<JSONObject> sync() throws Exception {
         stage("connecting");
-        if (token.isEmpty()) authenticate();
+        if (token.isEmpty() || tokenExpires < System.currentTimeMillis() + 60000) authenticate();
         stage("listing");
-        JSONObject page;
-        try { page = mailbox("voicemails?audiotype=audio%2Famr&offset=0&count=100"); }
-        catch (AuthExpired expired) {
-            token = "";
-            authenticate();
-            page = mailbox("voicemails?audiotype=audio%2Famr&offset=0&count=100");
+        LinkedHashMap<String, JSONObject> unique = new LinkedHashMap<>();
+        int offset = 0;
+        while (true) {
+            JSONObject page;
+            String path = "voicemails?audiotype=audio%2Famr&offset=" + offset + "&count=100";
+            try { page = mailbox(path); }
+            catch (AuthExpired expired) { token = ""; authenticate(); page = mailbox(path); }
+            JSONArray messages = page.optJSONArray("voicemails");
+            int count = messages == null ? 0 : messages.length();
+            int previousSize = unique.size();
+            for (int i = 0; i < count; i++) {
+                JSONObject message = messages.getJSONObject(i);
+                String id = message.optString("objectid", "");
+                if (!id.isEmpty()) unique.put(id, message);
+            }
+            if (count < 100 || unique.size() == previousSize) break;
+            offset += count;
+            if (offset >= 10000) throw new IOException("This mailbox is too large to sync in one request. Please try again later.");
         }
-        JSONArray messages = page.optJSONArray("voicemails");
-        List<JSONObject> result = new ArrayList<>();
-        if (messages != null) for (int i = 0; i < messages.length(); i++) result.add(messages.getJSONObject(i));
+        List<JSONObject> result = new ArrayList<>(unique.values());
+        JSONArray saved = new JSONArray();
+        for (JSONObject message : result) saved.put(message);
+        diagnostics.put("encrypted_inbox_saved", store.put("inbox.bin", new JSONObject()
+            .put("messages", saved).put("synced_at", System.currentTimeMillis())));
         diagnostics.put("message_count", result.size());
         stage("mailbox_loaded");
         return result;
@@ -112,6 +137,10 @@ public final class CarrierClient {
             String rawToken = credentials.getString("service-instance-token");
             if (rawToken.isEmpty()) throw new IOException("The carrier returned no mailbox access token.");
             token = Base64.encodeToString(rawToken.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
+            try { tokenExpires = java.time.OffsetDateTime.parse(credentials.getString("expiration-time")).toInstant().toEpochMilli(); }
+            catch (Exception ignored) { tokenExpires = System.currentTimeMillis() + 5 * 60 * 1000; }
+            diagnostics.put("encrypted_session_saved", store.put("session.bin", new JSONObject()
+                .put("number", number).put("token", token).put("expires", tokenExpires)));
             diagnostics.put("has_mailbox_token", true);
             stage("authenticated");
         }
@@ -182,7 +211,11 @@ public final class CarrierClient {
         File directory = new File(context.getFilesDir(), "audio");
         if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Could not create audio storage.");
         File file = new File(directory, filename + ".audio");
-        if (file.isFile() && file.length() > 0) return file;
+        if (file.isFile() && file.length() > 0) {
+            diagnostics.put("audio_from_cache", true).put("audio_bytes", file.length());
+            stage("audio_ready"); return file;
+        }
+        diagnostics.put("audio_from_cache", false);
         JSONObject object = message.optJSONObject("objectaudio");
         if (object == null) throw new IOException("The carrier supplied no audio for this message.");
         byte[] bytes;
@@ -242,6 +275,19 @@ public final class CarrierClient {
             output.write(diagnostics.toString(2).getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) { }
     }
+
+    public List<JSONObject> cachedInbox() {
+        List<JSONObject> result = new ArrayList<>();
+        JSONObject saved = store.get("inbox.bin");
+        JSONArray messages = saved == null ? null : saved.optJSONArray("messages");
+        if (messages != null) for (int i = 0; i < messages.length(); i++) {
+            JSONObject message = messages.optJSONObject(i);
+            if (message != null) result.add(message);
+        }
+        return result;
+    }
+
+    public boolean hasSession() { return !token.isEmpty(); }
 
     private static final class AuthExpired extends IOException { private static final long serialVersionUID = 1L; }
 
