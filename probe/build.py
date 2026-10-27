@@ -4,8 +4,12 @@ import os
 import shutil
 import subprocess
 import zipfile
+import argparse
 
-ROOT = pathlib.Path(__file__).resolve().parent
+parser = argparse.ArgumentParser()
+parser.add_argument('--module', choices=['probe', 'app'], default='probe')
+options = parser.parse_args()
+ROOT = pathlib.Path(__file__).resolve().parent.parent / options.module
 TOOLS = ROOT.parent / 'research/tools'
 WINDOWS = os.name == 'nt'
 EXEC = '.exe' if WINDOWS else ''
@@ -50,7 +54,7 @@ if not keystore.exists():
     run(KEYTOOL, '-genkeypair', '-keystore', keystore, '-storepass', 'android',
         '-alias', 'research', '-keypass', 'android', '-keyalg', 'RSA', '-keysize', '2048',
         '-validity', '365', '-dname', 'CN=Visual Voice Mail Research Debug')
-apk = BUILD / 'vvm-research-probe.apk'
+apk = BUILD / ('visual-voice-mail.apk' if options.module == 'app' else 'vvm-research-probe.apk')
 run(JAVA, '-jar', BUILD_TOOLS / 'lib/apksigner.jar', 'sign', '--ks', keystore,
     '--ks-pass', 'pass:android', '--ks-key-alias', 'research', '--out', apk, unsigned)
 run(JAVA, '-jar', BUILD_TOOLS / 'lib/apksigner.jar', 'verify', '--verbose', apk)
