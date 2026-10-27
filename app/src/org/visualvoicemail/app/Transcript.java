@@ -21,6 +21,7 @@ final class Transcript {
     }
 
     final List<Segment> segments = new ArrayList<>();
+    String quality = TranscriptionQuality.STANDARD.key;
 
     String text() {
         StringBuilder out = new StringBuilder();
@@ -37,13 +38,17 @@ final class Transcript {
             items.put(new JSONObject().put("start", s.start).put("end", s.end).put("text", s.text));
         return new JSONObject()
                 .put("version", 1)
-                .put("engine", "whisper-tiny.en+silero-vad")
+                .put(
+                        "engine",
+                        "whisper-" + TranscriptionQuality.forKey(quality).prefix + "+silero-vad")
+                .put("quality", quality)
                 .put("segments", items);
     }
 
     static Transcript parse(JSONObject value) {
         if (value == null || value.optInt("version") != 1) return null;
         Transcript out = new Transcript();
+        out.quality = TranscriptionQuality.forKey(value.optString("quality", "standard")).key;
         JSONArray items = value.optJSONArray("segments");
         if (items == null) return null;
         for (int i = 0; i < items.length(); i++) {

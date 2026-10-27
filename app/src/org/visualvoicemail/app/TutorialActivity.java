@@ -1,6 +1,5 @@
 package org.visualvoicemail.app;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -12,7 +11,7 @@ import android.view.WindowInsets;
 import android.widget.*;
 
 /** A short introduction and optional permission setup, followed by tips on the real interface. */
-public final class TutorialActivity extends Activity {
+public final class TutorialActivity extends MotionActivity {
     private Ui ui;
     private int page;
     private boolean replay;
@@ -27,12 +26,12 @@ public final class TutorialActivity extends Activity {
     };
     private static final String[] COPY = {
         "A calm place for the messages you missed. Keep your existing mailbox and your favorite"
-            + " phone app.",
+                + " phone app.",
         "Find a caller, pick up where you left off, and keep your inbox in order.",
         "Turn recordings into text on this phone. Tap a phrase to hear it, or find the detail"
-            + " you're looking for.",
+                + " you're looking for.",
         "Choose what helps you. Everything here is optional, and you can change it later in"
-            + " Settings."
+                + " Settings."
     };
 
     static boolean needed(Context c) {
@@ -157,7 +156,7 @@ public final class TutorialActivity extends Activity {
                             () ->
                                     result.setText(
                                             "A deletion mark is reversible. It doesn't erase a"
-                                                + " carrier message."));
+                                                    + " carrier message."));
             actions.addView(read, new LinearLayout.LayoutParams(-1, -2));
             ui.add(actions, mark, 10);
             ui.add(sample, actions, 18);
@@ -195,9 +194,10 @@ public final class TutorialActivity extends Activity {
             ui.add(body, position, 20);
             TextView note =
                     ui.label(
-                            "English transcription uses a one-time 104 MB model download when you"
-                                + " first need it. Audio stays on this phone. Phrase timing and"
-                                + " recognized words can be imperfect.",
+                            "English transcription uses a one-time model download (104–161 MB)."
+                                + " Choose quality in the transcript or Settings. Audio stays on"
+                                + " this phone. Phrase timing and recognized words can be"
+                                + " imperfect.",
                             14,
                             ui.secondary,
                             false);
@@ -231,7 +231,7 @@ public final class TutorialActivity extends Activity {
                     body,
                     "Know when there's a message",
                     "Alerts follow mailbox checks, about every 15 minutes. Android may delay"
-                        + " checks.",
+                            + " checks.",
                     VoicemailAlerts.enabled(this) ? "Manage alerts" : "Enable alerts",
                     false,
                     () -> {
@@ -247,7 +247,7 @@ public final class TutorialActivity extends Activity {
             TextView note =
                     ui.label(
                             "Light, Dark, and true-black AMOLED are in Settings. We'll point out"
-                                + " the main controls next.",
+                                    + " the main controls next.",
                             14,
                             ui.secondary,
                             false);

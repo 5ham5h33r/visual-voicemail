@@ -1,6 +1,5 @@
 package org.visualvoicemail.app;
 
-import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
@@ -85,11 +84,14 @@ final class Ui {
                 new RippleDrawable(
                         ColorStateList.valueOf(divider), shape(primary ? accent : tint, 16), null));
         b.setOnClickListener(v -> action.run());
+        AppMotion.press(b);
         return b;
     }
 
     void show(android.app.AlertDialog dialog) {
+        if (!AppMotion.enabled(a)) dialog.getWindow().setWindowAnimations(0);
         dialog.show();
+        AppMotion.buttons(dialog);
         dialog.getWindow().setBackgroundDrawable(shape(surface, 24));
         for (int which : new int[] {-1, -2, -3}) {
             Button b = dialog.getButton(which);
@@ -110,15 +112,7 @@ final class Ui {
     }
 
     void enter(View v) {
-        if (!ValueAnimator.areAnimatorsEnabled()) return;
-        v.setAlpha(0);
-        v.setTranslationY(dp(8));
-        v.animate()
-                .alpha(1)
-                .translationY(0)
-                .setDuration(180)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator())
-                .start();
+        v.post(() -> AppMotion.reveal(v, 180, 8));
     }
 
     final class Icon extends View {
@@ -130,6 +124,7 @@ final class Ui {
             super(a);
             this.name = name;
             this.solid = solid;
+            AppMotion.press(this);
             setFocusable(true);
             setClickable(true);
             setBackground(
