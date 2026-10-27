@@ -23,3 +23,5 @@ Version 0.20 refreshes Settings with its aligned back/title row and search field
 Version 0.23 refreshes expanded inbox, guided inbox, bulk selection, and Settings captures (11 images). Caller/number/date details and transcript previews were replaced in native views before capture; every image was visually reviewed. Bulk examples show previews and read/saved status aligned with the caller column. Original preferences were restored.
 
 The final version 0.23 bulk images show rounded native checkbox glyphs and aligned previews. Six additional menu examples were rendered from the actual native popup/dialog view trees in Light, Dark, and AMOLED; their text is generic and every image was reviewed. Whole-screen gallery images remain native window captures with personal details hidden.
+
+Version 0.25 recording images were recaptured from native S24 Ultra windows in Light, Dark, and AMOLED. Caller details and dates are replaced before drawing; transcript lines contain labeled sample text. The images show the smaller handset/share symbols and compact player with symmetric vertical padding. Every image was visually reviewed before copying into this directory.

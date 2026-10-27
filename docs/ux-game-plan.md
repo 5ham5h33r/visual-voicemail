@@ -1,6 +1,6 @@
 # UX and reliability game plan
 
-Status: approved by the user. Implementation has resumed, including swipe performance, card separation, matching menu styling, rounded selection controls, and actual carrier deletion with retained local copies. The inbox UI pass and notification eligibility investigation are merged. Carrier deletion with protected Saved copies is in validation. Multilingual output and greeting setup remain next. Tests do not change existing personal voicemail, carrier configuration, greetings, read status, or device preferences.
+Status: approved by the user. Implementation has resumed, including swipe performance, card separation, matching menu styling, rounded selection controls, and actual carrier deletion with retained local copies. The inbox UI pass and notification eligibility investigation are merged. Carrier deletion with protected Saved copies is merged and the user-authorized Mint removal test passed. Multilingual output, calling, sharing, smaller recording icons, balanced player spacing, and model-description paragraphs passed validation. Greeting setup and broader layout/accessibility checks remain next. Direct push delivery is still unverified; the app remains independent of the T-Mobile companion app. Tests do not change existing personal voicemail, carrier configuration, greetings, read status, or device preferences.
 
 ## Assessment
 

@@ -107,6 +107,27 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             Thread.sleep(400);
             View[] cards = (View[]) field(screen, "choices");
             check(cards.length == 3);
+            check(((Button) field(screen, "language")).getText().toString().contains("English"));
+            check(
+                    ((Button) field(screen, "output"))
+                            .getText()
+                            .toString()
+                            .contains("Original language"));
+            View about = find(screen.getWindow().getDecorView(), "About these options");
+            runOnMainSync(() -> about.performClick());
+            waitForIdleSync();
+            Thread.sleep(150);
+            android.view.accessibility.AccessibilityNodeInfo popup =
+                    getUiAutomation().getRootInActiveWindow();
+            List<android.view.accessibility.AccessibilityNodeInfo> copy =
+                    popup.findAccessibilityNodeInfosByText("Standard (Whisper Tiny)");
+            check(!copy.isEmpty());
+            String explanation = copy.get(0).getText().toString();
+            check(
+                    explanation.contains("\n\nEnhanced (Whisper Base)")
+                            && explanation.contains("\n\nHighest quality (Whisper Large v3)"));
+            sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+            waitForIdleSync();
             runOnMainSync(() -> cards[2].performClick());
             check("highest".equals(prefs.getString("transcription_quality", "")));
             check(cards[2].isSelected() && !cards[0].isSelected() && !cards[1].isSelected());

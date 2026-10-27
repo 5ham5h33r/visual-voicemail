@@ -63,6 +63,35 @@ public class RecordingFlowCheck extends DeviceCheckInstrumentation {
             screen = startActivitySync(intent);
             Thread.sleep(1500);
             check((Boolean) get(screen, "prepared"));
+            View playButton=(View)get(screen,"play");ViewGroup controls=(ViewGroup)playButton.getParent();
+            ViewGroup mediaCard=(ViewGroup)controls.getParent();
+            check(controls.getPaddingTop()==controls.getPaddingBottom()&&controls.getPaddingBottom()>=8*c.getResources().getDisplayMetrics().density);
+            check(mediaCard.getPaddingTop()==mediaCard.getPaddingBottom());
+            check(Math.abs(playButton.getLeft()+playButton.getWidth()/2f-controls.getWidth()/2f)<=c.getResources().getDisplayMetrics().density);
+            View call = (View) get(screen, "callControl");
+            check(call.getVisibility() == View.VISIBLE);
+            Intent dial =
+                    (Intent)
+                            method(screen.getClass(), "callIntent", JSONObject.class)
+                                    .invoke(null, message);
+            check(
+                    Intent.ACTION_DIAL.equals(dial.getAction())
+                            && "tel".equals(dial.getData().getScheme()));
+            IntentFilter dialing = new IntentFilter(Intent.ACTION_DIAL);
+            dialing.addDataScheme("tel");
+            ActivityMonitor dialer = addMonitor(dialing, new ActivityResult(0, null), true);
+            runOnMainSync(() -> call.performClick());
+            waitForIdleSync();
+            check(dialer.getHits() == 1);
+            removeMonitor(dialer);
+            check(
+                    method(screen.getClass(), "callIntent", JSONObject.class)
+                                    .invoke(null, new JSONObject().put("returnnumber", "Unknown"))
+                            == null);
+            check(
+                    method(screen.getClass(), "callIntent", JSONObject.class)
+                                    .invoke(null, new JSONObject().put("returnnumber", "*#21#"))
+                            == null);
             MediaPlayer player = (MediaPlayer) get(screen, "player");
             player.setVolume(0, 0);
             check(!player.isPlaying());
@@ -114,6 +143,75 @@ public class RecordingFlowCheck extends DeviceCheckInstrumentation {
                 check(player.isPlaying());
                 check(Math.abs(player.getCurrentPosition() - last) < 1000);
             }
+            Object sampleEnglish =
+                    method(transcript.getClass(), "parse", JSONObject.class)
+                            .invoke(
+                                    null,
+                                    new JSONObject(
+                                            "{\"version\":2,\"quality\":\"highest\",\"language\":\"es\",\"task\":\"translate\",\"segments\":[{\"start\":100,\"end\":900,\"text\":\"translationfixtureunique\"}]}"));
+            Field english = screen.getClass().getDeclaredField("english");
+            english.setAccessible(true);
+            english.set(screen, sampleEnglish);
+            runOnMainSync(
+                    () -> {
+                        try {
+                            call("switchOutput", new Class<?>[] {boolean.class}, true);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+            check(
+                    (Boolean) get(screen, "englishVisible")
+                            && ((View) get(screen, "englishTab")).isSelected());
+            runOnMainSync(
+                    () -> {
+                        try {
+                            call("showShareOptions", new Class<?>[0]);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+            PopupMenu sharing = (PopupMenu) get(screen, "shareMenu");
+            check(
+                    sharing.getMenu().size() == 2
+                            && "Transcript".contentEquals(sharing.getMenu().getItem(0).getTitle())
+                            && "Voice recording"
+                                    .contentEquals(sharing.getMenu().getItem(1).getTitle()));
+            check(
+                    sharing.getMenu().getItem(0).isEnabled()
+                            && sharing.getMenu().getItem(1).isEnabled());
+            runOnMainSync(() -> sharing.dismiss());
+            Intent publicShare =
+                    (Intent)
+                            method(
+                                            Class.forName("org.visualvoicemail.app.ShareIntents"),
+                                            "transcript",
+                                            sampleEnglish.getClass())
+                                    .invoke(null, sampleEnglish);
+            ActivityMonitor sharesheet =
+                    addMonitor(
+                            new IntentFilter(Intent.ACTION_CHOOSER),
+                            new ActivityResult(0, null),
+                            true);
+            runOnMainSync(
+                    () -> {
+                        try {
+                            call("startShare", new Class<?>[] {Intent.class}, publicShare);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+            check(sharesheet.getHits() == 1);
+            removeMonitor(sharesheet);
+            runOnMainSync(() -> search.setText("translationfixtureunique"));
+            check(!((List<?>) get(screen, "matches")).isEmpty());
+            Button originalButton = (Button) get(screen, "originalTab");
+            runOnMainSync(() -> originalButton.performClick());
+            check(
+                    !(Boolean) get(screen, "englishVisible")
+                            && ((List<?>) get(screen, "matches")).isEmpty());
+            runOnMainSync(() -> search.setText(""));
+            check(((View) get(screen, "clearFind")).getVisibility() == View.GONE);
             runOnMainSync(
                     () ->
                             screen.startActivity(
