@@ -60,20 +60,19 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                 });
         LinearLayout nav = ui.row();
         nav.setPadding(ui.dp(12), ui.dp(4), ui.dp(16), 0);
-        nav.addView(ui.icon("back", "Back to Settings", false, () -> finish()));
+        nav.addView(ui.icon("back", "Back to Settings", false, this::navigateUp));
         nav.addView(ui.label("Settings", 17, ui.text, true));
         root.addView(nav);
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
         content = ui.column();
-        content.setPadding(ui.dp(24), ui.dp(24), ui.dp(24), ui.dp(32));
-        content.addView(ui.label("Transcription quality", 30, ui.text, true));
+        content.setPadding(ui.dp(20), ui.dp(16), ui.dp(20), ui.dp(24));
+        content.addView(ui.label("Transcription quality", Ui.DETAIL_TITLE, ui.text, true));
         TextView explanation =
                 ui.label(
-                        "Choose the balance that suits you. Both options work in English on this"
-                                + " phone, without uploading your recordings.",
-                        16,
+                        "English transcription on your phone. Choose speed or accuracy.",
+                        14,
                         ui.secondary,
                         false);
         explanation.setLineSpacing(ui.dp(4), 1);
@@ -84,11 +83,11 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
         for (int i = 0; i < qualities.length; i++) {
             TranscriptionQuality q = qualities[i];
             LinearLayout card = ui.column();
-            card.setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(18));
+            card.setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14));
             card.setBackground(ui.shape(ui.surface, 20));
             LinearLayout titleRow = ui.row();
             titleRow.addView(
-                    ui.label(q.title, 20, ui.text, true), new LinearLayout.LayoutParams(0, -2, 1));
+                    ui.label(q.title, 17, ui.text, true), new LinearLayout.LayoutParams(0, -2, 1));
             TextView selected =
                     ui.label(
                             q.key.equals(Transcription.selected(this).key) ? "Selected" : "",
@@ -109,8 +108,8 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                             ui.accent,
                             false),
                     10);
-            TextView detail = ui.label(q.description, 15, ui.secondary, false);
-            detail.setLineSpacing(ui.dp(4), 1);
+            TextView detail = ui.label(q.description, 14, ui.secondary, false);
+            detail.setLineSpacing(ui.dp(3), 1);
             ui.add(card, detail, 10);
             card.setAccessibilityDelegate(
                     new View.AccessibilityDelegate() {
@@ -151,12 +150,12 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                         AppMotion.reveal(selected, 140, 0);
                     });
             choices[i] = card;
-            ui.add(content, card, 20);
+            ui.add(content, card, 12);
         }
-        state = ui.label("", 15, ui.secondary, false);
+        state = ui.label("", 13, ui.secondary, false);
         state.setLineSpacing(ui.dp(4), 1);
         state.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        ui.add(content, state, 24);
+        ui.add(content, state, 16);
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(ui.accent));
         progress.setMax(100);
@@ -200,17 +199,17 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                                 .setNegativeButton("Cancel", null)
                                                 .create()));
         remove.setBackgroundColor(0);
+        remove.setTextSize(13);
         ui.add(content, remove, 10);
         TextView note =
                 ui.label(
-                        "Changing quality keeps your existing transcripts. Open a recording and"
-                            + " choose Update transcript to apply the new quality to it. Downloaded"
-                            + " options stay on this phone until you remove them.",
-                        14,
+                        "New quality applies to new transcripts. Use Update transcript to redo an"
+                                + " existing one.",
+                        12,
                         ui.secondary,
                         false);
         note.setLineSpacing(ui.dp(4), 1);
-        ui.add(content, note, 24);
+        ui.add(content, note, 16);
         Button about =
                 ui.button(
                         "About these options",
@@ -233,6 +232,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                                 .setPositiveButton("Done", null)
                                                 .create()));
         about.setBackgroundColor(0);
+        about.setTextSize(13);
         ui.add(content, about, 16);
         scroll.addView(content);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -285,7 +285,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
         else
             state.setText(
                     ready
-                            ? q.title + " is ready. New transcripts use this quality."
+                            ? "Ready for new transcripts"
                             : q.title
                                     + " needs a one-time "
                                     + q.sizeLabel()

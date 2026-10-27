@@ -347,7 +347,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.14 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.15 Android");
     }
 
     private void disconnect(HttpsURLConnection connection) {

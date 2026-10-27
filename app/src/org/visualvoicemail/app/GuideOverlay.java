@@ -73,14 +73,14 @@ final class GuideOverlay extends FrameLayout {
         previousAccessibility = content.getImportantForAccessibility();
         content.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
         card = ui.column();
-        card.setPadding(ui.dp(20), ui.dp(18), ui.dp(20), ui.dp(16));
+        card.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(14));
         card.setBackground(ui.shape(ui.surface, 24));
         card.setElevation(ui.dp(16));
         step = ui.label("", 12, ui.secondary, true);
         card.addView(step);
-        title = ui.label("", 22, ui.text, true);
+        title = ui.label("", 19, ui.text, true);
         ui.add(card, title, 10);
-        body = ui.label("", 15, ui.secondary, false);
+        body = ui.label("", 14, ui.secondary, false);
         body.setLineSpacing(ui.dp(4), 1);
         ui.add(card, body, 10);
         LinearLayout actions = ui.row();
@@ -91,7 +91,7 @@ final class GuideOverlay extends FrameLayout {
         LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(0, -2, 1);
         gap.setMarginStart(ui.dp(12));
         actions.addView(next, gap);
-        ui.add(card, actions, 18);
+        ui.add(card, actions, 12);
         addView(card, new FrameLayout.LayoutParams(-1, -2));
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             backCallback = this::skip;

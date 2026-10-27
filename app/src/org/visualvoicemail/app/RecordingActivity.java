@@ -137,7 +137,7 @@ public final class RecordingActivity extends MotionActivity {
                 });
         LinearLayout nav = ui.row();
         nav.setPadding(ui.dp(12), ui.dp(4), ui.dp(16), 0);
-        nav.addView(ui.icon("back", "Back to voicemail", false, () -> finish()));
+        nav.addView(ui.icon("back", "Back to voicemail", false, this::navigateUp));
         TextView title = ui.label("Voicemail", 17, ui.text, true);
         nav.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         nav.addView(ui.icon("more", "Recording options", false, this::options));
@@ -147,24 +147,24 @@ public final class RecordingActivity extends MotionActivity {
         scroll.setClipToPadding(false);
         scroll.setVerticalScrollBarEnabled(false);
         LinearLayout content = ui.column();
-        content.setPadding(ui.dp(24), ui.dp(24), ui.dp(24), ui.dp(32));
+        content.setPadding(ui.dp(20), ui.dp(16), ui.dp(20), ui.dp(24));
         String caller = getIntent().getStringExtra("caller");
         if (caller == null || caller.isEmpty()) caller = "Unknown caller";
-        TextView name = ui.label(caller, 30, ui.text, true);
+        TextView name = ui.label(caller, Ui.DETAIL_TITLE, ui.text, true);
         ui.add(content, name, 0);
         TextView date =
                 ui.label(
                         displayDate()
                                 + " · "
                                 + duration((int) (message.optDouble("duration") * 1000)),
-                        14,
+                        12,
                         ui.secondary,
                         false);
-        ui.add(content, date, 10);
+        ui.add(content, date, 6);
 
         LinearLayout card = ui.column();
-        card.setPadding(ui.dp(20), ui.dp(16), ui.dp(20), ui.dp(14));
-        card.setBackground(ui.shape(ui.surface, 24));
+        card.setPadding(ui.dp(16), ui.dp(10), ui.dp(16), ui.dp(8));
+        card.setBackground(ui.shape(ui.surface, 20));
         seek = new SeekBar(this);
         seek.setProgressTintList(ColorStateList.valueOf(ui.accent));
         seek.setThumbTintList(ColorStateList.valueOf(ui.accent));
@@ -185,7 +185,7 @@ public final class RecordingActivity extends MotionActivity {
         card.addView(times);
         LinearLayout controls = ui.row();
         controls.setGravity(Gravity.CENTER);
-        controls.setPadding(0, ui.dp(12), 0, ui.dp(4));
+        controls.setPadding(0, ui.dp(4), 0, 0);
         int skip = getSharedPreferences("settings", 0).getInt("skip_seconds", 10);
         controls.addView(
                 ui.icon(
@@ -194,8 +194,8 @@ public final class RecordingActivity extends MotionActivity {
                         false,
                         () -> jump(-skip * 1000)));
         play = ui.icon("play", "Play recording", true, this::toggle);
-        LinearLayout.LayoutParams center = new LinearLayout.LayoutParams(ui.dp(64), ui.dp(64));
-        center.setMargins(ui.dp(24), 0, ui.dp(24), 0);
+        LinearLayout.LayoutParams center = new LinearLayout.LayoutParams(ui.dp(56), ui.dp(56));
+        center.setMargins(ui.dp(16), 0, ui.dp(16), 0);
         controls.addView(play, center);
         controls.addView(
                 ui.icon(
@@ -218,7 +218,7 @@ public final class RecordingActivity extends MotionActivity {
         tools.addView(playerState, new LinearLayout.LayoutParams(0, -2, 1));
         tools.addView(ui.icon("sound", "Choose audio output", false, this::chooseOutput));
         card.addView(tools);
-        ui.add(content, card, 28);
+        ui.add(content, card, 20);
         seek.setOnSeekBarChangeListener(
                 new SeekBar.OnSeekBarChangeListener() {
                     public void onStartTrackingTouch(SeekBar s) {
@@ -235,7 +235,7 @@ public final class RecordingActivity extends MotionActivity {
                     }
                 });
         LinearLayout heading = ui.row();
-        TextView transcriptTitle = ui.label("Transcript", 24, ui.text, true);
+        TextView transcriptTitle = ui.label("Transcript", Ui.SECTION_TITLE, ui.text, true);
         transcriptHeading = transcriptTitle;
         heading.addView(transcriptTitle, new LinearLayout.LayoutParams(0, -2, 1));
         transcriptSearch =
@@ -252,7 +252,7 @@ public final class RecordingActivity extends MotionActivity {
                             }
                         });
         heading.addView(transcriptSearch);
-        ui.add(content, heading, 28);
+        ui.add(content, heading, 20);
         qualityControl =
                 ui.button(
                         "",
@@ -262,9 +262,19 @@ public final class RecordingActivity extends MotionActivity {
                                         new android.content.Intent(
                                                 this, TranscriptionSettingsActivity.class)));
         qualityControl.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-        qualityControl.setTextSize(14);
-        qualityControl.setPadding(ui.dp(12), 0, ui.dp(12), 0);
-        ui.add(content, qualityControl, 10);
+        qualityControl.setTextSize(13);
+        qualityControl.setPadding(ui.dp(8), 0, ui.dp(8), 0);
+        qualityControl.setMinWidth(0);
+        qualityControl.setMinimumWidth(0);
+        qualityControl.setBackground(
+                new android.graphics.drawable.RippleDrawable(
+                        ColorStateList.valueOf(ui.divider), ui.shape(0, 12), null));
+        if (getResources().getConfiguration().fontScale <= 1.2f
+                && getResources().getConfiguration().screenWidthDp >= 360) {
+            heading.removeView(transcriptSearch);
+            heading.addView(qualityControl, new LinearLayout.LayoutParams(-2, ui.dp(48)));
+            heading.addView(transcriptSearch);
+        } else content.addView(qualityControl, new LinearLayout.LayoutParams(-2, -2));
         findBox = ui.column();
         LinearLayout findRow = ui.row();
         findRow.setBackground(ui.shape(ui.surface, 14));
@@ -343,9 +353,9 @@ public final class RecordingActivity extends MotionActivity {
         if (transcript != null) {
             for (int i = 0; i < transcript.segments.size(); i++) {
                 Transcript.Segment s = transcript.segments.get(i);
-                TextView line = ui.label("", 17, ui.text, false);
-                line.setLineSpacing(ui.dp(5), 1);
-                line.setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14));
+                TextView line = ui.label("", 16, ui.text, false);
+                line.setLineSpacing(ui.dp(3), 1);
+                line.setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10));
                 line.setMinHeight(ui.dp(52));
                 line.setContentDescription(
                         (s.start >= 0
@@ -395,7 +405,7 @@ public final class RecordingActivity extends MotionActivity {
             String prefix = (segment.start >= 0 ? duration(segment.start) : "—") + "\n";
             SpannableString value = new SpannableString(prefix + segment.text);
             value.setSpan(
-                    new RelativeSizeSpan(.72f),
+                    new RelativeSizeSpan(.76f),
                     0,
                     prefix.length(),
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -426,7 +436,7 @@ public final class RecordingActivity extends MotionActivity {
             }
             TextView line = lines.get(i);
             line.setText(value);
-            line.setBackground(ui.shape(i == activeSegment ? ui.tint : ui.surface, 16));
+            line.setBackground(ui.shape(i == activeSegment ? ui.tint : 0, 12));
             line.setSelected(i == activeSegment);
             line.setTypeface(
                     android.graphics.Typeface.create(
@@ -481,7 +491,7 @@ public final class RecordingActivity extends MotionActivity {
                         + Transcription.cancelled;
         if (state.equals(lastSpeechState)) return;
         lastSpeechState = state;
-        qualityControl.setText(quality.label() + "  ›");
+        qualityControl.setText(quality.compactLabel() + "  ›");
         qualityControl.setContentDescription(
                 "Transcription quality. " + quality.label() + ". Change quality");
         if (transcribeAfterDownload
@@ -524,17 +534,13 @@ public final class RecordingActivity extends MotionActivity {
                             : !problem.isEmpty()
                                     ? problem + " Your previous transcript is kept."
                                     : transcript.segments.isEmpty()
-                                            ? "No speech detected. You can still listen to the"
-                                                    + " recording."
-                                            : "English · Saved with "
-                                                    + saved
-                                                    + "\n"
-                                                    + (changed
-                                                            ? "Choose Update transcript to use "
-                                                                    + quality.title
-                                                                    + "."
-                                                            : "Tap a phrase to play. Phrase timing"
-                                                                    + " is approximate."));
+                                            ? "No speech detected. You can still listen."
+                                            : changed
+                                                    ? "Saved with "
+                                                            + saved
+                                                            + " · Update transcript for "
+                                                            + quality.title
+                                                    : "Tap a phrase to play · Approximate timing");
             transcriptTools.setVisibility(changed || own ? View.VISIBLE : View.GONE);
         } else {
             transcriptTools.setVisibility(View.VISIBLE);
