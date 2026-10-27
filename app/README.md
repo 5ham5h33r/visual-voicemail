@@ -4,6 +4,8 @@ Original Android application for Mint's existing carrier voicemail mailbox. This
 
 View the [screenshot gallery](../README.md#screenshots) for the inbox, player, settings, themes, and tutorial. Caller details are hidden in the documentation images.
 
+The app icon combines voicemail reels with a mint speech bubble on a deep-green background. Adaptive launcher layers support device masks; Android 13+ receives an explicit monochrome layer for themed icons. The notification symbol uses the same mark. [Branding assets and native previews](../docs/branding/README.md).
+
 Build with Python 3.9+ and Java 17+:
 
 ```sh
