@@ -1,0 +1,58 @@
+{
+  "default": {
+    "requested_cellular": false,
+    "transport_cellular": false,
+    "transport_wifi": true,
+    "carrier_privileges": false,
+    "default_dialer": "com.samsung.android.dialer",
+    "app_id": "org.visualvoicemail.probe",
+    "http_status": 200,
+    "response_bytes": 114,
+    "messages": [
+      {
+        "message_id": 1,
+        "response_code": 1005,
+        "has_msisdn": false,
+        "has_service_fingerprint": false,
+        "has_aka_challenge": false,
+        "has_aka_token": false
+      },
+      {
+        "message_id": 2,
+        "response_code": 1005,
+        "has_msisdn": false,
+        "has_service_fingerprint": false,
+        "has_aka_challenge": false,
+        "has_aka_token": false
+      }
+    ]
+  },
+  "cellular": {
+    "requested_cellular": true,
+    "transport_cellular": true,
+    "transport_wifi": false,
+    "carrier_privileges": false,
+    "default_dialer": "com.samsung.android.dialer",
+    "app_id": "org.visualvoicemail.probe",
+    "http_status": 200,
+    "response_bytes": 688,
+    "messages": [
+      {
+        "message_id": 1,
+        "response_code": 1000,
+        "has_msisdn": false,
+        "has_service_fingerprint": false,
+        "has_aka_challenge": false,
+        "has_aka_token": false
+      },
+      {
+        "message_id": 2,
+        "response_code": 1000,
+        "has_msisdn": true,
+        "has_service_fingerprint": true,
+        "has_aka_challenge": false,
+        "has_aka_token": false
+      }
+    ]
+  }
+}
