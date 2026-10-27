@@ -13,12 +13,20 @@ import android.graphics.drawable.RippleDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.RelativeSizeSpan;
 import android.view.Gravity;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.view.WindowInsets;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -28,6 +36,8 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /** User settings with working preferences and explicit boundaries for unavailable features. */
@@ -40,7 +50,27 @@ public final class SettingsActivity extends MotionActivity {
     private SharedPreferences preferences;
     private LinearLayout content;
     private ScrollView settingsScroll;
-    private int scrollPosition;
+    private int scrollPosition, unfilteredScrollPosition, searchCursor, scrollGeneration;
+    private String settingsQuery = "";
+    private boolean restoreSearchFocus;
+    private EditText settingsSearch;
+    private View searchClear;
+    private TextView settingsResultCount, noSettings;
+    private final List<Section> sections = new ArrayList<>();
+
+    private static final class Entry {
+        final View view;
+        final String title, detail;
+        Entry(View view, String title, String detail) { this.view=view; this.title=title; this.detail=detail; }
+    }
+    private static final class Section {
+        final String title;
+        final TextView label;
+        final LinearLayout group;
+        final List<Entry> entries = new ArrayList<>();
+        final List<View> notes = new ArrayList<>();
+        Section(String title, TextView label, LinearLayout group) { this.title=title; this.label=label; this.group=group; }
+    }
     private int background, surface, primary, secondary, accent, divider;
     private boolean firstResume = true;
     private static final String[] APPEARANCES = {"Use device setting", "Light", "Dark", "AMOLED (true black)"};
@@ -54,27 +84,71 @@ public final class SettingsActivity extends MotionActivity {
         background = AppAppearance.background(this); surface = color(R.color.surface);
         primary = color(R.color.primary_text); secondary = color(R.color.secondary_text);
         accent = color(R.color.accent); divider = color(R.color.divider);
-        if(state!=null) scrollPosition=state.getInt("scroll",0);
+        if(state!=null) {
+            scrollPosition=state.getInt("scroll",0);
+            unfilteredScrollPosition=state.getInt("unfiltered_scroll",0);
+            settingsQuery=state.getString("settings_query","");
+            restoreSearchFocus=state.getBoolean("search_focus",false);
+            searchCursor=state.getInt("search_cursor",settingsQuery.length());
+        }
         build();
     }
     @Override protected void onResume() { super.onResume(); VoicemailAlerts.ensureScheduled(this); if (!firstResume) build(); firstResume = false; }
 
     private void build() {
         if(settingsScroll!=null) scrollPosition=settingsScroll.getScrollY();
+        if(settingsSearch!=null) { restoreSearchFocus=settingsSearch.hasFocus(); searchCursor=settingsSearch.getSelectionStart(); }
+        sections.clear();
         LinearLayout root = column(); root.setBackgroundColor(background);
         root.setPadding(dp(20), dp(20), dp(20), dp(8));
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
                 android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-                view.setPadding(dp(20)+bars.left, dp(12)+bars.top, dp(20)+bars.right, dp(8)+bars.bottom);
+                view.setPadding(dp(20)+bars.left, dp(12)+bars.top, dp(20)+bars.right, dp(8)+Math.max(bars.bottom,insets.getInsets(WindowInsets.Type.ime()).bottom));
             } else view.setPadding(dp(20), dp(12)+insets.getSystemWindowInsetTop(), dp(20), dp(8)+insets.getSystemWindowInsetBottom());
             return insets;
         });
-        LinearLayout heading = column();
         Ui controls = new Ui(this);
+        LinearLayout heading = controls.row();
         heading.addView(controls.icon("back","Back to voicemail",false,this::navigateUp));
-        TextView title = text("Settings", Ui.PAGE_TITLE, primary); title.setTypeface(Typeface.create("sans-serif-medium", 0));
-        title.setPadding(0, dp(8), 0, dp(12)); heading.addView(title); root.addView(heading);
+        TextView title = controls.label("Settings", Ui.SECTION_TITLE, primary, true);
+        LinearLayout.LayoutParams titleSize = new LinearLayout.LayoutParams(0,-2,1);
+        titleSize.setMarginStart(dp(4)); heading.addView(title,titleSize); root.addView(heading);
+        LinearLayout searchBox = controls.row(); searchBox.setBackground(shape(surface,16));
+        settingsSearch = new EditText(this);
+        settingsSearch.setTextSize(14); settingsSearch.setSingleLine(true);
+        settingsSearch.setTextColor(primary); settingsSearch.setHintTextColor(secondary);
+        settingsSearch.setHint("Search settings"); settingsSearch.setContentDescription("Search settings by name or feature");
+        settingsSearch.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        settingsSearch.setImeOptions(EditorInfo.IME_ACTION_SEARCH|EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
+        settingsSearch.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+        settingsSearch.setPadding(dp(16),0,dp(8),0); settingsSearch.setMinHeight(dp(48));
+        settingsSearch.setText(settingsQuery);
+        searchBox.addView(settingsSearch,new LinearLayout.LayoutParams(0,-2,1));
+        searchClear = controls.icon("close","Clear settings search",false,()->settingsSearch.setText(""));
+        searchClear.setVisibility(settingsQuery.isEmpty()?View.GONE:View.VISIBLE); searchBox.addView(searchClear);
+        LinearLayout.LayoutParams searchSize=new LinearLayout.LayoutParams(-1,-2);searchSize.topMargin=dp(8);root.addView(searchBox,searchSize);
+        settingsResultCount=text("",12,secondary);settingsResultCount.setPadding(dp(4),dp(8),0,0);
+        settingsResultCount.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);root.addView(settingsResultCount);
+        settingsSearch.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence text,int start,int count,int after) {}
+            @Override public void onTextChanged(CharSequence text,int start,int before,int count) {
+                boolean wasSearching=SettingsSearch.active(settingsQuery);
+                if(!wasSearching && SettingsSearch.active(text.toString()) && settingsScroll!=null)
+                    unfilteredScrollPosition=settingsScroll.getScrollY();
+                settingsQuery=text.toString();
+                searchClear.setVisibility(text.length()==0?View.GONE:View.VISIBLE);
+                filterSettings();
+                int target=SettingsSearch.active(settingsQuery)?0:unfilteredScrollPosition;
+                scrollAfterLayout(target);
+            }
+            @Override public void afterTextChanged(Editable text) {}
+        });
+        settingsSearch.setOnEditorActionListener((view,action,event)->{
+            if(action!=EditorInfo.IME_ACTION_SEARCH)return false;
+            hideSearchKeyboard();return true;
+        });
+        root.setFocusableInTouchMode(true);root.requestFocus();
         ScrollView scroll = new ScrollView(this); scroll.setVerticalScrollBarEnabled(false); scroll.setClipToPadding(false);
         settingsScroll=scroll;
         content = column(); content.setPadding(0,0,0,dp(20)); scroll.addView(content);
@@ -191,11 +265,23 @@ public final class SettingsActivity extends MotionActivity {
             }catch(Exception ignored){info("Speech recognition licenses","License texts and upstream source links are available in the source repository under docs/licenses.");}
         });
         note(about,"Permanent message deletion is not available in this build. Deletion marks are local and reversible.");
-        final int restoreScroll=scrollPosition; scroll.post(()->scroll.scrollTo(0,restoreScroll));
+        noSettings=text("No matching settings\nTry a setting name, like theme or download.",15,secondary);
+        noSettings.setGravity(Gravity.CENTER);noSettings.setPadding(dp(16),dp(32),dp(16),dp(32));content.addView(noSettings);
+        filterSettings();
+        scrollAfterLayout(scrollPosition);
+        if(restoreSearchFocus) {
+            settingsSearch.requestFocus();
+            settingsSearch.setSelection(Math.max(0,Math.min(searchCursor,settingsSearch.length())));
+        }
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
-        state.putInt("scroll",settingsScroll==null?0:settingsScroll.getScrollY()); super.onSaveInstanceState(state);
+        state.putInt("scroll",settingsScroll==null?0:settingsScroll.getScrollY());
+        state.putInt("unfiltered_scroll",unfilteredScrollPosition);
+        state.putString("settings_query",settingsQuery);
+        state.putBoolean("search_focus",settingsSearch!=null&&settingsSearch.hasFocus());
+        state.putInt("search_cursor",settingsSearch==null?0:settingsSearch.getSelectionStart());
+        super.onSaveInstanceState(state);
     }
 
     static float speed(Context context) { return SPEED_VALUES[clamp(context.getSharedPreferences("settings",MODE_PRIVATE).getInt("playback_speed",1),SPEED_VALUES.length)]; }
@@ -275,7 +361,48 @@ public final class SettingsActivity extends MotionActivity {
     private void open(Intent intent) { try { startActivity(intent); } catch (android.content.ActivityNotFoundException ignored) { info("Unavailable","No app is available to open this setting or link."); } }
     private LinearLayout group(String title) {
         TextView label=text(title,12,secondary); label.setLetterSpacing(.08f); label.setPadding(dp(4),dp(16),0,dp(8)); content.addView(label);
-        LinearLayout group=column(); group.setBackground(shape(surface,18)); group.setClipToOutline(true); content.addView(group); return group;
+        if(Build.VERSION.SDK_INT>=28)label.setAccessibilityHeading(true);
+        LinearLayout group=column(); group.setBackground(shape(surface,18)); group.setClipToOutline(true); content.addView(group);
+        sections.add(new Section(title,label,group));return group;
+    }
+    private Section section(LinearLayout group) {
+        for(Section section:sections)if(section.group==group)return section;
+        throw new IllegalArgumentException("Unknown settings section");
+    }
+    private void scrollAfterLayout(int target) {
+        final ScrollView scroll=settingsScroll;
+        final int generation=++scrollGeneration;
+        scroll.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override public boolean onPreDraw() {
+                if(scroll.getViewTreeObserver().isAlive())scroll.getViewTreeObserver().removeOnPreDrawListener(this);
+                if(scroll==settingsScroll && generation==scrollGeneration) {
+                    scroll.fling(0);scroll.computeScroll();scroll.scrollTo(0,target);
+                }
+                return true;
+            }
+        });
+    }
+    private void filterSettings() {
+        boolean searching=SettingsSearch.active(settingsQuery);int count=0;
+        for(Section section:sections) {
+            int matches=0;
+            for(Entry entry:section.entries) {
+                boolean match=SettingsSearch.matches(settingsQuery,section.title,entry.title,entry.detail);
+                entry.view.setVisibility(match?View.VISIBLE:View.GONE);
+                if(match)matches++;
+            }
+            for(View note:section.notes)note.setVisibility(searching?View.GONE:View.VISIBLE);
+            section.label.setVisibility(matches>0?View.VISIBLE:View.GONE);
+            section.group.setVisibility(matches>0?View.VISIBLE:View.GONE);count+=matches;
+        }
+        settingsResultCount.setText(count+(count==1?" setting":" settings"));
+        settingsResultCount.setVisibility(searching?View.VISIBLE:View.GONE);
+        if(noSettings!=null)noSettings.setVisibility(searching&&count==0?View.VISIBLE:View.GONE);
+    }
+    private void hideSearchKeyboard() {
+        if(settingsSearch==null)return;
+        getSystemService(InputMethodManager.class).hideSoftInputFromWindow(settingsSearch.getWindowToken(),0);
+        settingsSearch.clearFocus();restoreSearchFocus=false;
     }
     private SpannableString label(String title,String detail) {
         SpannableString text=new SpannableString(title+"\n"+detail); int start=title.length()+1;
@@ -286,7 +413,8 @@ public final class SettingsActivity extends MotionActivity {
         TextView view=text("",15,primary); view.setText(label(title,detail)); view.setPadding(dp(16),dp(12),dp(16),dp(12));
         view.setMinHeight(dp(60)); view.setGravity(Gravity.CENTER_VERTICAL); view.setFocusable(true); view.setClickable(true);
         view.setBackground(new RippleDrawable(ColorStateList.valueOf(divider),null,shape(surface,0)));
-        view.setContentDescription(title+". "+detail); AppMotion.press(view); view.setOnClickListener(v->action.run()); parent.addView(view,new LinearLayout.LayoutParams(-1,-2));
+        view.setContentDescription(title+". "+detail); AppMotion.press(view); view.setOnClickListener(v->{hideSearchKeyboard();action.run();}); parent.addView(view,new LinearLayout.LayoutParams(-1,-2));
+        section(parent).entries.add(new Entry(view,title,detail));
     }
     private void toggle(LinearLayout parent,String title,String detail,String key,boolean fallback) {
         Switch toggle=new AppMotion.Switch(this); toggle.setText(label(title,detail)); toggle.setTextSize(15); toggle.setTextColor(primary);
@@ -294,10 +422,11 @@ public final class SettingsActivity extends MotionActivity {
         int[][] states={new int[]{android.R.attr.state_checked},new int[]{}};
         toggle.setThumbTintList(new ColorStateList(states,new int[]{accent,secondary}));
         toggle.setTrackTintList(new ColorStateList(states,new int[]{color(R.color.accent_surface),divider}));
-        toggle.setChecked(preferences.getBoolean(key,fallback)); toggle.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean(key,checked).apply();AppMotion.configure(this);});
+        toggle.setChecked(preferences.getBoolean(key,fallback)); toggle.setOnCheckedChangeListener((v,checked)->{hideSearchKeyboard();preferences.edit().putBoolean(key,checked).apply();AppMotion.configure(this);});
         parent.addView(toggle,new LinearLayout.LayoutParams(-1,-2));
+        section(parent).entries.add(new Entry(toggle,title,detail));
     }
-    private void note(LinearLayout parent,String detail) { TextView view=text(detail,12,secondary); view.setPadding(dp(16),dp(12),dp(16),dp(12)); parent.addView(view); }
+    private void note(LinearLayout parent,String detail) { TextView view=text(detail,12,secondary); view.setPadding(dp(16),dp(12),dp(16),dp(12)); parent.addView(view); section(parent).notes.add(view); }
     private String size(long bytes) { return bytes<1024 ? bytes+" B" : bytes<1024*1024 ? String.format(Locale.getDefault(),"%.1f KB",bytes/1024d) : String.format(Locale.getDefault(),"%.1f MB",bytes/1048576d); }
     private LinearLayout column() { LinearLayout layout=new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }
     private TextView text(String text,int size,int color) { TextView view=new TextView(this); view.setText(text); view.setTextSize(size); view.setTextColor(color); view.setTypeface(Typeface.create("sans-serif",0)); return view; }

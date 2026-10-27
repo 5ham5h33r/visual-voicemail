@@ -1,6 +1,12 @@
-# App settings in version 0.15
+# App settings in version 0.20
 
 Open the gear at the top-right of the inbox. Settings uses the same light/dark/AMOLED palette as the inbox, remembers its scroll position, and keeps preferences after reopening.
+
+## Finding settings
+
+The back arrow and Settings title share a single aligned toolbar. A search field stays above the settings list. Search filters the real controls in their original sections by name, description/current value, section, and common terms such as dark mode, animations, Whisper Large, download path, and Bluetooth. All entered words must match; accents and capitalization do not affect matching. Matching stays on the device and is never sent to the carrier or another server.
+
+Only matching controls and their section names appear while searching, with a result count and an explicit no-results state. Explanatory notes return when the query is cleared. Clear appears only for entered text and keeps search focus. Clearing returns to the previous position in the full list. Opening a setting dismisses the keyboard; returning retains the query. Query, cursor/focus, and scroll state survive recreation. Native actions and switches stay functional; filtering alone changes no preferences.
 
 ## Available controls
 
@@ -14,7 +20,7 @@ Open the gear at the top-right of the inbox. Settings uses the same light/dark/A
 - **Storage:** Download location opens Android's folder picker and remembers access to the selected folder. A message's **Save audio copy** action writes a new file there; if no usable location is set, it asks for one first. Changing or forgetting the location does not move or delete existing copies. Playback continues to use a separate private cache, with its own count/size and confirmed **Clear playback cache** action. Clearing releases the player and runs after existing audio work on the same worker. It removes only recognized private recording files and atomic-write remnants. Saved audio copies, carrier messages, inbox/session records, and local deletion marks are kept. A connection may be needed to replay recordings afterward.
 - **Privacy and app information:** Android app-permission settings, plain-language data handling, installed version, source-code link, and the full MIT license.
 
-Transcription and permanent carrier-message deletion remain unavailable. Carrier push registration is unimplemented; notifications use the disclosed scheduled checks.
+Permanent carrier-message deletion remains unavailable; deletion marks are local and reversible. English transcription runs on the phone. Notifications use scheduled mailbox checks rather than instant carrier push.
 
 ## Validation
 
@@ -31,3 +37,5 @@ Version 0.8 was tested by selecting an internal-storage subfolder through the sy
 Folder access uses Android's [Storage Access Framework](https://developer.android.com/training/data-storage/shared/documents-files), without broad storage permissions. Android restricts selection of some roots, including Download itself; selecting a child folder works. Saved copies are ordinary files governed by that folder's access and backup rules. Export detects AMR and AMR-WB headers and uses the corresponding MIME type and extension; unknown formats fail rather than being mislabeled. Filenames contain the message date and a random suffix, without caller names or numbers. Each save creates a new file; a failed write attempts to remove only that newly created partial file. Cloud providers, removable storage, revoked access, and full-storage failures still need device coverage.
 
 This remains a development build. Bluetooth/wired-device transitions, unsupported output hardware, live incoming-call interruption, broad locale/accessibility testing, and large mailboxes need more device coverage. No user's carrier messages, greetings, forwarding settings, or PIN were changed by these settings tests.
+
+Version 0.20 passed 30 Settings-search device checks on the S24 Ultra, plus the 33 navigation, 28 quality/motion, and 38 inbox-header regressions (129 phone checks). All 108 host checks passed, including 22 settings-matching cases; native theme contrast also passed. Tests restored temporary app preferences and made no carrier writes or personal-audio changes. Full large-font, landscape, and TalkBack traversal coverage remains open.
