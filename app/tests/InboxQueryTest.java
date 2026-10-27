@@ -22,6 +22,11 @@ public final class InboxQueryTest {
         expect(!match("555 missing"), "All text terms must match");
         expect(!match("999999"), "Unrelated number does not match");
         expect(!match("October"), "Unrelated month does not match");
+        expect(InboxQuery.matches("alex", "+12025550101", "Alex Morgan", "", ""), "Contact first name is searchable");
+        expect(InboxQuery.matches("MORGAN alex", "+12025550101", "Alex Morgan", "", ""), "Contact names match across order and case");
+        expect(InboxQuery.matches("Alex 2026", "+12025550101", "Alex Morgan", "2026-09-12", ""), "Contact and date terms can be combined");
+        expect(InboxQuery.matches("5550101", "+12025550101", "Alex Morgan", "", ""), "Number search remains available with a contact name");
+        expect(!InboxQuery.matches("alex", "+12025550101", "+1 (202) 555-0101", "", ""), "No name match when contacts are unavailable");
         expect(InboxQuery.matches("unknown", "", "Unknown caller", "", "Date unavailable"), "Unknown caller is searchable");
         expect(InboxQuery.isRead("Seen"), "Seen means read");
         expect(InboxQuery.isRead("seen"), "Read flags ignore case");

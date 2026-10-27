@@ -3,6 +3,10 @@ package org.visualvoicemail.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.CancellationSignal;
 import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
@@ -52,6 +56,13 @@ import org.json.JSONObject;
 /** Original native inbox. No dialer role or transcription. */
 public final class MainActivity extends Activity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService contactWorker = Executors.newSingleThreadExecutor();
+    private Map<String, String> contactNames = new HashMap<>();
+    private CancellationSignal contactSignal;
+    private int contactGeneration;
+    private boolean contactsLoading;
+    private Button contactsButton;
+    private static final int CONTACT_PERMISSION = 41;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, MessageRow> rows = new HashMap<>();
     private List<JSONObject> inbox = new ArrayList<>();
@@ -142,6 +153,10 @@ public final class MainActivity extends Activity {
         TextView brand = text("MINT MOBILE", 13, secondary, true);
         brand.setLetterSpacing(0.10f);
         top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        contactsButton = button("Contacts", false);
+        contactsButton.setContentDescription("Contact name settings");
+        contactsButton.setOnClickListener(v -> showContactSettings());
+        top.addView(contactsButton);
         IconButton appearance = new IconButton("appearance", false);
         appearance.setContentDescription("Appearance settings");
         appearance.setOnClickListener(v -> showAppearance());
@@ -157,7 +172,7 @@ public final class MainActivity extends Activity {
         searchBox.setBackground(shape(surface, 16));
         search = new EditText(this);
         search.setSingleLine(true); search.setTextSize(15); search.setTextColor(primary); search.setHintTextColor(secondary);
-        search.setHint("Search numbers or dates"); search.setContentDescription("Search voicemail by number or date");
+        search.setHint("Search contacts, numbers, dates"); search.setContentDescription("Search voicemail by contact name, number, or date");
         search.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         search.setImeOptions(EditorInfo.IME_ACTION_SEARCH | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
         search.setBackgroundColor(android.graphics.Color.TRANSPARENT); search.setPadding(dp(16), 0, 0, 0);
@@ -236,6 +251,7 @@ public final class MainActivity extends Activity {
                     for (JSONObject item : inbox) if (activeId.equals(item.optString("objectid"))) found = true;
                     if (!found && !activeId.isEmpty()) { release(); activeId = ""; }
                     render();
+                    reloadContactNames();
                     status.setTextColor(secondary); status.setText(summary() + " · Just updated");
                     refresh.setEnabled(true); refresh.setText("Refresh");
                 });
@@ -281,8 +297,10 @@ public final class MainActivity extends Activity {
             LinearLayout empty = column(); empty.setPadding(dp(24), dp(32), dp(24), dp(32));
             empty.setBackground(shape(surface, 24));
             boolean narrowed = !query.trim().isEmpty() || filter != 0;
-            empty.addView(text(narrowed ? "No matching voicemails" : carrier.hasSession() ? "No voicemails" : "Your voicemail, here", 18, primary, true));
-            add(empty, text(narrowed ? "Try a different search or choose All."
+            empty.addView(text(contactsLoading && narrowed ? "Looking up contact names…" : narrowed ? "No matching voicemails" : carrier.hasSession() ? "No voicemails" : "Your voicemail, here", 18, primary, true));
+            add(empty, text(narrowed ? contactsLoading ? "Names are loading from this phone."
+                : !contactsEnabled() && !query.trim().isEmpty() ? "For name search, enable Contacts above. You can also search a number or date, or choose All."
+                : "Try a different search or choose All."
                 : carrier.hasSession() ? "Refresh to check for new messages."
                 : "Connect once using Mint mobile data. Your messages will appear here, ready to play.", 15, secondary, false), 12);
             messages.addView(empty); return;
@@ -317,6 +335,8 @@ public final class MainActivity extends Activity {
             LinearLayout info = column();
             TextView name = text(caller, 18, primary, true);
             info.addView(name);
+            if (contactNames.containsKey(ContactNames.number(message)))
+                add(info, text(formattedNumber(message), 13, secondary, false), 4);
             add(info, text(date(message) + " · " + duration((int)(message.optDouble("duration", 0) * 1000)), 13, secondary, false), 8);
             heading.addView(info, new LinearLayout.LayoutParams(0, -2, 1));
             LinearLayout.LayoutParams playSize = new LinearLayout.LayoutParams(dp(52), dp(52)); playSize.setMarginStart(dp(12));
@@ -389,7 +409,7 @@ public final class MainActivity extends Activity {
                 List<JSONObject> result = carrier.setRead(message.optString("objectid"), read);
                 runOnUiThread(() -> {
                     if (destroyed) return;
-                    updatingRead = false; refresh.setEnabled(true); inbox = result; render();
+                    updatingRead = false; refresh.setEnabled(true); inbox = result; render(); reloadContactNames();
                     status.setTextColor(secondary); status.setText(read ? "Marked as read · Synced with carrier" : "Marked as unread · Synced with carrier");
                 });
             } catch (Exception exception) {
@@ -555,8 +575,12 @@ public final class MainActivity extends Activity {
         return "Check your connection and try again.";
     }
     private String caller(JSONObject message) {
-        String number = message.optString("returnnumber", "").replaceFirst("(?i)^tel:", "");
-        if (number.isEmpty() || "null".equals(number)) return "Unknown caller";
+        String name = contactNames.get(ContactNames.number(message));
+        return name == null ? formattedNumber(message) : name;
+    }
+    private String formattedNumber(JSONObject message) {
+        String number = ContactNames.number(message);
+        if (number.isEmpty()) return "Unknown caller";
         String formatted = PhoneNumberUtils.formatNumber(number, Locale.getDefault().getCountry());
         return formatted == null ? number : formatted;
     }
@@ -592,7 +616,83 @@ public final class MainActivity extends Activity {
     private void add(LinearLayout parent, View child, int top) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(top); parent.addView(child, params);
     }
-    @Override protected void onStart() { super.onStart(); visible = true; handler.post(ticker); }
+    private boolean contactsEnabled() {
+        return getSharedPreferences("settings", MODE_PRIVATE).getBoolean("contact_names", false)
+            && checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void showContactSettings() {
+        boolean enabled = contactsEnabled();
+        boolean blocked = checkSelfPermission(android.Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED
+            && getSharedPreferences("settings", MODE_PRIVATE).getBoolean("contacts_permission_asked", false)
+            && !shouldShowRequestPermissionRationale(android.Manifest.permission.READ_CONTACTS);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Contact names")
+            .setMessage("Match voicemail callers with contacts saved on this phone. Names stay on your device. Number and date search work without Contacts access.")
+            .setPositiveButton(enabled ? "Turn off" : blocked ? "Open settings" : "Enable", (selection, which) -> {
+                if (enabled) {
+                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", false).apply();
+                    reloadContactNames(); return;
+                }
+                if (checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", true).apply();
+                    reloadContactNames(); return;
+                }
+                boolean asked = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("contacts_permission_asked", false);
+                if (asked && !shouldShowRequestPermissionRationale(android.Manifest.permission.READ_CONTACTS)) {
+                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", true).apply();
+                    startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + getPackageName())));
+                } else {
+                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contacts_permission_asked", true).apply();
+                    requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, CONTACT_PERMISSION);
+                }
+            }).setNegativeButton("Cancel", null).create();
+        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setAllCaps(false);
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setAllCaps(false);
+    }
+
+    @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] grants) {
+        super.onRequestPermissionsResult(request, permissions, grants);
+        if (request != CONTACT_PERMISSION) return;
+        boolean granted = grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED;
+        getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", granted).apply();
+        reloadContactNames();
+        status.setTextColor(secondary);
+        status.setText(granted ? "Contact names enabled" : "Contacts access declined · Number and date search still work");
+    }
+
+    private void reloadContactNames() {
+        int request = ++contactGeneration;
+        if (contactSignal != null) contactSignal.cancel();
+        contactSignal = new CancellationSignal();
+        CancellationSignal cancel = contactSignal;
+        if (!contactsEnabled()) {
+            contactsLoading = false; contactNames.clear();
+            record("contact_names_enabled", false); record("contact_match_count", 0);
+            contactsButton.setText("Contacts"); render(); return;
+        }
+        contactsLoading = true; contactsButton.setText("Contacts…");
+        List<JSONObject> snapshot = new ArrayList<>(inbox);
+        contactWorker.execute(() -> {
+            try {
+                Map<String, String> names = ContactNames.lookup(getApplicationContext(), snapshot, cancel);
+                runOnUiThread(() -> {
+                    if (destroyed || request != contactGeneration || !contactsEnabled()) return;
+                    contactNames = names; contactsLoading = false; contactsButton.setText("Contacts");
+                    record("contact_names_enabled", true); record("contact_match_count", names.size()); render();
+                });
+            } catch (Exception failure) {
+                runOnUiThread(() -> {
+                    if (destroyed || request != contactGeneration) return;
+                    contactsLoading = false; contactNames.clear(); contactsButton.setText("Contacts"); render();
+                    status.setTextColor(error); status.setText("Couldn't load contact names. Number and date search still work. Try enabling Contacts again.");
+                });
+            }
+        });
+    }
+
+    @Override protected void onStart() { super.onStart(); visible = true; handler.post(ticker); reloadContactNames(); }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putString("query", query); state.putInt("filter", filter); super.onSaveInstanceState(state);
     }
@@ -600,6 +700,7 @@ public final class MainActivity extends Activity {
         visible = false; handler.removeCallbacks(ticker); pause("background_paused"); super.onStop();
     }
     @Override protected void onDestroy() {
-        destroyed = true; handler.removeCallbacksAndMessages(null); release(); worker.shutdown(); super.onDestroy();
+        destroyed = true; handler.removeCallbacksAndMessages(null); release(); worker.shutdown();
+        if (contactSignal != null) contactSignal.cancel(); contactWorker.shutdown(); super.onDestroy();
     }
 }
