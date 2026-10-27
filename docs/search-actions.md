@@ -1,6 +1,6 @@
 # Search and message actions
 
-Version 0.4 adds a search field and All, Unread, and Marked filters. Search runs locally over the entire downloaded inbox, including old messages returned by the existing paginated sync. It matches full or partial phone numbers with or without formatting, ISO dates, and the displayed local date/time. Text matching is case-insensitive and accepts multiple terms. Search queries are never sent to the carrier or saved in diagnostics. Searching spoken content is deferred with transcription.
+Version 0.4 adds a search field and All, Unread, and Marked filters. Search runs locally over the entire downloaded inbox, including old messages returned by the existing paginated sync. It matches full or partial phone numbers with or without formatting, ISO dates, and the displayed local date/time. Text matching is case-insensitive and accepts multiple terms. Search queries are never sent to the carrier or saved in diagnostics. Searching spoken content is deferred with transcription; planned [transcript search requirements](transcription-requirements.md#search-transcript-content) cover finding text within one transcript and matching saved transcript content from inbox search.
 
 ## Contact names added in version 0.6
 
