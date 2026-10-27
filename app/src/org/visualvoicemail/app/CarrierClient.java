@@ -184,21 +184,61 @@ public final class CarrierClient {
     }
 
     private JSONObject mailbox(String path) throws Exception {
+        return mailbox(path, "GET", null);
+    }
+
+    private JSONObject mailbox(String path, String method, JSONObject body) throws Exception {
         HttpsURLConnection connection = (HttpsURLConnection) new URL(MAILBOX + path).openConnection();
         try {
             configure(connection);
+            connection.setRequestMethod(method);
             connection.setRequestProperty("Authorization", "Bearer " + token);
             connection.setRequestProperty("msisdn", "tel:+" + number.replaceFirst("^\\+", ""));
             connection.setRequestProperty("client-id", MAILBOX_PROFILE);
             connection.setRequestProperty("client-type", "vvm");
             connection.setRequestProperty("client-version", MAILBOX_PROFILE_VERSION);
             connection.setRequestProperty("X-Correlation-ID", UUID.randomUUID().toString());
+            if (body != null) {
+                byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setFixedLengthStreamingMode(bytes.length);
+                try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
+            }
             int code = connection.getResponseCode();
             diagnostics.put("mailbox_http_status", code);
             if (code == 401) throw new AuthExpired();
-            if (code != 200) throw new IOException("Mailbox request returned HTTP " + code + ".");
-            return new JSONObject(new String(read(connection.getInputStream(), 8 * 1024 * 1024), StandardCharsets.UTF_8));
+            if (code < 200 || code >= 300) throw new IOException("Mailbox request returned HTTP " + code + ".");
+            if (code == 204) return new JSONObject();
+            byte[] response = read(connection.getInputStream(), 8 * 1024 * 1024);
+            return response.length == 0 ? new JSONObject() : new JSONObject(new String(response, StandardCharsets.UTF_8));
         } finally { connection.disconnect(); }
+    }
+
+    /** Seen is added with PUT; unread removes that flag, never the voicemail itself. */
+    public synchronized List<JSONObject> setRead(String id, boolean read) throws Exception {
+        if (id.isEmpty()) throw new IOException("This message has no identifier.");
+        diagnostics.put("read_update_verified", false);
+        stage("updating_read_status");
+        if (token.isEmpty() || tokenExpires < System.currentTimeMillis() + 60000) authenticate();
+        String path = read ? "voicemail/flag" : "voicemail/flag?objectid="
+            + java.net.URLEncoder.encode(id, "UTF-8") + "&flag=Seen";
+        JSONObject body = read ? new JSONObject().put("voicemails", new JSONArray().put(
+            new JSONObject().put("objectId", id).put("flag", "Seen"))) : null;
+        JSONObject result;
+        try { result = mailbox(path, read ? "PUT" : "DELETE", body); }
+        catch (AuthExpired expired) { token = ""; authenticate(); result = mailbox(path, read ? "PUT" : "DELETE", body); }
+        JSONArray errors = result.optJSONArray("errors");
+        if (errors != null && errors.length() > 0) throw new IOException("The carrier could not change this message's read status.");
+        diagnostics.put("read_update_http_status", diagnostics.optInt("mailbox_http_status"));
+        List<JSONObject> refreshed = sync();
+        for (JSONObject message : refreshed) if (id.equals(message.optString("objectid"))) {
+            boolean verified = InboxQuery.isRead(message.optString("flag")) == read;
+            diagnostics.put("read_update_verified", verified); saveDiagnostics();
+            if (!verified) throw new IOException("Read status hasn't been confirmed by the carrier. Refresh to check.");
+            return refreshed;
+        }
+        throw new IOException("This message is no longer in the mailbox. Refresh to check.");
     }
 
     private File audioFile(JSONObject message) throws Exception {
@@ -271,7 +311,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.3 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.4 Android");
     }
 
     private static byte[] read(InputStream input, int maximum) throws IOException {
