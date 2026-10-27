@@ -1,6 +1,6 @@
 # Scrolling inbox header in version 0.18
 
-The persistent offline footer is removed. At the top of a short inbox, the carrier label, large title, status, search field, filters, and Select/Refresh row remain easy to reach. With a longer inbox, that content scrolls away with the messages. A compact toolbar retains the page title, mailbox status, search, filters/inbox actions, and Settings. Returning to the top restores the expanded header.
+The persistent offline footer is removed. At the top of a short inbox, the carrier label, large title, status, search field, filters, and secondary-actions row remain easy to reach. With a longer inbox, that content scrolls away with the messages. A compact toolbar retains the page title, mailbox status, search, filters/inbox actions, and Settings. Returning to the top restores the expanded header.
 
 This follows the extended/condensed app-bar pattern in [Samsung's One UI guidance](https://developer.samsung.com/one-ui/comp/app-bar.html), while retaining the existing app typography and colors. The expanded title crossfades into the compact one as the user scrolls. There is one native ScrollView, so drag, fling, reverse scrolling, focus, and accessibility scrolling share the same coordinate space. Scrolling does not alter the expanded header's measured height, avoiding layout/scroll feedback and jumps. Short lists do not get artificial blank content to force a collapse.
 
@@ -15,3 +15,9 @@ The S24 Ultra passed 38 header checks, plus 32 onboarding, 42 bulk-action, 33 na
 Version 0.19 shows the search clear button only while the field contains text, including whitespace. Clearing retains search focus and hides the button again. Initial visibility also follows a restored query. The existing 38 header checks passed, and empty/typed/cleared/whitespace behavior was checked directly on the S24 Ultra.
 
 Version 0.22 coordinates selection-mode header collapse/expansion and list movement over 220 ms, rather than instantly hiding the header before fading the toolbar. Ordinary finger-driven inbox scrolling still keeps a stable header height. See [motion](motion.md).
+
+Version 0.23 replaces the expanded Select/Refresh text pair with an Inbox actions menu and a 48 dp Refresh icon. Select messages remains explicitly available in that menu as well as by long-press. The disconnected state has a visible Connect mailbox button. The guide describes both selection routes and horizontal filter swipes.
+
+All, Unread, and Marked support tap or horizontal swipe navigation. Native vertical scrolling and long-press are retained; swipes do not change filters during selection or wrap around the first/last filter. A cancelled swipe returns to its starting view. Search text stays across tabs. The tab indicator slides, native neighboring pages follow the finger, and a 16 dp gap separates them. Release settles over 70–140 ms. Pages are reused until their data changes, with no bitmap capture or UI-thread diagnostics writes. Reduce motion changes filters immediately. Outgoing/preview views leave the overlay when navigation completes, is cancelled, or detaches.
+
+Empty states distinguish a disconnected mailbox, an empty All inbox, no unread messages, no deletion marks, and search misses in each scope. They offer a relevant recovery action rather than repeating the same generic message. Contact lookup only explains an empty search while names are actually loading.

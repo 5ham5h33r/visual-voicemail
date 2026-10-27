@@ -12,7 +12,7 @@ import java.lang.reflect.*;
 import java.util.*;
 
 /** Real settings controls and navigation; no carrier writes, downloads, or personal audio. */
-public final class SettingsSearchCheck extends Instrumentation {
+public final class SettingsSearchCheck extends DeviceCheckInstrumentation {
     private Activity screen;
     private int checks;
 

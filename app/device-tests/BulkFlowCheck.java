@@ -16,7 +16,7 @@ import java.util.*;
  * Selection uses synthetic rows; speech uses a supplied public fixture. No personal flags are
  * changed.
  */
-public final class BulkFlowCheck extends Instrumentation {
+public final class BulkFlowCheck extends DeviceCheckInstrumentation {
     private int checks;
     private Activity screen;
     private Context context;
@@ -94,7 +94,7 @@ public final class BulkFlowCheck extends Instrumentation {
     }
 
     private void chooseAll() throws Exception {
-        clickButton("selectControl");
+        invokeUi("enterSelection");
         clickButton("selectAll");
     }
 

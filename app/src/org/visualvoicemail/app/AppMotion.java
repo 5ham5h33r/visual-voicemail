@@ -78,6 +78,7 @@ final class AppMotion {
     static final class CheckBox extends android.widget.CheckBox {
         CheckBox(Context context) {
             super(context);
+            setButtonDrawable(new RoundedCheckDrawable(context));
         }
 
         @Override

@@ -12,7 +12,7 @@ import java.lang.reflect.*;
 import java.util.*;
 
 /** Exercise the real quality control, retained transcripts, and immediate/reduced tap feedback. */
-public final class QualityMotionCheck extends Instrumentation {
+public final class QualityMotionCheck extends DeviceCheckInstrumentation {
     private int checks;
     private Activity screen;
     private Context context;

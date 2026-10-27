@@ -6,7 +6,7 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-Version 0.22 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and reversible deletion marks.
+Version 0.23 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Marked, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and reversible deletion marks.
 
 English transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Settings has local search by name or feature. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
 
@@ -47,11 +47,22 @@ Screenshots show the compact interface on the S24 Ultra, including version 0.18 
   </tr>
 </table>
 
+<table>
+  <tr><th>Inbox actions · Light</th><th>Inbox actions · Dark</th><th>Inbox actions · AMOLED</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/actions-menu-light.png" width="230" alt="Light inbox menu with mint selection feedback"></td>
+    <td><img src="docs/screenshots/actions-menu-dark.png" width="230" alt="Dark inbox menu matching the app surface and type"></td>
+    <td><img src="docs/screenshots/actions-menu-amoled.png" width="230" alt="AMOLED inbox action menu"></td>
+  </tr>
+</table>
+
 <a href="docs/screenshots/settings-search.png"><img src="docs/screenshots/settings-search.png" width="300" alt="Settings search finds transcription options by the word Whisper"></a>
 
 <a href="docs/screenshots/transcription-quality.png"><img src="docs/screenshots/transcription-quality.png" width="300" alt="Transcription quality choices: Whisper Tiny, Base, and full Large v3, with download sizes and status"></a>
 
 ## Documentation
+
+The [five-question UX review](docs/ux-review.md) covers the whole app, the changes in this pass, and remaining usability gaps.
 
 - [Carrier protocol and device findings](docs/carrier-research.md)
 - [Independent probe results and limits](docs/independent-probe.md)

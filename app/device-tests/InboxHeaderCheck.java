@@ -16,7 +16,7 @@ import java.util.*;
 /**
  * Synthetic long/short inboxes exercise native gestures without carrier writes or personal audio.
  */
-public final class InboxHeaderCheck extends Instrumentation {
+public final class InboxHeaderCheck extends DeviceCheckInstrumentation {
     private Activity screen;
     private List<JSONObject> fixtures;
     private int checks;
@@ -116,8 +116,11 @@ public final class InboxHeaderCheck extends Instrumentation {
     private void menu(int id) throws Exception {
         View action =
                 find(screen.getWindow().getDecorView(), "Voicemail filters and inbox actions");
+        if (action == null || !action.isShown() || !action.isEnabled())
+            action = find(screen.getWindow().getDecorView(), "Inbox actions");
         check(action != null && action.isEnabled());
-        ui(() -> action.performClick());
+        View menuControl = action;
+        ui(() -> menuControl.performClick());
         PopupMenu popup = (PopupMenu) field(screen, "inboxMenu");
         ui(
                 () -> {
@@ -289,7 +292,7 @@ public final class InboxHeaderCheck extends Instrumentation {
             move(measured + 10);
             View compactSearch = find(screen.getWindow().getDecorView(), "Search voicemail");
             ui(() -> compactSearch.performClick());Thread.sleep(550);
-            View select = (View)field(screen, "selectControl");ui(() -> select.performClick());Thread.sleep(600);
+            menu(103);Thread.sleep(600);
             check(!search.hasFocus() && header().getVisibility() == View.GONE);
             if (Build.VERSION.SDK_INT >= 30)
                 check(!screen.getWindow().getDecorView().getRootWindowInsets().isVisible(WindowInsets.Type.ime()));

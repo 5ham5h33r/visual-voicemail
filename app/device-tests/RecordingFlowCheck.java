@@ -12,7 +12,7 @@ import org.json.*;
 import java.lang.reflect.*;
 import java.util.*;
 
-public class RecordingFlowCheck extends Instrumentation {
+public class RecordingFlowCheck extends DeviceCheckInstrumentation {
     int checks = 0;
     Activity screen;
     Context c;

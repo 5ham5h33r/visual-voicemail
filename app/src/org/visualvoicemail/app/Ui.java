@@ -98,11 +98,37 @@ final class Ui {
         dialog.show();
         AppMotion.buttons(dialog);
         dialog.getWindow().setBackgroundDrawable(shape(surface, 24));
+        android.widget.ListView list=dialog.getListView();
+        if(list!=null && list.getAdapter()!=null) {
+            final android.widget.ListAdapter original=list.getAdapter();
+            android.util.SparseBooleanArray checked=list.getCheckedItemPositions();
+            final android.util.SparseBooleanArray savedChecks=checked==null?new android.util.SparseBooleanArray():checked.clone();
+            list.setAdapter(new android.widget.BaseAdapter() {
+                public int getCount(){return original.getCount();}
+                public Object getItem(int position){return original.getItem(position);}
+                public long getItemId(int position){return original.getItemId(position);}
+                public int getItemViewType(int position){return original.getItemViewType(position);}
+                public int getViewTypeCount(){return original.getViewTypeCount();}
+                public boolean areAllItemsEnabled(){return original.areAllItemsEnabled();}
+                public boolean isEnabled(int position){return original.isEnabled(position);}
+                public View getView(int position,View recycled,android.view.ViewGroup parent) {
+                    View row=original.getView(position,recycled,parent);
+                    row.setMinimumHeight(dp(52));
+                    if(row instanceof TextView) {
+                        TextView label=(TextView)row;label.setTextSize(15);label.setTextColor(text);
+                        label.setTypeface(Typeface.create("sans-serif",0));label.setPadding(dp(24),dp(12),dp(24),dp(12));
+                    }
+                    return row;
+                }
+            });
+            for(int i=0;i<savedChecks.size();i++) if(savedChecks.valueAt(i)) list.setItemChecked(savedChecks.keyAt(i),true);
+            list.setSelector(new RippleDrawable(ColorStateList.valueOf(divider),shape(0,12),null));
+        }
         for (int which : new int[] {-1, -2, -3}) {
             Button b = dialog.getButton(which);
             if (b != null) {
                 b.setAllCaps(false);
-                b.setTextColor(accent);
+                b.setTextColor(accent); b.setTextSize(15);
                 b.setMinHeight(dp(48));
             }
         }

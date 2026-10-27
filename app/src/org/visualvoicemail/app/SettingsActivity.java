@@ -113,7 +113,9 @@ public final class SettingsActivity extends MotionActivity {
         heading.addView(controls.icon("back","Back to voicemail",false,this::navigateUp));
         TextView title = controls.label("Settings", Ui.SECTION_TITLE, primary, true);
         LinearLayout.LayoutParams titleSize = new LinearLayout.LayoutParams(0,-2,1);
-        titleSize.setMarginStart(dp(4)); heading.addView(title,titleSize); root.addView(heading);
+        titleSize.setMarginStart(dp(4)); heading.addView(title,titleSize);
+        LinearLayout.LayoutParams headingSize = new LinearLayout.LayoutParams(-1,-2);
+        headingSize.setMarginStart(-dp(12)); root.addView(heading,headingSize);
         LinearLayout searchBox = controls.row(); searchBox.setBackground(shape(surface,16));
         settingsSearch = new EditText(this);
         settingsSearch.setTextSize(14); settingsSearch.setSingleLine(true);

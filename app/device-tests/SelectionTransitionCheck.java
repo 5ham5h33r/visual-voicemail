@@ -14,7 +14,7 @@ import java.util.*;
 /**
  * Sample actual rendered layout frames for a physical long press; fixtures never reach the carrier.
  */
-public final class SelectionTransitionCheck extends Instrumentation {
+public final class SelectionTransitionCheck extends DeviceCheckInstrumentation {
     private Activity screen;
     private int checks;
     private final List<JSONObject> fixtures = new ArrayList<>();
@@ -117,6 +117,7 @@ public final class SelectionTransitionCheck extends Instrumentation {
                     .putBoolean("refresh_on_open", false)
                     .putBoolean("reduce_motion", false)
                     .putBoolean("auto_transcribe", false)
+                    .putBoolean("contact_names",false)
                     .commit();
             for (int i = 0; i < 24; i++)
                 fixtures.add(
@@ -133,6 +134,8 @@ public final class SelectionTransitionCheck extends Instrumentation {
                                             Intent.FLAG_ACTIVITY_NEW_TASK
                                                     | Intent.FLAG_ACTIVITY_CLEAR_TASK));
             Thread.sleep(800);
+            for(int i=0;i<50&&!screen.hasWindowFocus();i++)Thread.sleep(100);
+            if(!screen.hasWindowFocus())throw new IllegalStateException("The test app needs foreground focus for physical gesture checks");
             jump(0);
             View header = (View) field(screen, "inboxHeader"),
                     selected = (View) field(screen, "selectionBar");
@@ -183,6 +186,9 @@ public final class SelectionTransitionCheck extends Instrumentation {
                                     .getDecorView()
                                     .getViewTreeObserver()
                                     .removeOnPreDrawListener(listener));
+            out.putBoolean("gesture_window_focus",screen.hasWindowFocus());
+            out.putBoolean("gesture_card_attached",card.isAttachedToWindow());
+            out.putBoolean("gesture_current_messages",messages==field(screen,"messages"));
             check((Boolean) field(screen, "selecting"));
             check(frames.size() >= 4);
             check(frames.get(0)[1] > oldHeight * .7f && frames.get(0)[2] > 700);
@@ -230,8 +236,7 @@ public final class SelectionTransitionCheck extends Instrumentation {
             Thread.sleep(300);
             jump(oldHeight + 300);
             int deep = scroll().getScrollY();
-            View select = (View) field(screen, "selectControl");
-            runOnMainSync(() -> select.performClick());
+            call("enterSelection");
             Thread.sleep(300);
             check(Math.abs(scroll().getScrollY() - (deep - oldHeight)) < 5);
             call("clearSelection");
@@ -239,7 +244,7 @@ public final class SelectionTransitionCheck extends Instrumentation {
             check(Math.abs(scroll().getScrollY() - deep) < 5);
             // Reduced motion settles all of the geometry in one layout.
             prefs.edit().putBoolean("reduce_motion", true).commit();
-            runOnMainSync(() -> select.performClick());
+            call("enterSelection");
             check(header.getVisibility() == View.GONE && !running());
             call("clearSelection");
             check(header.getVisibility() == View.VISIBLE && !running());
@@ -247,7 +252,7 @@ public final class SelectionTransitionCheck extends Instrumentation {
             // height.
             prefs.edit().putBoolean("reduce_motion", false).commit();
             jump(0);
-            runOnMainSync(() -> select.performClick());
+            call("enterSelection");
             Thread.sleep(60);
             Bundle state = new Bundle();
             Method save = method(screen.getClass(), "onSaveInstanceState", Bundle.class);
@@ -291,7 +296,7 @@ public final class SelectionTransitionCheck extends Instrumentation {
         } finally {
             SharedPreferences.Editor restore = prefs.edit();
             for (String key :
-                    Arrays.asList("refresh_on_open", "reduce_motion", "auto_transcribe")) {
+                    Arrays.asList("refresh_on_open", "reduce_motion", "auto_transcribe", "contact_names")) {
                 Object v = before.get(key);
                 if (v == null) restore.remove(key);
                 else restore.putBoolean(key, (Boolean) v);
