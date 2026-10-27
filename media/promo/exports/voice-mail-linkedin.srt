@@ -1,0 +1,29 @@
+1
+00:00:00,000 --> 00:00:03,200
+I'm building Voice Mail.
+A visual voicemail app for Android.
+
+2
+00:00:03,200 --> 00:00:07,400
+Keep your mailbox and your dialer.
+Tested on Mint Mobile. No call-forwarding setup.
+
+3
+00:00:07,400 --> 00:00:11,600
+Search your saved inbox.
+Contacts, numbers, and dates.
+
+4
+00:00:11,600 --> 00:00:15,800
+Control playback.
+Seek, skip, and change speed.
+
+5
+00:00:15,800 --> 00:00:20,200
+Choose your theme.
+Light, Dark, and true-black AMOLED.
+
+6
+00:00:20,200 --> 00:00:26,000
+Voice Mail for Android.
+Development preview on Mint Mobile. Transcription planned. Feedback on the UI is welcome.
