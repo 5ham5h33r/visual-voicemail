@@ -5,9 +5,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.CancellationSignal;
-import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -18,6 +16,8 @@ import android.graphics.drawable.RippleDrawable;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
+import android.media.AudioDeviceInfo;
+import android.media.PlaybackParams;
 import android.media.MediaPlayer;
 import android.os.Build;
 import android.os.Bundle;
@@ -61,8 +61,9 @@ public final class MainActivity extends Activity {
     private CancellationSignal contactSignal;
     private int contactGeneration;
     private boolean contactsLoading;
-    private Button contactsButton;
-    private static final int CONTACT_PERMISSION = 41;
+    private int displayedAppearance, pendingSettingsAction, requestedOutput;
+    private boolean clearingDownloads;
+    private static final int SETTINGS_REQUEST = 42;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, MessageRow> rows = new HashMap<>();
     private List<JSONObject> inbox = new ArrayList<>();
@@ -92,27 +93,20 @@ public final class MainActivity extends Activity {
     };
 
     @Override protected void attachBaseContext(Context base) {
-        int appearance = base.getSharedPreferences("settings", MODE_PRIVATE).getInt("appearance", 0);
-        if (appearance != 0) {
-            Configuration override = new Configuration(base.getResources().getConfiguration());
-            override.uiMode = (override.uiMode & ~Configuration.UI_MODE_NIGHT_MASK)
-                | (appearance >= 2 ? Configuration.UI_MODE_NIGHT_YES : Configuration.UI_MODE_NIGHT_NO);
-            base = base.createConfigurationContext(override);
-        }
-        super.attachBaseContext(base);
+        super.attachBaseContext(AppAppearance.context(base));
     }
 
     @Override public void onCreate(Bundle state) {
-        boolean amoled = getSharedPreferences("settings", MODE_PRIVATE).getInt("appearance", 0) == 3;
-        setTheme(amoled ? R.style.AppTheme_Amoled : R.style.AppTheme);
+        displayedAppearance = AppAppearance.mode(this);
+        AppAppearance.apply(this);
         super.onCreate(state);
-        background = color(amoled ? R.color.amoled_background : R.color.background); surface = color(R.color.surface);
+        background = AppAppearance.background(this); surface = color(R.color.surface);
         primary = color(R.color.primary_text); secondary = color(R.color.secondary_text);
         accent = color(R.color.accent); accentSurface = color(R.color.accent_surface);
         divider = color(R.color.divider); error = color(R.color.error);
         carrier = new CarrierClient(this);
         marks = new MessageMarks(this);
-        if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); }
+        if (state != null) { query = state.getString("query", ""); filter = state.getInt("filter", 0); pendingSettingsAction = state.getInt("settings_action", 0); }
         audio = getSystemService(AudioManager.class);
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
         focus = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
@@ -122,7 +116,7 @@ public final class MainActivity extends Activity {
         buildLayout();
         inbox = carrier.cachedInbox();
         render();
-        if (!inbox.isEmpty()) status.setText(summary() + " · Saved inbox");
+        if (!inbox.isEmpty()) status.setText(summary() + " · " + freshness());
         else if (carrier.hasSession()) status.setText("Refresh to check your mailbox");
         else status.setText("Connect to your Mint Mobile mailbox");
         refresh.setText(carrier.hasSession() ? "Refresh" : "Connect");
@@ -153,14 +147,10 @@ public final class MainActivity extends Activity {
         TextView brand = text("MINT MOBILE", 13, secondary, true);
         brand.setLetterSpacing(0.10f);
         top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-        contactsButton = button("Contacts", false);
-        contactsButton.setContentDescription("Contact name settings");
-        contactsButton.setOnClickListener(v -> showContactSettings());
-        top.addView(contactsButton);
-        IconButton appearance = new IconButton("appearance", false);
-        appearance.setContentDescription("Appearance settings");
-        appearance.setOnClickListener(v -> showAppearance());
-        top.addView(appearance, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        IconButton settings = new IconButton("settings", false);
+        settings.setContentDescription("Settings");
+        settings.setOnClickListener(v -> startActivityForResult(new Intent(this, SettingsActivity.class), SETTINGS_REQUEST));
+        top.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
         root.addView(top);
         TextView title = text("Voicemail", 36, primary, true);
         headerTitle = title;
@@ -224,26 +214,15 @@ public final class MainActivity extends Activity {
         setContentView(root);
     }
 
-    private void showAppearance() {
-        int selected = getSharedPreferences("settings", MODE_PRIVATE).getInt("appearance", 0);
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Appearance")
-            .setSingleChoiceItems(new String[]{"Use device setting", "Light", "Dark", "AMOLED (true black)"}, selected, (selection, choice) -> {
-                getSharedPreferences("settings", MODE_PRIVATE).edit().putInt("appearance", choice).apply();
-                selection.dismiss();
-                if (choice != selected) recreate();
-            }).setNegativeButton("Cancel", null).create();
-        dialog.show();
-        dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setAllCaps(false);
-    }
+    private void sync() { sync(false); }
 
-    private void sync() {
-        if (syncing || updatingRead) return;
+    private void sync(boolean reconnect) {
+        if (syncing || updatingRead || clearingDownloads) return;
         syncing = true; refresh.setEnabled(false); refresh.setText("Refreshing…");
         status.setTextColor(secondary); status.setText("Checking your mailbox…");
         worker.execute(() -> {
             try {
-                List<JSONObject> result = carrier.sync();
+                List<JSONObject> result = reconnect ? carrier.reconnect() : carrier.sync();
                 runOnUiThread(() -> {
                     if (destroyed) return;
                     syncing = false; inbox = result;
@@ -278,6 +257,8 @@ public final class MainActivity extends Activity {
             if (filter == 2 && !marked) continue;
             if (InboxQuery.matches(query, message.optString("returnnumber"), caller(message), message.optString("date"), date(message))) shown.add(message);
         }
+        boolean oldestFirst = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("oldest_first", false);
+        shown.sort((a,b) -> InboxQuery.compareDates(a.optString("date"),b.optString("date"),oldestFirst));
         String[] labels = {"All", "Unread", "Marked" + (markedCount == 0 ? "" : " (" + markedCount + ")")};
         for (int i = 0; i < filters.length; i++) {
             filters[i].setText(labels[i]); filters[i].setSelected(filter == i);
@@ -299,7 +280,7 @@ public final class MainActivity extends Activity {
             boolean narrowed = !query.trim().isEmpty() || filter != 0;
             empty.addView(text(contactsLoading && narrowed ? "Looking up contact names…" : narrowed ? "No matching voicemails" : carrier.hasSession() ? "No voicemails" : "Your voicemail, here", 18, primary, true));
             add(empty, text(narrowed ? contactsLoading ? "Names are loading from this phone."
-                : !contactsEnabled() && !query.trim().isEmpty() ? "For name search, enable Contacts above. You can also search a number or date, or choose All."
+                : !contactsEnabled() && !query.trim().isEmpty() ? "For name search, enable Contact names in Settings. You can also search a number or date, or choose All."
                 : "Try a different search or choose All."
                 : carrier.hasSession() ? "Refresh to check for new messages."
                 : "Connect once using Mint mobile data. Your messages will appear here, ready to play.", 15, secondary, false), 12);
@@ -325,6 +306,7 @@ public final class MainActivity extends Activity {
         final TextView elapsed = text("0:00", 13, secondary, false);
         final TextView length;
         final TextView saved;
+        final TextView output = text("", 13, secondary, false);
         final String caller;
         boolean seeking;
         MessageRow(JSONObject message) {
@@ -364,10 +346,12 @@ public final class MainActivity extends Activity {
             time.addView(elapsed, new LinearLayout.LayoutParams(0, -2, 1));
             length = text(duration((int)(message.optDouble("duration", 0) * 1000)), 13, secondary, false);
             time.addView(length); transport.addView(time);
+            add(transport, output, 8);
             LinearLayout skip = row(); skip.setGravity(Gravity.CENTER);
-            Button back = button("−10 sec", true), ahead = button("+10 sec", true);
-            back.setContentDescription("Skip back ten seconds"); ahead.setContentDescription("Skip forward ten seconds");
-            back.setOnClickListener(v -> skip(-10000)); ahead.setOnClickListener(v -> skip(10000));
+            int seconds = getSharedPreferences("settings", MODE_PRIVATE).getInt("skip_seconds", 10);
+            Button back = button("−"+seconds+" sec", true), ahead = button("+"+seconds+" sec", true);
+            back.setContentDescription("Skip back "+seconds+" seconds"); ahead.setContentDescription("Skip forward "+seconds+" seconds");
+            back.setOnClickListener(v -> skip(-seconds*1000)); ahead.setOnClickListener(v -> skip(seconds*1000));
             skip.addView(back);
             LinearLayout.LayoutParams gap = new LinearLayout.LayoutParams(-2, -2); gap.setMarginStart(dp(8));
             skip.addView(ahead, gap); add(transport, skip, 8);
@@ -451,6 +435,7 @@ public final class MainActivity extends Activity {
         try {
             MediaPlayer next = new MediaPlayer(); player = next;
             next.setAudioAttributes(attributes()); next.setDataSource(file.getAbsolutePath());
+            next.addOnRoutingChangedListener(routing -> { if (player == next) verifyOutput(); }, handler);
             next.setOnPreparedListener(ready -> {
                 if (destroyed || request != generation || player != ready) return;
                 loading = false; prepared = true;
@@ -479,8 +464,37 @@ public final class MainActivity extends Activity {
         if (audio.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             status.setTextColor(error); status.setText("Audio is in use. Try playing again when it's available."); return;
         }
+        int output = getSharedPreferences("settings", MODE_PRIVATE).getInt("audio_output",0);
+        requestedOutput = output==1 ? AudioDeviceInfo.TYPE_BUILTIN_SPEAKER : output==2 ? AudioDeviceInfo.TYPE_BUILTIN_EARPIECE : 0;
+        AudioDeviceInfo preferred = null;
+        if (requestedOutput != 0) for (AudioDeviceInfo device : audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS))
+            if (device.getType() == requestedOutput) { preferred = device; break; }
+        if ((requestedOutput != 0 && preferred == null) || !player.setPreferredDevice(preferred)) {
+            audio.abandonAudioFocusRequest(focus); status.setTextColor(error);
+            status.setText("Selected audio output isn't available. Choose another output in Settings."); return;
+        }
         if (player.getCurrentPosition() >= player.getDuration() - 100) player.seekTo(0);
-        player.start(); record("playback_started", true); record("playback_state", "playing");
+        try { player.setPlaybackParams(new PlaybackParams().setSpeed(SettingsActivity.speed(this)).setPitch(1f)); }
+        catch (RuntimeException unsupported) {
+            getSharedPreferences("settings",MODE_PRIVATE).edit().putInt("playback_speed",1).apply();
+            status.setTextColor(secondary); status.setText("This recording uses normal playback speed.");
+        }
+        try {
+            player.start(); record("playback_started", true); record("playback_state", "playing");
+            record("playback_speed", player.getPlaybackParams().getSpeed());
+        } catch(RuntimeException failed) { playbackError("Playback couldn't start. Choose another output or speed in Settings and retry."); }
+    }
+
+    private void verifyOutput() {
+        if (player == null || !prepared || !player.isPlaying()) return;
+        AudioDeviceInfo actual = player.getRoutedDevice();
+        if (actual == null) return;
+        record("audio_output_type", actual.getType());
+        if (requestedOutput != 0 && actual.getType() != requestedOutput
+                && !(requestedOutput == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER && actual.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE)) {
+            pause("output_unavailable"); status.setTextColor(error);
+            status.setText("Playback paused because the selected audio output couldn't be used. Check Settings.");
+        }
     }
 
     private void pause(String reason) {
@@ -516,6 +530,9 @@ public final class MainActivity extends Activity {
                     row.seek.setMax(player.getDuration());
                     if (!row.seeking) { row.seek.setProgress(player.getCurrentPosition()); row.elapsed.setText(duration(player.getCurrentPosition())); }
                     row.length.setText(duration(player.getDuration()));
+                    AudioDeviceInfo device = player.getRoutedDevice();
+                    row.output.setText(playing && device != null ? "Output: "+outputName(device.getType())
+                        : player.getCurrentPosition()>=player.getDuration()?"Playback complete":"Playback paused");
                     if (Build.VERSION.SDK_INT >= 30) row.seek.setStateDescription(
                         duration(player.getCurrentPosition()) + " of " + duration(player.getDuration()));
                 }
@@ -558,6 +575,10 @@ public final class MainActivity extends Activity {
                 canvas.drawLine(-5,-5,5,5,paint); canvas.drawLine(-5,5,5,-5,paint);
             } else if ("more".equals(symbol)) {
                 canvas.drawCircle(-6,0,1.6f,paint); canvas.drawCircle(0,0,1.6f,paint); canvas.drawCircle(6,0,1.6f,paint);
+            } else if ("settings".equals(symbol)) {
+                paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.8f);
+                canvas.drawCircle(0,0,8,paint); canvas.drawCircle(0,0,3,paint);
+                for (int i=0;i<8;i++) { canvas.drawLine(0,-12,0,-9,paint); canvas.rotate(45); }
             } else {
                 paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(1.8f); canvas.drawCircle(0,0,9,paint);
                 paint.setStyle(Paint.Style.FILL); canvas.drawArc(-7,-7,7,7,-90,180,true,paint);
@@ -568,6 +589,16 @@ public final class MainActivity extends Activity {
 
     private AudioAttributes attributes() { return new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(); }
     private String summary() { return inbox.size() + (inbox.size() == 1 ? " voicemail" : " voicemails"); }
+    private String freshness() {
+        long last=carrier.lastSyncTime();
+        return last==0 ? "Saved inbox" : "Updated "+java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT,java.text.DateFormat.SHORT).format(new java.util.Date(last));
+    }
+    private String outputName(int type) {
+        if (type==AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) return "phone earpiece";
+        if (type==AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || type==AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE) return "phone speaker";
+        if (type==AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || type==AudioDeviceInfo.TYPE_BLUETOOTH_SCO || type==AudioDeviceInfo.TYPE_BLE_HEADSET) return "Bluetooth";
+        return "device audio";
+    }
     private String safeMessage(Exception exception) {
         String message = exception.getMessage();
         // Network parser errors can include URLs or payload excerpts; show only our known user-facing messages.
@@ -621,47 +652,6 @@ public final class MainActivity extends Activity {
             && checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private void showContactSettings() {
-        boolean enabled = contactsEnabled();
-        boolean blocked = checkSelfPermission(android.Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED
-            && getSharedPreferences("settings", MODE_PRIVATE).getBoolean("contacts_permission_asked", false)
-            && !shouldShowRequestPermissionRationale(android.Manifest.permission.READ_CONTACTS);
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Contact names")
-            .setMessage("Match voicemail callers with contacts saved on this phone. Names stay on your device. Number and date search work without Contacts access.")
-            .setPositiveButton(enabled ? "Turn off" : blocked ? "Open settings" : "Enable", (selection, which) -> {
-                if (enabled) {
-                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", false).apply();
-                    reloadContactNames(); return;
-                }
-                if (checkSelfPermission(android.Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", true).apply();
-                    reloadContactNames(); return;
-                }
-                boolean asked = getSharedPreferences("settings", MODE_PRIVATE).getBoolean("contacts_permission_asked", false);
-                if (asked && !shouldShowRequestPermissionRationale(android.Manifest.permission.READ_CONTACTS)) {
-                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", true).apply();
-                    startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + getPackageName())));
-                } else {
-                    getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contacts_permission_asked", true).apply();
-                    requestPermissions(new String[]{android.Manifest.permission.READ_CONTACTS}, CONTACT_PERMISSION);
-                }
-            }).setNegativeButton("Cancel", null).create();
-        dialog.show(); dialog.getWindow().setBackgroundDrawable(shape(surface, 28));
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setAllCaps(false);
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setAllCaps(false);
-    }
-
-    @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] grants) {
-        super.onRequestPermissionsResult(request, permissions, grants);
-        if (request != CONTACT_PERMISSION) return;
-        boolean granted = grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED;
-        getSharedPreferences("settings", MODE_PRIVATE).edit().putBoolean("contact_names", granted).apply();
-        reloadContactNames();
-        status.setTextColor(secondary);
-        status.setText(granted ? "Contact names enabled" : "Contacts access declined · Number and date search still work");
-    }
-
     private void reloadContactNames() {
         int request = ++contactGeneration;
         if (contactSignal != null) contactSignal.cancel();
@@ -670,31 +660,64 @@ public final class MainActivity extends Activity {
         if (!contactsEnabled()) {
             contactsLoading = false; contactNames.clear();
             record("contact_names_enabled", false); record("contact_match_count", 0);
-            contactsButton.setText("Contacts"); render(); return;
+            render(); return;
         }
-        contactsLoading = true; contactsButton.setText("Contacts…");
+        contactsLoading = true;
         List<JSONObject> snapshot = new ArrayList<>(inbox);
         contactWorker.execute(() -> {
             try {
                 Map<String, String> names = ContactNames.lookup(getApplicationContext(), snapshot, cancel);
                 runOnUiThread(() -> {
                     if (destroyed || request != contactGeneration || !contactsEnabled()) return;
-                    contactNames = names; contactsLoading = false; contactsButton.setText("Contacts");
+                    contactNames = names; contactsLoading = false;
                     record("contact_names_enabled", true); record("contact_match_count", names.size()); render();
                 });
             } catch (Exception failure) {
                 runOnUiThread(() -> {
                     if (destroyed || request != contactGeneration) return;
-                    contactsLoading = false; contactNames.clear(); contactsButton.setText("Contacts"); render();
-                    status.setTextColor(error); status.setText("Couldn't load contact names. Number and date search still work. Try enabling Contacts again.");
+                    contactsLoading = false; contactNames.clear(); render();
+                    status.setTextColor(error); status.setText("Couldn't load contact names. Number and date search still work. Check Contact names in Settings.");
                 });
             }
         });
     }
 
     @Override protected void onStart() { super.onStart(); visible = true; handler.post(ticker); reloadContactNames(); }
+    @Override protected void onActivityResult(int request,int result,Intent data) {
+        super.onActivityResult(request,result,data);
+        if (request==SETTINGS_REQUEST && result==RESULT_OK && data!=null) pendingSettingsAction=data.getIntExtra(SettingsActivity.ACTION,0);
+    }
+    @Override protected void onResume() {
+        super.onResume();
+        if (displayedAppearance!=AppAppearance.mode(this)) { recreate(); return; }
+        render();
+        int action=pendingSettingsAction; pendingSettingsAction=0;
+        if (action==SettingsActivity.REFRESH) sync();
+        else if (action==SettingsActivity.RECONNECT) sync(true);
+        else if (action==SettingsActivity.CLEAR_DOWNLOADS) clearDownloads();
+        else if (carrier.hasSession() && getSharedPreferences("settings",MODE_PRIVATE).getBoolean("refresh_on_open",true)) {
+            long now=System.currentTimeMillis();
+            long attempted=getSharedPreferences("settings",MODE_PRIVATE).getLong("last_open_refresh_attempt",0);
+            if (now-carrier.lastSyncTime()>300000 && now-attempted>300000) {
+                getSharedPreferences("settings",MODE_PRIVATE).edit().putLong("last_open_refresh_attempt",now).apply(); sync();
+            }
+        }
+    }
+    private void clearDownloads() {
+        if (clearingDownloads) return;
+        clearingDownloads=true; release(); activeId=""; refresh.setEnabled(false); status.setText("Clearing downloaded audio…");
+        worker.execute(()->{
+            try {
+                RecordingCache.clear(new File(getFilesDir(),"audio"));
+                runOnUiThread(()->{ if(destroyed)return; clearingDownloads=false; refresh.setEnabled(true); render(); status.setTextColor(secondary); status.setText("Downloads cleared · Carrier messages kept"); });
+            } catch(Exception failed) {
+                runOnUiThread(()->{ if(destroyed)return; clearingDownloads=false; refresh.setEnabled(true); render(); status.setTextColor(error); status.setText("Some downloads couldn't be cleared. Try again."); });
+            }
+        });
+    }
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putString("query", query); state.putInt("filter", filter); super.onSaveInstanceState(state);
+        state.putInt("settings_action",pendingSettingsAction);
     }
     @Override protected void onStop() {
         visible = false; handler.removeCallbacks(ticker); pause("background_paused"); super.onStop();

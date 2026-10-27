@@ -4,7 +4,7 @@ Version 0.4 adds a search field and All, Unread, and Marked filters. Search runs
 
 ## Contact names added in version 0.6
 
-The Contacts control explains local caller-name matching and requests Android's optional READ_CONTACTS permission only when enabled. Once permitted, the app uses the local PhoneLookup provider for unique numbers present in the inbox. Names appear above their original numbers and are included in the same case-insensitive, multi-term search. Numbers remain searchable even when a name is displayed. Unknown/unmatched callers retain their phone-number label.
+Settings → Contact names explains local caller-name matching and requests Android's optional READ_CONTACTS permission only when enabled. Once permitted, the app uses the local PhoneLookup provider for unique numbers present in the inbox. Names appear above their original numbers and are included in the same case-insensitive, multi-term search. Numbers remain searchable even when a name is displayed. Unknown/unmatched callers retain their phone-number label.
 
 Lookup runs on a separate worker with cancellation and stale-result guards. Names stay in memory and are excluded from diagnostics, encrypted inbox records, and network requests. Contact names refresh when reopening the app, refreshing the inbox, or completing a read-status update. Turning the feature off clears the name map; declining/revoking permission preserves number/date search and playback. Repeated permission denial offers an explicitly labeled Open settings action. It does not prompt for Contacts during initial voicemail connection.
 
