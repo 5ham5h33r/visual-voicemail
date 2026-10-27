@@ -7,7 +7,7 @@ import subprocess
 import zipfile
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation'], default='recording')
+parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation', 'notification-eligibility'], default='recording')
 parser.add_argument('--serial', help='ADB device serial; omit only with one connected device')
 parser.add_argument('--speech-fixture', help='Public 16 kHz PCM WAV used only by the bulk check')
 parser.add_argument('--compile-only', action='store_true')
@@ -18,7 +18,7 @@ bt = tools / 'build-tools/android-16'
 java = next((tools / 'jre21').glob('*/bin/java.exe'), None) or shutil.which('java')
 if not java:
     raise SystemExit('Install Java 17+ and build the app first.')
-name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck'}[args.test]
+name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck', 'notification-eligibility': 'NotificationEligibilityCheck'}[args.test]
 output = root / 'app/build' / ('device-' + args.test)
 classes, dex = output / 'classes', output / 'dex'
 classes.mkdir(parents=True, exist_ok=True)

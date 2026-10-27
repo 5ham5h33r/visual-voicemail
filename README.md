@@ -62,6 +62,8 @@ Screenshots show the compact interface on the S24 Ultra, including version 0.18 
 
 ## Documentation
 
+The [event-driven notification investigation](docs/event-driven-notifications.md) explains current SMS/push eligibility and limits.
+
 The [five-question UX review](docs/ux-review.md) covers the whole app, the changes in this pass, and remaining usability gaps.
 
 - [Carrier protocol and device findings](docs/carrier-research.md)
