@@ -96,7 +96,7 @@ public final class QualityMotionCheck extends Instrumentation {
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             Thread.sleep(800);
             Button quality = (Button) field(screen, "qualityControl");
-            check(quality.getText().toString().contains("Standard (Whisper Tiny)"));
+            check(quality.getText().toString().contains("Standard (Tiny)"));
             Activity recording = screen;
             ActivityMonitor picker =
                     addMonitor(
@@ -115,7 +115,7 @@ public final class QualityMotionCheck extends Instrumentation {
             runOnMainSync(() -> screen.finish());
             screen = recording;
             Thread.sleep(600);
-            check(quality.getText().toString().contains("Enhanced (Whisper Base)"));
+            check(quality.getText().toString().contains("Enhanced (Base)"));
             check(
                     ((TextView) field(screen, "transcriptState"))
                             .getText()

@@ -1,4 +1,4 @@
-# Introduction and guided controls in version 0.13
+# Introduction and guided controls in version 0.15
 
 The optional first-use flow has four short screens: welcome, voicemail management with reversible sample actions, an interactive transcript example, and permission setup. Contacts and notifications are requested only when their explicit Enable button is selected. Denying or skipping them does not block the inbox. The speech model download waits until a recording needs transcription.
 
