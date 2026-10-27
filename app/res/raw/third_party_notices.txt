@@ -1,6 +1,6 @@
 THIRD-PARTY SPEECH RECOGNITION NOTICES
 sherpa-onnx 2.0.1 · https://github.com/k2-fsa/sherpa-onnx
-Whisper tiny.en / base.en · https://github.com/openai/whisper
+Whisper tiny.en, large-v3 / base.en · https://github.com/openai/whisper
 Silero VAD · https://github.com/snakers4/silero-vad
 ONNX Runtime (included by sherpa-onnx) · https://github.com/microsoft/onnxruntime
 Kotlin stdlib 2.2.0 · https://github.com/JetBrains/kotlin

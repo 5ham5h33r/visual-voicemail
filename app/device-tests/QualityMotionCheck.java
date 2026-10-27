@@ -106,6 +106,13 @@ public final class QualityMotionCheck extends Instrumentation {
             check(screen != null);
             Thread.sleep(400);
             View[] cards = (View[]) field(screen, "choices");
+            check(cards.length == 3);
+            runOnMainSync(() -> cards[2].performClick());
+            check("highest".equals(prefs.getString("transcription_quality", "")));
+            check(cards[2].isSelected() && !cards[0].isSelected() && !cards[1].isSelected());
+            Object retained =
+                    method(speech, "cached", Context.class, String.class).invoke(null, context, id);
+            check(old.equals(method(retained.getClass(), "json").invoke(retained).toString()));
             runOnMainSync(() -> cards[1].performClick());
             check("enhanced".equals(prefs.getString("transcription_quality", "")));
             check(cards[1].isSelected());

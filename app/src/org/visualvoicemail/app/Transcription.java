@@ -32,7 +32,7 @@ final class Transcription {
     }
 
     static synchronized boolean select(Context c, String key) {
-        if (!key.equals("standard") && !key.equals("enhanced")) return false;
+        if (!TranscriptionQuality.forKey(key).key.equals(key)) return false;
         if (busy && !selected(c).key.equals(key)) return false;
         if (!busy && !selected(c).key.equals(key)) {
             failure = "";
@@ -186,6 +186,18 @@ final class Transcription {
                     OfflineRecognizer recognizer = null;
                     Vad vad = null;
                     try {
+                        if (quality == TranscriptionQuality.HIGHEST) {
+                            android.app.ActivityManager manager =
+                                    (android.app.ActivityManager)
+                                            c.getSystemService(Context.ACTIVITY_SERVICE);
+                            android.app.ActivityManager.MemoryInfo memory =
+                                    new android.app.ActivityManager.MemoryInfo();
+                            manager.getMemoryInfo(memory);
+                            if (memory.totalMem < 8_000_000_000L
+                                    || memory.lowMemory
+                                    || memory.availMem < 2L * 1024 * 1024 * 1024)
+                                throw new InsufficientModelMemory();
+                        }
                         File audio = CarrierClient.get(c).audio(message);
                         if (cancelled) throw new java.io.InterruptedIOException();
                         status = "Reading audio on this phone…";
@@ -225,6 +237,7 @@ final class Transcription {
                             model.setNumThreads(4);
                             OfflineRecognizerConfig config = new OfflineRecognizerConfig();
                             config.setModelConfig(model);
+                            status = "Loading " + quality.label() + " on this phone…";
                             recognizer = new OfflineRecognizer(null, config);
                             for (int i = 0; i < ranges.size(); i++) {
                                 if (cancelled) throw new java.io.InterruptedIOException();
@@ -256,18 +269,28 @@ final class Transcription {
                                 result.segments.isEmpty()
                                         ? "No speech detected"
                                         : "Transcript saved on this phone";
-                    } catch (Exception | LinkageError e) {
+                    } catch (Exception | LinkageError | OutOfMemoryError e) {
                         failure =
                                 cancelled
                                         ? "Transcription cancelled. Your recording is unchanged."
-                                        : "Couldn't transcribe this recording. You can still"
-                                                + " listen, or try again.";
+                                        : e instanceof InsufficientModelMemory
+                                                        || e instanceof OutOfMemoryError
+                                                ? "Not enough available memory for this model."
+                                                      + " Choose Standard or Enhanced, or retry"
+                                                      + " after closing other apps. Your saved"
+                                                      + " transcript is kept."
+                                                : "Couldn't transcribe this recording. You can"
+                                                      + " still listen, or try again.";
                     } finally {
                         if (vad != null) vad.release();
                         if (recognizer != null) recognizer.release();
                         busy = false;
                     }
                 });
+    }
+
+    private static final class InsufficientModelMemory extends Exception {
+        private static final long serialVersionUID = 1L;
     }
 
     private static void drain(Vad vad, List<int[]> ranges, int count) {

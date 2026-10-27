@@ -9,3 +9,5 @@ Recording screenshots cover Light, Dark, and true-black AMOLED. The guided-inbox
 Version 0.14 refreshes the recording views in all three themes, shows the quality control directly below Transcript, adds the quality-choice page, and includes Reduce motion in Settings. The quality page contains public model descriptions only.
 
 Version 0.15 refreshes the full current gallery for the compact layout. Every screenshot was visually reviewed; rendered sample transcript timestamps retain the real UI text hierarchy. The legacy promo-only playback image remains separate.
+
+Version 0.16 refreshes the transcription-quality screenshot with the three real downloaded model choices, including full Whisper Large v3. This page contains only public model information and was visually reviewed before committing. Other screenshots retain the unchanged compact 0.15 interface.

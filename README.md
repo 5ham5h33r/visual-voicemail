@@ -6,7 +6,7 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Version 0.15 adds a more compact interface and reliable back navigation for individually opened pages. Standard (Whisper Tiny) and Enhanced (Whisper Base) quality choices remain directly on the transcript page and in Settings, with consistent tap feedback and reduced-motion support. English transcription, phrase-based tap-to-play, transcript search, and the guided introduction work on the phone.
+An independently signed Android app now authenticates to Mint's existing voicemail service, loads the real mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. Version 0.16 adds the optional full Whisper Large v3 model (1.78 GB download) alongside Tiny and Base. Large runs locally, uses much more memory, and can take minutes; saved transcripts change only when explicitly updated. Version 0.15 added a more compact interface and reliable back navigation for individually opened pages. Standard (Whisper Tiny) and Enhanced (Whisper Base) quality choices remain directly on the transcript page and in Settings, with consistent tap feedback and reduced-motion support. English transcription, phrase-based tap-to-play, transcript search, and the guided introduction work on the phone.
 
 ## Screenshots
 

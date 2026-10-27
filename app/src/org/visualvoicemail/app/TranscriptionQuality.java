@@ -28,6 +28,20 @@ public final class TranscriptionQuality {
                     130669978,
                     "ef6b936f4c9b1d90a3b68634b60c4ed8576b26172b33c2535ec0e933c9edb823",
                     "f7162ad6db2dbef16cfaeaa7f945b9d7dd9c1b8d472f6aca82f2273d185e4d41");
+    public static final TranscriptionQuality HIGHEST =
+            new TranscriptionQuality(
+                    "highest",
+                    "Highest quality",
+                    "Accuracy with a much larger model",
+                    "Full Large v3. Much slower and uses more memory. Keep the app open while"
+                        + " transcribing.",
+                    "large-v3",
+                    "2a6507094dd6020d939d78e3f1834a1d06267fca",
+                    "highest",
+                    766671985,
+                    1008265203,
+                    "d531cf17248acc43e8c09b472a0877055e770877857a5332fc1304b36534ec85",
+                    "ebc6bfd88e162a46cb3edee8a7e727e1dcbc65cabecb19e2573695e4d495e1af");
     public final String key, title, summary, description, prefix, revision, directory;
     private final long encoderSize, decoderSize;
     private final String encoderHash, decoderHash;
@@ -58,7 +72,16 @@ public final class TranscriptionQuality {
     }
 
     public static TranscriptionQuality forKey(String key) {
-        return ENHANCED.key.equals(key) ? ENHANCED : STANDARD;
+        for (TranscriptionQuality quality : values()) if (quality.key.equals(key)) return quality;
+        return STANDARD;
+    }
+
+    public static TranscriptionQuality[] values() {
+        return new TranscriptionQuality[] {STANDARD, ENHANCED, HIGHEST};
+    }
+
+    public String modelName() {
+        return this == HIGHEST ? "Large v3" : this == ENHANCED ? "Base" : "Tiny";
     }
 
     public String[] names() {
@@ -71,32 +94,38 @@ public final class TranscriptionQuality {
     }
 
     public long[] sizes() {
-        return new long[] {encoderSize, decoderSize, 835554, 643854};
+        return new long[] {encoderSize, decoderSize, this == HIGHEST ? 816730 : 835554, 643854};
     }
 
     public String[] hashes() {
         return new String[] {
             encoderHash,
             decoderHash,
-            "306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930",
+            this == HIGHEST
+                    ? "b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126"
+                    : "306cd27f03c1a714eca7108e03d66b7dc042abe8c258b44c199a7ed9838dd930",
             "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
         };
     }
 
     public long bytes() {
-        return encoderSize + decoderSize + 835554 + 643854;
+        long total = 0;
+        for (long size : sizes()) total += size;
+        return total;
     }
 
     public String sizeLabel() {
-        return Math.round(bytes() / 1000000d) + " MB";
+        return bytes() >= 1000000000L
+                ? String.format(java.util.Locale.ROOT, "%.2f GB", bytes() / 1000000000d)
+                : Math.round(bytes() / 1000000d) + " MB";
     }
 
     public String compactLabel() {
-        return title + " (" + (this == STANDARD ? "Tiny" : "Base") + ")";
+        return this == HIGHEST ? "Highest (Large v3)" : title + " (" + modelName() + ")";
     }
 
     public String label() {
-        return title + " (Whisper " + (this == STANDARD ? "Tiny" : "Base") + ")";
+        return title + " (Whisper " + modelName() + ")";
     }
 
     public String url(int index) {

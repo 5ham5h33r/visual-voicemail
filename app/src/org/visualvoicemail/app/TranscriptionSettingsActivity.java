@@ -14,7 +14,8 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
     private Button download, cancel, remove;
     private ProgressBar progress;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final View[] choices = new View[2];
+    private final TranscriptionQuality[] qualities = TranscriptionQuality.values();
+    private final View[] choices = new View[qualities.length];
     private boolean visible;
     private String previous = "";
     private final Runnable ticker =
@@ -77,9 +78,6 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                         false);
         explanation.setLineSpacing(ui.dp(4), 1);
         ui.add(content, explanation, 14);
-        TranscriptionQuality[] qualities = {
-            TranscriptionQuality.STANDARD, TranscriptionQuality.ENHANCED
-        };
         for (int i = 0; i < qualities.length; i++) {
             TranscriptionQuality q = qualities[i];
             LinearLayout card = ui.column();
@@ -100,10 +98,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
             ui.add(
                     card,
                     ui.label(
-                            "Whisper "
-                                    + (q == TranscriptionQuality.STANDARD ? "Tiny" : "Base")
-                                    + " · "
-                                    + q.sizeLabel(),
+                            "Whisper " + q.modelName() + " · " + q.sizeLabel(),
                             14,
                             ui.accent,
                             false),
@@ -140,10 +135,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                         for (int j = 0; j < choices.length; j++) {
                             LinearLayout item = (LinearLayout) choices[j];
                             ((TextView) ((LinearLayout) item.getChildAt(0)).getChildAt(1))
-                                    .setText(
-                                            j == (q == TranscriptionQuality.STANDARD ? 0 : 1)
-                                                    ? "Selected"
-                                                    : "");
+                                    .setText(qualities[j] == q ? "Selected" : "");
                         }
                         previous = "";
                         update();
@@ -221,13 +213,18 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                                 .setMessage(
                                                         "Standard uses Whisper tiny.en. Enhanced"
                                                             + " uses Whisper base.en, a larger"
-                                                            + " speech-recognition model. Larger"
-                                                            + " models can improve recognition, but"
-                                                            + " no model is always correct. Check"
-                                                            + " important names, dates, and numbers"
-                                                            + " against the audio.\n\n"
-                                                            + "Both models are open source and run"
-                                                            + " on this phone. Public model"
+                                                            + " speech-recognition model. Highest"
+                                                            + " quality uses the full Whisper"
+                                                            + " large-v3 (int8), not Turbo. It is"
+                                                            + " much slower and needs an 8 GB or"
+                                                            + " larger phone with enough available"
+                                                            + " memory. Larger models can improve"
+                                                            + " recognition, but no model is always"
+                                                            + " correct. Check important names,"
+                                                            + " dates, and numbers against the"
+                                                            + " audio.\n\n"
+                                                            + "All three models are open source and"
+                                                            + " run on this phone. Public model"
                                                             + " downloads are verified before use.")
                                                 .setPositiveButton("Done", null)
                                                 .create()));
@@ -249,7 +246,15 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                 "About "
                                         + q.sizeLabel()
                                         + " from the public model host. Wi-Fi is recommended. Your"
-                                        + " recordings and transcripts stay on this phone.")
+                                        + " recordings and transcripts stay on this phone."
+                                        + (q == TranscriptionQuality.HIGHEST
+                                                ? "\n\n"
+                                                      + "Allow about 3.6 GB of free storage for"
+                                                      + " setup. Large v3 can take minutes per"
+                                                      + " recording and use several GB of memory."
+                                                      + " Keep the app open; choose Standard or"
+                                                      + " Enhanced for faster results."
+                                                : ""))
                         .setPositiveButton(
                                 "Download",
                                 (d, w) -> {
@@ -300,17 +305,16 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
         remove.setVisibility(ready && !active ? View.VISIBLE : View.GONE);
         for (int i = 0; i < choices.length; i++) {
             View v = choices[i];
-            TranscriptionQuality option =
-                    i == 0 ? TranscriptionQuality.STANDARD : TranscriptionQuality.ENHANCED;
+            TranscriptionQuality option = qualities[i];
             TextView detail = (TextView) ((LinearLayout) v).getChildAt(1);
             String caption =
                     "Whisper "
-                            + (i == 0 ? "Tiny" : "Base")
+                            + option.modelName()
                             + " · "
                             + option.sizeLabel()
                             + (Transcription.ready(this, option) ? " · Downloaded" : " download");
             if (!caption.contentEquals(detail.getText())) detail.setText(caption);
-            boolean selected = (i == 0) == (q == TranscriptionQuality.STANDARD);
+            boolean selected = option == q;
             if (v.isSelected() != selected)
                 v.setBackground(ui.shape(selected ? ui.tint : ui.surface, 20));
             v.setSelected(selected);
