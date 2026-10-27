@@ -54,6 +54,7 @@ public final class SettingsSearchTest {
         check(SettingsSearch.matches("translate English","TRANSCRIPTION","Transcript output","Original language"));
         check(SettingsSearch.matches("Spanish","TRANSCRIPTION","Recording language","English"));
         check(!SettingsSearch.matches("Spanish","PLAYBACK","Audio output","Follow device"));
+        check(SettingsSearch.matches("outgoing message","MAILBOX & SYNC","Voicemail greeting","Record or choose audio"));
         System.out.println("Passed " + checks + " settings search checks.");
     }
 }

@@ -135,6 +135,7 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
             check(guide(a.getWindow().getDecorView()) != null);
             tap("Next");
             tap("Next");
+            tap("Next");
             tap("Done");
             check(guide(a.getWindow().getDecorView()) == null);
             check(!prefs.getBoolean("guide_recording", true));

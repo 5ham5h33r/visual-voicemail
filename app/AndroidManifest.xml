@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.visualvoicemail.app" android:versionCode="25" android:versionName="0.25">
+    package="org.visualvoicemail.app" android:versionCode="26" android:versionName="0.26">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <application android:label="Voice Mail" android:debuggable="true"
         android:allowBackup="false" android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/AppTheme">
@@ -17,6 +19,7 @@
         <receiver android:name=".AlertDismissReceiver" android:exported="false" />
         <activity android:name=".SettingsActivity" android:exported="false" android:parentActivityName=".MainActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".TranscriptionSettingsActivity" android:exported="false" android:parentActivityName=".SettingsActivity" />
+        <activity android:name=".GreetingActivity" android:exported="false" android:parentActivityName=".SettingsActivity" />
         <activity android:name=".RecordingActivity" android:exported="false" android:parentActivityName=".MainActivity" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".TutorialActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">

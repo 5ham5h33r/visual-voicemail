@@ -59,6 +59,8 @@ final class SettingsSearch {
                 return "automatic auto sync mailbox update";
             case "Refresh mailbox":
                 return "sync fetch voicemail messages update";
+            case "Voicemail greeting":
+                return "greeting greetings outgoing caller message answer record microphone audio personal welcome";
             case "Reconnect mailbox":
                 return "login sign in authentication carrier mint tmobile mobile data sim network";
             case "Connection help":

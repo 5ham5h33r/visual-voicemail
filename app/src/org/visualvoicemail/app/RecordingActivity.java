@@ -1201,6 +1201,7 @@ public final class RecordingActivity extends MotionActivity {
                         "Open Transcript options to find a word or phrase, then use previous and"
                             + " next to move between matches. Searching won't start playback.",
                         false));
+        tips.add(new GuideOverlay.Tip(shareControl,"Share a copy","Choose Transcript or Voice recording, then choose where to share. If an English translation is saved, you can share either text version.",false));
         GuideOverlay.show(
                 this,
                 tips,

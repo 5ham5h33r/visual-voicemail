@@ -220,6 +220,10 @@ public final class CarrierClient {
     }
 
     private JSONObject mailbox(String path, String method, JSONObject body) throws Exception {
+        return mailboxBytes(path, method, body == null ? null : body.toString().getBytes(StandardCharsets.UTF_8), "application/json");
+    }
+
+    private JSONObject mailboxBytes(String path, String method, byte[] bytes, String contentType) throws Exception {
         HttpsURLConnection connection = (HttpsURLConnection) new URL(MAILBOX + path).openConnection();
         try {
             configure(connection);
@@ -230,10 +234,9 @@ public final class CarrierClient {
             connection.setRequestProperty("client-type", "vvm");
             connection.setRequestProperty("client-version", MAILBOX_PROFILE_VERSION);
             connection.setRequestProperty("X-Correlation-ID", UUID.randomUUID().toString());
-            if (body != null) {
-                byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+            if (bytes != null) {
                 connection.setDoOutput(true);
-                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setRequestProperty("Content-Type", contentType);
                 connection.setFixedLengthStreamingMode(bytes.length);
                 try (java.io.OutputStream output = connection.getOutputStream()) { output.write(bytes); }
             }
@@ -245,6 +248,74 @@ public final class CarrierClient {
             byte[] response = read(connection.getInputStream(), 8 * 1024 * 1024);
             return response.length == 0 ? new JSONObject() : new JSONObject(new String(response, StandardCharsets.UTF_8));
         } finally { disconnect(connection); }
+    }
+
+    private JSONObject greetingRequest(String path,String method,byte[] bytes,String type)throws Exception {
+        if(token.isEmpty()||tokenExpires<System.currentTimeMillis()+60000)authenticate();
+        try{return mailboxBytes(path,method,bytes,type);}
+        catch(AuthExpired expired){token="";authenticate();return mailboxBytes(path,method,bytes,type);}
+    }
+
+    synchronized JSONArray greetings()throws Exception {
+        Map<String,JSONObject> unique=new LinkedHashMap<>();int offset=0;
+        while(true) {
+            JSONObject response=greetingRequest("greeting?audiotype=audio%2Famr&offset="+offset+"&count=100","GET",null,"application/json");
+            JSONArray page=response.optJSONArray("greetings");
+            if(page==null)throw new IOException("The carrier didn't return a greeting list.");
+            int before=unique.size();
+            for(int i=0;i<page.length();i++){JSONObject item=page.getJSONObject(i);String id=item.optString("objectid");if(!id.isEmpty())unique.put(id,item);}
+            if(page.length()<100||unique.size()==before)break;
+            offset+=page.length();if(offset>=10000)throw new IOException("The greeting library is too large to check in one request.");
+        }
+        JSONArray list=new JSONArray();for(JSONObject item:unique.values())list.put(item);
+        if(!store.put("greetings.bin",new JSONObject().put("greetings",list)))throw new IOException("Couldn't save greeting details on this phone.");
+        return list;
+    }
+    JSONArray cachedGreetings(){JSONObject saved=store.get("greetings.bin");JSONArray list=saved==null?null:saved.optJSONArray("greetings");return list==null?new JSONArray():list;}
+    synchronized File greetingAudio(JSONObject greeting)throws Exception {
+        JSONObject message=new JSONObject(greeting.toString());message.put("objectid","greeting-"+greeting.optString("objectid"));
+        return audio(message);
+    }
+    synchronized String saveGreeting(File audio,int seconds)throws Exception {
+        String hash=GreetingAudio.hash(audio);
+        if(GreetingAudio.duration(audio)<1000)throw new IOException("Record at least one second for your greeting.");
+        JSONObject previous=store.get("greeting-operation.bin");
+        final JSONObject operation=previous!=null&&hash.equals(previous.optString("hash"))?previous:
+                new JSONObject().put("hash",hash).put("title","Personal greeting "+UUID.randomUUID().toString().substring(0,8));
+        if(!store.put("greeting-operation.bin",operation))throw new IOException("Couldn't save greeting progress. Nothing was uploaded.");
+        final String title=operation.getString("title");
+        return GreetingSave.run(title,operation.optString("uploaded_id"),new GreetingSave.Backend(){
+            @Override public Map<String,GreetingSave.Entry> refresh()throws Exception {
+                Map<String,GreetingSave.Entry> result=new LinkedHashMap<>();JSONArray items=greetings();
+                for(int i=0;i<items.length();i++) {
+                    JSONObject item=items.getJSONObject(i);String id=item.optString("objectid");
+                    if(!id.isEmpty())result.put(id,new GreetingSave.Entry(id,item.optString("title"),"personal".equalsIgnoreCase(item.optString("type")),"CNS-Greeting-On".equalsIgnoreCase(item.optString("flag"))));
+                }return result;
+            }
+            @Override public String uploadInactive(String name)throws Exception {
+                JSONObject quota=greetingRequest("greeting/quota","GET",null,"application/json").optJSONObject("quota");
+                if(quota!=null&&quota.optInt("maxnumberofallowedobjects",0)>0&&quota.optInt("currentobjectcount",0)>=quota.optInt("maxnumberofallowedobjects"))
+                    throw new GreetingSave.Rejected("Your carrier's greeting storage is full. Call voicemail to manage it.");
+                GreetingMultipart payload=new GreetingMultipart(audio,seconds,name);
+                JSONObject uploaded=greetingRequest("greeting","POST",payload.bytes,payload.type);
+                return uploaded.optString("objectid",uploaded.optString("objectId",""));
+            }
+            @Override public void rememberUploaded(String id)throws Exception {
+                operation.put("uploaded_id",id);
+                if(!store.put("greeting-operation.bin",operation))throw new IOException("Couldn't save upload progress. Refresh before retrying.");
+            }
+            @Override public void activate(String id)throws Exception {
+                byte[] body=new JSONObject().put("objectId",id).put("flag","CNS-Greeting-On").toString().getBytes(StandardCharsets.UTF_8);
+                greetingRequest("greeting/flag","PUT",body,"application/json");
+            }
+            @Override public void deactivate(String id)throws Exception {
+                greetingRequest("greeting/flag?objectid="+java.net.URLEncoder.encode(id,"UTF-8")+"&flag=CNS-Greeting-On","DELETE",null,"application/json");
+            }
+            @Override public void confirm(String id)throws Exception {
+                operation.put("complete",true);
+                if(!store.put("greeting-operation.bin",operation))throw new IOException("Couldn't save confirmation. Refresh to check your greeting.");
+            }
+        });
     }
 
     /** Seen is added with PUT; unread removes that flag, never the voicemail itself. */
@@ -408,7 +479,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.25 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.26 Android");
     }
 
     private void disconnect(HttpsURLConnection connection) {
