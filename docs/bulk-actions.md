@@ -1,3 +1,5 @@
+> Version 0.24 changes deletion to verified local saving followed by carrier removal. See [current deletion behavior](carrier-deletion.md). Earlier deletion-mark details below describe prior versions.
+
 # Inbox selection and bulk actions in version 0.17
 
 Long-press a voicemail, or tap Select above the inbox. Tap rows or checkboxes to add or remove messages. Selection mode hides playback/menu buttons so a selection tap cannot accidentally play audio. Select all selects the current search/filter results; Deselect all clears them. Changing search/filter removes hidden messages from selection. Refresh removes missing messages. The selection count, native checkbox states, and checkable row accessibility state stay aligned. Back or the close control leaves selection without closing the app. Selection is saved across screen recreation.

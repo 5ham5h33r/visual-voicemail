@@ -1,6 +1,6 @@
 # UX and reliability game plan
 
-Status: approved by the user. Implementation has resumed, including swipe performance, card separation, matching menu styling, rounded selection controls, and actual carrier deletion with retained local copies. The existing work is on feature/inbox-navigation-polish; this plan does not authorize changing carrier configuration, greetings, read status, or device preferences during review.
+Status: approved by the user. Implementation has resumed, including swipe performance, card separation, matching menu styling, rounded selection controls, and actual carrier deletion with retained local copies. The inbox UI pass and notification eligibility investigation are merged. Carrier deletion with protected Saved copies is in validation. Multilingual output and greeting setup remain next. Tests do not change existing personal voicemail, carrier configuration, greetings, read status, or device preferences.
 
 ## Assessment
 

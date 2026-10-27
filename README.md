@@ -6,13 +6,13 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-Version 0.23 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Marked, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and reversible deletion marks.
+Version 0.24 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
 
 English transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Settings has local search by name or feature. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
 
 ## Screenshots
 
-Screenshots show the compact interface on the S24 Ultra, including version 0.18 expanded/collapsed headers and bulk selection. Long-inbox and selection examples use synthetic messages; the model-choice page is from version 0.16. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. System status icons are omitted. Select an image to view it at full size.
+Screenshots from earlier versions show the compact interface on the S24 Ultra, including version 0.18 expanded/collapsed headers and bulk selection. Long-inbox and selection examples use synthetic messages; the model-choice page is from version 0.16. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. Some images still show the earlier Marked label; version 0.24 uses Saved. System status icons are omitted. Select an image to view it at full size.
 
 <table>
   <tr><th>Recording · Dark</th><th>Recording · Light</th><th>Recording · AMOLED</th></tr>
@@ -72,7 +72,8 @@ The [five-question UX review](docs/ux-review.md) covers the whole app, the chang
 - [Live playback validation](docs/playback-validation.md)
 - [Protected sessions and offline playback](docs/offline-inbox.md)
 - [Native inbox, light/dark themes, and playback controls](docs/inbox-design.md)
-- [Search, read/unread status, and reversible deletion marks](docs/search-actions.md)
+- [Carrier removal and protected saved recordings](docs/carrier-deletion.md)
+- [Search and read/unread status](docs/search-actions.md)
 - [Inbox selection and bulk actions](docs/bulk-actions.md)
 - [Scrolling inbox header](docs/inbox-header.md)
 - [App settings and playback preferences](docs/settings.md)

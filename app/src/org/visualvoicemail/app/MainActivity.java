@@ -288,7 +288,7 @@ public final class MainActivity extends MotionActivity {
         refresh.setOnClickListener(v -> sync()); tools.addView(refresh,new LinearLayout.LayoutParams(dp(48),dp(48)));
         add(inboxHeader, tools, 8);
         bulkBar = row();
-        String[] actions = {"Transcribe", "Mark read", "Mark for deletion"};
+        String[] actions = {"Transcribe", "Mark read", "Delete"};
         for (int i = 0; i < actions.length; i++) {
             final int action = i;
             Button control = button(actions[i], false); control.setTextSize(13);
@@ -299,7 +299,7 @@ public final class MainActivity extends MotionActivity {
                 else if (action == 1) changeSelectedRead(true);
                 else confirmMarks(true);
             });
-            control.setContentDescription(i == 2 ? "Mark selected voicemails for deletion" : actions[i] + " for selected voicemails");
+            control.setContentDescription(i == 2 ? "Remove selected voicemails from carrier and keep saved copies" : actions[i] + " for selected voicemails");
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -2, 1);
             if (i > 0) size.setMarginStart(dp(6));
             bulkBar.addView(control, size);
@@ -390,8 +390,8 @@ public final class MainActivity extends MotionActivity {
         if (shownMessages.isEmpty()) selecting = false;
         updateSelection();
         int markedCount = 0;
-        for (JSONObject message : inbox) if (marks.contains(message.optString("objectid"))) markedCount++;
-        String[] labels = {"All", "Unread", "Marked" + (markedCount == 0 ? "" : " (" + markedCount + ")")};
+        for (JSONObject message : inbox) if (message.optBoolean("_saved") || marks.contains(message.optString("objectid"))) markedCount++;
+        String[] labels = {"All", "Unread", "Saved" + (markedCount == 0 ? "" : " (" + markedCount + ")")};
         for (int i=0;i<filters.length;i++) {
             filters[i].setText(labels[i]); filters[i].setSelected(filter==i);
             filters[i].setBackground(new RippleDrawable(ColorStateList.valueOf(divider),shape(android.graphics.Color.TRANSPARENT,24),null));
@@ -415,7 +415,7 @@ public final class MainActivity extends MotionActivity {
         List<JSONObject> shown = page.shown;
         for (JSONObject message : inbox) {
             if (choice==1 && InboxQuery.isRead(message.optString("flag"))) continue;
-            if (choice==2 && !marks.contains(message.optString("objectid"))) continue;
+            if (choice==2 && !message.optBoolean("_saved") && !marks.contains(message.optString("objectid"))) continue;
             if (InboxQuery.matches(query,message.optString("returnnumber"),caller(message),message.optString("date"),date(message))
                     || transcripts.containsKey(message.optString("objectid")) && transcripts.get(message.optString("objectid")).matches(query)) shown.add(message);
         }
@@ -429,8 +429,8 @@ public final class MainActivity extends MotionActivity {
             Runnable next;
             if (searching) {
                 title = contactsLoading ? "Looking up contact names…"
-                        : choice == 1 ? "No unread matches" : choice == 2 ? "No marked matches" : "No matching voicemails";
-                String scope = choice == 1 ? "Unread" : choice == 2 ? "Marked" : "All voicemails";
+                        : choice == 1 ? "No unread matches" : choice == 2 ? "No saved matches" : "No matching voicemails";
+                String scope = choice == 1 ? "Unread" : choice == 2 ? "Saved" : "All voicemails";
                 detail = contactsLoading ? "Names are loading from this phone."
                         : "No results in " + scope + ". Try another name, number, date, or saved transcript."
                         + (!contactsEnabled() ? " Enable Contact names in Settings to search names." : "");
@@ -444,8 +444,8 @@ public final class MainActivity extends MotionActivity {
                 detail = "No unread voicemails. New messages will appear here.";
                 action = "View all voicemails"; next = () -> changeFilter(0);
             } else if (choice == 2) {
-                title = "Nothing marked for deletion";
-                detail = "Messages you mark appear here. Marks are reversible and don't erase carrier recordings.";
+                title = "No saved voicemails";
+                detail = "Deleting a carrier voicemail keeps a verified recording here, ready to play offline.";
                 action = "View all voicemails"; next = () -> changeFilter(0);
             } else {
                 title = "No voicemails yet";
@@ -459,7 +459,9 @@ public final class MainActivity extends MotionActivity {
             if (!carrier.hasSession() && !searching && inbox.isEmpty()) page.connect = recovery;
             page.content.addView(empty); return page;
         }
-        if (choice == 2) add(page.content, text("Marked on this phone. No recordings have been deleted. Use Restore to remove a mark.", 13, secondary, false), 8);
+        if (choice == 2) for (JSONObject message : shown) if (!message.optBoolean("_saved") && marks.contains(message.optString("objectid"))) {
+            add(page.content, text("Older deletion marks are still on the carrier. Use Delete to save a copy and request removal, or Clear old deletion mark.", 13, secondary, false), 8); break;
+        }
         for (JSONObject message : shown) {
             String id = message.optString("objectid");
             MessageRow card = new MessageRow(message);
@@ -477,7 +479,7 @@ public final class MainActivity extends MotionActivity {
 
     private void showInboxMenu(View anchor) {
         inboxMenu = new AppMenu(this, anchor);
-        String[] names = {"All voicemails", "Unread", "Marked for deletion"};
+        String[] names = {"All voicemails", "Unread", "Saved voicemails"};
         for (int i = 0; i < names.length; i++)
             inboxMenu.getMenu().add(1, 100 + i, i, names[i]).setCheckable(true).setChecked(filter == i);
         inboxMenu.getMenu().setGroupCheckable(1, true, true);
@@ -530,7 +532,7 @@ public final class MainActivity extends MotionActivity {
         }
         inboxScroll.selectionMode(selecting, animate);
         inboxTools.setVisibility(View.VISIBLE);
-        compactTitle.setText(filter == 1 ? "Unread voicemail" : filter == 2 ? "Marked voicemail" : "Voicemail");
+        compactTitle.setText(filter == 1 ? "Unread voicemail" : filter == 2 ? "Saved voicemail" : "Voicemail");
         String count = selectedIds.size() + " selected";
         boolean countChanged = !count.contentEquals(selectionCount.getText());
         selectionCount.setText(count);
@@ -577,9 +579,10 @@ public final class MainActivity extends MotionActivity {
         if (selectedIds.isEmpty()) { status.setText("Select one or more voicemails first."); return; }
         if (MailboxBatch.busy) { status.setText("Wait for the current mailbox update."); return; }
         showBulkDialog(new AlertDialog.Builder(this).setTitle(selectedIds.size() + " selected")
-                .setItems(new String[]{"Generate transcripts", "Mark as read", "Mark as unread", "Mark for deletion", "Restore deletion marks"}, (d, action) -> {
+                .setItems(new String[]{"Generate transcripts", "Mark as read", "Mark as unread", "Remove from carrier · Keep copies", "Clear old deletion marks", "Remove saved copies from phone"}, (d, action) -> {
                     if (action == 0) confirmTranscripts();
                     else if (action == 1 || action == 2) changeSelectedRead(action == 1);
+                    else if (action == 5) confirmRemoveSaved(selectedMessages());
                     else confirmMarks(action == 3);
                 }).setNegativeButton("Cancel", null).create());
     }
@@ -590,17 +593,42 @@ public final class MainActivity extends MotionActivity {
     }
 
     private void confirmMarks(boolean marked) {
+        if (marked) { confirmArchive(selectedMessages()); return; }
         List<String> ids = new ArrayList<>(selectedIds);
         if (ids.isEmpty()) return;
         showBulkDialog(new AlertDialog.Builder(this)
-                .setTitle((marked ? "Mark " : "Restore ") + ids.size() + " voicemails?")
-                .setMessage(marked ? "Marked for deletion on this phone. Carrier recordings and saved transcripts are kept. You can undo this using Restore deletion marks."
-                        : "Remove the deletion marks from these messages. Your recordings and transcripts are kept.")
-                .setPositiveButton(marked ? "Mark for deletion" : "Restore", (d, w) -> {
-                    if (marks.setAll(ids, marked)) {
+                .setTitle("Clear old deletion marks?")
+                .setMessage("Remove old marks from these messages. Carrier recordings and saved transcripts are kept.")
+                .setPositiveButton("Clear marks", (d, w) -> {
+                    if (marks.setAll(ids, false)) {
                         clearSelection(); render(); status.setTextColor(secondary);
-                        status.setText(ids.size() + (marked ? " marked for deletion · Nothing erased" : " deletion marks removed"));
+                        status.setText("Old deletion marks cleared · Carrier messages kept");
                     } else { status.setTextColor(error); status.setText("Couldn't save deletion marks. Nothing changed; try again."); }
+                }).setNegativeButton("Cancel", null).create());
+    }
+
+    private void confirmArchive(List<JSONObject> selected) {
+        if (selected.isEmpty()) return;
+        if (syncing || updatingRead || MailboxBatch.busy || clearingDownloads || savingCopy) {
+            status.setText("Wait for the current mailbox or file operation, then retry."); return;
+        }
+        List<JSONObject> snapshot = new ArrayList<>(selected);
+        showBulkDialog(new AlertDialog.Builder(this).setTitle("Remove " + snapshot.size() + " from carrier?")
+                .setMessage("First save and verify each recording on this phone, then remove its carrier copy to free mailbox space. Recordings and transcripts remain in Saved. Removal is confirmed by checking the carrier again.\n\nCarrier removal can't be undone. Export important recordings before uninstalling the app; uninstalling removes app-local copies.")
+                .setPositiveButton("Save & remove", (d,w) -> {
+                    if (MailboxBatch.archive(this, snapshot)) { clearSelection(); updateBatchPanel(); }
+                }).setNegativeButton("Cancel", null).create());
+    }
+
+    private void confirmRemoveSaved(List<JSONObject> selected) {
+        List<String> ids = new ArrayList<>();
+        for (JSONObject message : selected) if (message.optBoolean("_carrier_removed")) ids.add(message.optString("objectid"));
+        if (ids.isEmpty()) { status.setText("No confirmed saved-only copies selected. Check carrier removal first."); return; }
+        if (MailboxBatch.busy || Transcription.busy) { status.setText("Wait for the current mailbox or speech operation."); return; }
+        showBulkDialog(new AlertDialog.Builder(this).setTitle("Remove " + ids.size() + " saved copies?")
+                .setMessage("Remove these recordings and their saved transcripts from this phone. Their carrier copies have already been removed. Export any copies you want to keep first. Other selected messages are kept.")
+                .setPositiveButton("Remove copies", (d,w) -> {
+                    if (MailboxBatch.removeSaved(this, ids)) { clearSelection(); updateBatchPanel(); }
                 }).setNegativeButton("Cancel", null).create());
     }
 
@@ -656,7 +684,7 @@ public final class MainActivity extends MotionActivity {
         if (mailboxVersion != MailboxBatch.version && !MailboxBatch.busy) {
             mailboxVersion = MailboxBatch.version;
             if (!MailboxBatch.busy && !syncing && !updatingRead) {
-                inbox = carrier.cachedInbox(); render();
+                inbox = carrier.cachedInbox(); render(); loadTranscripts();
             }
         }
     }
@@ -708,7 +736,9 @@ public final class MainActivity extends MotionActivity {
                     info.setCheckable(selecting); info.setChecked(host.isSelected());
                 }
             });
-            String state = marks.contains(message.optString("objectid")) ? "Marked for deletion"
+            String state = message.optBoolean("_carrier_removed") ? "Saved · Removed from carrier"
+                : message.optBoolean("_saved") ? "Saved · Carrier removal unconfirmed"
+                : marks.contains(message.optString("objectid")) ? "Old deletion mark · Still on carrier"
                 : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
             saved = text(state + " · " + (transcripts.containsKey(message.optString("objectid")) ? "Transcript available" : carrier.cachedAudio(message) == null ? "Open to listen" : "Saved on this phone"), 12, secondary, false);
             Transcript transcript = transcripts.get(message.optString("objectid"));
@@ -810,13 +840,21 @@ public final class MainActivity extends MotionActivity {
     private void showActions(JSONObject message) {
         boolean read = InboxQuery.isRead(message.optString("flag"));
         String id = message.optString("objectid"); boolean marked = marks.contains(id);
+        List<String> actions = new ArrayList<>();
+        actions.add(read ? "Mark as unread" : "Mark as read");
+        actions.add(message.optBoolean("_carrier_removed") ? "Remove saved copy from phone" : "Remove from carrier · Keep copy");
+        actions.add("Export audio copy");
+        if (marked) actions.add("Clear old deletion mark");
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Voicemail actions")
-            .setItems(new String[]{read ? "Mark as unread" : "Mark as read", marked ? "Restore from deletion marks" : "Mark for deletion", "Save audio copy"}, (selection, action) -> {
+            .setItems(actions.toArray(new String[0]), (selection, action) -> {
                 if (action == 0) changeRead(message, !read);
                 else if(action==2) saveCopy(message);
-                else if (marks.set(id, !marked)) {
+                else if(action==1) {
+                    if(message.optBoolean("_carrier_removed")) confirmRemoveSaved(java.util.Collections.singletonList(message));
+                    else confirmArchive(java.util.Collections.singletonList(message));
+                } else if (marks.set(id, false)) {
                     render(); status.setTextColor(secondary);
-                    status.setText(marked ? "Deletion mark removed" : "Marked for deletion on this phone · Nothing erased");
+                    status.setText("Old deletion mark cleared · Carrier message kept");
                 } else { status.setTextColor(error); status.setText("Couldn't save the deletion mark. Try again."); }
             }).setNegativeButton("Cancel", null).create();
         new Ui(this).show(dialog);
@@ -868,7 +906,8 @@ public final class MainActivity extends MotionActivity {
                 runOnUiThread(() -> {
                     if (destroyed) return;
                     updatingRead = false; refresh.setEnabled(true); inbox = result; render(); reloadContactNames();
-                    status.setTextColor(secondary); status.setText(read ? "Marked as read · Synced with carrier" : "Marked as unread · Synced with carrier");
+                    status.setTextColor(secondary); status.setText((read ? "Marked as read" : "Marked as unread")
+                            + (message.optBoolean("_carrier_removed") ? " · Saved on this phone" : " · Synced with carrier"));
                 });
             } catch (Exception exception) {
                 carrier.saveDiagnostics();
@@ -1099,7 +1138,7 @@ public final class MainActivity extends MotionActivity {
         inboxScroll.jumpTo(0);
         List<GuideOverlay.Tip> tips=new ArrayList<>();
         tips.add(new GuideOverlay.Tip(search,"Find a message","Search a caller, a date, or words in transcripts already saved on this phone.",false));
-        tips.add(new GuideOverlay.Tip(filterControl,"Keep your place","Tap a tab or swipe sideways to switch views. Unread shows messages you haven't marked read. Marked holds reversible deletion marks.",false));
+        tips.add(new GuideOverlay.Tip(filterControl,"Keep your place","Tap a tab or swipe sideways to switch views. Unread shows messages you haven't marked read. Saved keeps recordings after verified carrier removal.",false));
         tips.add(new GuideOverlay.Tip(settingsControl,"Make it yours","Themes, contact names, alerts, download location, and this tour live in Settings.",false));
         tips.add(new GuideOverlay.Tip(()->rows.isEmpty()?(connectControl!=null?connectControl:refresh):rows.values().iterator().next().root,rows.isEmpty()?"Connect your mailbox":"Open a recording",rows.isEmpty()?"Tap the highlighted button with Mint mobile data turned on. Your existing mailbox stays in place.":"Tap the highlighted message to see its transcript and player. Long-press a message, or use Inbox actions → Select messages for bulk actions. The three-dot menu has individual actions.",true));
         GuideOverlay.show(this,tips,()->{},()->getSharedPreferences("settings",MODE_PRIVATE).edit().putBoolean("guide_recording",false).apply());
