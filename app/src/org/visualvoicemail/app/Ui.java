@@ -65,6 +65,7 @@ final class Ui {
         t.setTextColor(color);
         t.setTypeface(Typeface.create(bold ? "sans-serif-medium" : "sans-serif", 0));
         t.setIncludeFontPadding(false);
+        if (android.os.Build.VERSION.SDK_INT >= 28 && bold && size >= 18) t.setAccessibilityHeading(true);
         return t;
     }
 
@@ -262,6 +263,13 @@ final class Ui {
                 c.drawCircle(-7, 0, 3, p);
                 c.drawCircle(7, -8, 3, p);
                 c.drawCircle(7, 8, 3, p);
+            } else if (name.equals("read")) {
+                c.drawCircle(0, 0, 10, p);
+                c.drawLine(-5, 0, -1, 4, p); c.drawLine(-1, 4, 6, -4, p);
+            } else if (name.equals("trash")) {
+                c.drawRoundRect(-7, -6, 7, 11, 2, 2, p);
+                c.drawLine(-10, -9, 10, -9, p); c.drawLine(-4, -12, 4, -12, p);
+                c.drawLine(-3, -2, -3, 7, p); c.drawLine(3, -2, 3, 7, p);
             } else if (name.equals("phone")) {
                 Path handset = new Path();
                 handset.moveTo(-8, -10);

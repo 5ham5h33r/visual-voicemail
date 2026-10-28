@@ -1,6 +1,6 @@
 # Approved UX improvement implementation
 
-The user approved the full follow-up plan on 27 October 2026. Development continues on an emulator at 1440 x 3120 / 600 dpi, with smaller-window and large-text validation retained. Personal voicemail and the phone are not used for these implementation tests.
+The user approved the full follow-up plan on 27 October 2026. Development uses an emulator at 1440 x 3120 / 600 dpi, with smaller-window and large-text validation retained. Destructive/failure fixtures use public sample data. Subsequent non-destructive S24 Ultra checks are recorded separately below.
 
 ## 1. Storage, read behavior, and local actions
 
@@ -30,9 +30,33 @@ Two native S24-sized header alternatives were compared with sample data. Keeping
 
 The quality page recommends Standard for English and explains when the language/output needs Large. Existing quality options, technical model names, download costs, and explicit download confirmation remain available. Forty-one first-use/discovery assertions, 33 guided-onboarding assertions, and 47 recording assertions passed on the S24-sized emulator. Earlier fixed sleeps in tour checks now use bounded overlay readiness.
 
-## Remaining approved phases
+## 4. Accessibility and recovery
 
-- TalkBack/focus/state, display/theme/motion, interruption, revoked-folder, process-restart, and low-storage checks with public fixtures.
-- Final five-question review with completed evidence and explicit phone/carrier or human-study limits. Real arrivals/idle/reboot and user-chosen greeting replacement remain dependent on physical-phone availability and the chosen test action.
+Version 0.31 presents each inbox card as one named action with its date, read/Saved state, and a bounded transcript preview. Selection moves accessibility and keyboard focus to the native rounded checkbox, which exposes its actual checked state. Settings rows identify themselves as buttons; section headings expose heading semantics. Guided tips have an accessible action equivalent to tapping the highlighted control, a named pane, and keyboard Back dismissal.
+
+At large text sizes or below 360 dp width, selection uses a short count and labelled 48 dp action icons instead of squeezed text. The full action and selection scope remain available to assistive technology. Normal-size S24 controls retain their existing layout. The disabled transcript-search icon uses one dimming treatment rather than being dimmed twice.
+
+Physical visual review also caught a language-only setting change being described as a quality change. That message now names the selected language. At the user's request, updating existing text uses a compact secondary text action instead of a full-width filled button, retaining its 48 dp target. First-time transcription/model setup keeps the primary action. Both styles share immediate press feedback and reduced-motion behavior.
+
+Export failures distinguish unavailable source audio from a destination problem. The destination uses a file descriptor that can report a document provider's reliable-stream error. A failed export removes only the document created for that attempt; the source recording and earlier exports remain intact. No test fills the actual device storage.
+
+Validation on the S24-sized API 36 emulator:
+
+| Check | Result and scope |
+| --- | --- |
+| Installed TalkBack enabled | 419 assertions, 135 successful focus operations across six pages, selection, and guided tips. Exact accessibility settings restored afterward. Spoken audio/comprehension was not assessed. |
+| Small/short window and large text | Final sweep: 471 assertions, 125 visible-control observations at 320 x 480 dp and 160%/200% text, including first-use Welcome, bulk selection, and the compact transcript-update state. The earlier matched-quality state passed 480 assertions/128 observations. Counts depend on visible content. These are per-activity overrides. |
+| Export and interruption recovery | 42 assertions: cached export while both carrier lock and inbox network queue are blocked; exact exported bytes; mid-write no-space provider failure; revoked folder access; failed atomic encrypted-state write; audio-focus loss; recreation; emulator incoming-call interruption. Source bytes/preferences restored. |
+| Real local speech inference | 11 assertions: public audio passes through downloaded Tiny/VAD and encrypted transcript storage while the carrier monitor is held. No recognized text is logged. |
+| Affected regressions | 35 selection, 33 guided-onboarding, 41 first-use/discovery, and 38 quality/motion assertions passed on version 0.31. The latter includes language-only change copy, compact Update versus primary setup sizing, retained text, and reduced/immediate press feedback. |
+| Host checks | 223 behavior checks and text contrast in 24 theme/color combinations passed. |
+
+The recovery provider and grant receiver exist only in the temporary test APK. The production APK does not register either component. Incoming calls are simulated through the emulator console; no real call is placed. Download/process-restart evidence remains the real partial Tiny transfer documented above. This does not establish durable recovery from every possible OS kill point during a bulk transcription.
+
+The physical S24 Ultra was reconnected and updated in place from 0.27 to 0.31. Preferences were byte-identical immediately after installation. All 47 recording, 33 navigation, and 38 quality/motion assertions passed on that phone, including cached preparation, phrase/search behavior, player spacing, intercepted Call/Share launch, parent/Back navigation, the compact Update action, and language-change copy. Existing read status was unchanged; no new deletion or greeting replacement was performed. These results supplement the emulator evidence rather than establishing notification arrival timing.
+
+## Final review and remaining release evidence
+
+The [final five-question review](ux-final-review.md) records the completed changes and separates reproduced behavior from human/carrier validation. A first-time-user comprehension session, listening to the full spoken TalkBack experience, localization/RTL, real arrival/long-idle/reboot notification timing, and an explicitly chosen live greeting replacement remain unverified. Direct standalone carrier push remains unverified under the independent-app requirement. These are recorded limits, not emulator passes.
 
 Each implementation phase uses a descriptive branch, coherent commits, CI, a pull request, merge, and completed-branch cleanup.

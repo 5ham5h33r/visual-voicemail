@@ -68,7 +68,8 @@ final class GuideOverlay extends FrameLayout {
         skipped = skipAction;
         setWillNotDraw(false);
         setClickable(true);
-        setFocusable(true);
+        setFocusable(false);
+        setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         content = a.findViewById(android.R.id.content);
         previousAccessibility = content.getImportantForAccessibility();
         content.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
@@ -150,7 +151,8 @@ final class GuideOverlay extends FrameLayout {
         step.setText((index + 1) + " OF " + tips.size());
         title.setText(tip.title);
         body.setText(tip.body);
-        next.setText(index == tips.size() - 1 ? "Done" : "Next");
+        next.setText(tip.activate ? tip.title : index == tips.size() - 1 ? "Done" : "Next");
+        if (android.os.Build.VERSION.SDK_INT >= 28) card.setAccessibilityPaneTitle(tip.title);
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) card.getLayoutParams();
         params.width = getWidth() - ui.dp(40);
         params.leftMargin = ui.dp(20);
@@ -168,11 +170,26 @@ final class GuideOverlay extends FrameLayout {
     }
 
     private void advance() {
+        Tip current = tips.get(index);
+        if (current.activate) {
+            View target = current.target.get();
+            finish();
+            if (target != null) target.performClick();
+            return;
+        }
         if (++index >= tips.size()) {
             finish();
             return;
         }
         position();
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            if (event.getAction() == KeyEvent.ACTION_UP) skip();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     private void finish() {

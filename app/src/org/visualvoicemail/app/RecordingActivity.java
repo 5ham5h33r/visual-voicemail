@@ -37,6 +37,7 @@ public final class RecordingActivity extends MotionActivity {
     private LinearLayout transcriptBody, transcriptTools, findBox;
     private ScrollView scroll;
     private Button speechAction, cancelSpeech, speed, qualityControl;
+    private boolean compactSpeechAction;
     private boolean transcribeAfterDownload;
     private String setupQuality = "";
     private EditText search;
@@ -806,8 +807,8 @@ public final class RecordingActivity extends MotionActivity {
         boolean own =
                 Transcription.busy && (Transcription.downloading || id.equals(Transcription.job));
         boolean searchable = transcript != null && !transcript.segments.isEmpty();
+        styleSpeechAction(searchable);
         findControl.setEnabled(searchable);
-        findControl.setAlpha(searchable ? 1f : .4f);
         findControl.setContentDescription(searchable ? "Search transcript" : "Search transcript unavailable until text is generated");
         boolean changed =
                 transcript != null
@@ -834,7 +835,12 @@ public final class RecordingActivity extends MotionActivity {
                                     : transcript.segments.isEmpty()
                                             ? "No speech detected. You can still listen."
                                             : changed
-                                                    ? "Saved with "
+                                                    ? quality.key.equals(transcript.quality)
+                                                            ? "Language changed: "
+                                                                    + SpeechOptions.label(
+                                                                            SpeechOptions.language(this, quality))
+                                                                    + ". Update transcript to apply."
+                                                            : "Saved with "
                                                             + saved
                                                             + " · Update transcript for "
                                                             + quality.title
@@ -892,6 +898,22 @@ public final class RecordingActivity extends MotionActivity {
                                 && !englishVisible
                         ? View.GONE
                         : View.VISIBLE);
+    }
+
+    private void styleSpeechAction(boolean compact) {
+        if (compact == compactSpeechAction) return;
+        compactSpeechAction = compact;
+        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) speechAction.getLayoutParams();
+        params.width = compact ? -2 : -1;
+        params.gravity = compact ? Gravity.END : Gravity.FILL_HORIZONTAL;
+        params.topMargin = ui.dp(compact ? 2 : 14);
+        speechAction.setLayoutParams(params);
+        speechAction.setTextSize(compact ? 13 : Ui.BODY);
+        speechAction.setTextColor(compact ? ui.accent : ui.bg);
+        speechAction.setPadding(
+                ui.dp(compact ? 12 : 16), ui.dp(10), ui.dp(compact ? 12 : 16), ui.dp(10));
+        speechAction.setBackground(new android.graphics.drawable.RippleDrawable(
+                ColorStateList.valueOf(ui.divider), ui.shape(compact ? 0 : ui.accent, 16), null));
     }
 
     private void speechAction() {

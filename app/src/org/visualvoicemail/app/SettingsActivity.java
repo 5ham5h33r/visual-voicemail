@@ -421,6 +421,11 @@ public final class SettingsActivity extends MotionActivity {
         TextView view=text("",15,primary); view.setText(label(title,detail)); view.setPadding(dp(16),dp(12),dp(16),dp(12));
         view.setMinHeight(dp(60)); view.setGravity(Gravity.CENTER_VERTICAL); view.setFocusable(true); view.setClickable(true);
         view.setBackground(new RippleDrawable(ColorStateList.valueOf(divider),null,shape(surface,0)));
+        view.setAccessibilityDelegate(new View.AccessibilityDelegate() {
+            @Override public void onInitializeAccessibilityNodeInfo(View host, android.view.accessibility.AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(host, info); info.setClassName(Button.class.getName());
+            }
+        });
         view.setContentDescription(title+". "+detail); AppMotion.press(view); view.setOnClickListener(v->{hideSearchKeyboard();action.run();}); parent.addView(view,new LinearLayout.LayoutParams(-1,-2));
         section(parent).entries.add(new Entry(view,title,detail));
     }

@@ -38,3 +38,31 @@ The full Large model requires much more memory than a typical 2 GB emulator prov
 On the Pixel 9 API 36 emulator, version 0.27 passed 47 recording assertions and 412 adaptive-layout assertions across 112 visible-control observations. The same APK had already passed 47 recording and 455 adaptive-layout assertions on the S24 Ultra/API 37 before testing moved to the emulator. Different counts reflect visible content and platform layouts. Thirty Settings and 33 navigation assertions also passed on the emulator. Navigation waits for bounded window-focus readiness instead of assuming a fixed 450 ms transition on every host.
 
 After applying the S24 Ultra display override, all 47 recording assertions passed again, and a physical row tap opened the paused recording with its sample transcript. The primary preview remains at that size.
+
+## Version 0.31 recovery and accessibility checks
+
+The approved follow-up pass adds emulator-only public-data checks. Run one instrumentation process at a time, after building and installing the current app:
+
+```powershell
+python research/check_device_ui.py --test first-use --serial emulator-5554
+python research/check_accessibility.py --serial emulator-5554
+python research/check_resilience.py --serial emulator-5554 --speech-fixture <public-16-kHz-mono-PCM.wav>
+python research/check_device_ui.py --test public-speech --serial emulator-5554 --speech-fixture <public-16-kHz-mono-PCM.wav>
+```
+
+The TalkBack wrapper requires the TalkBack package already installed on the emulator. It temporarily enables that service, preserves other enabled services, and restores the exact prior secure settings in `finally`. The instrumentation checks focus/actions/state with the installed service active. It does not assess the audible spoken experience or enable accessibility services on a physical phone.
+
+The resilience wrapper requires emulator-console authentication under the same user that owns the running emulator. It injects and ends one emulator-local incoming call; no real call is placed. The temporary test APK alone contains a fixture DocumentsProvider/URI-grant receiver. It exports generated public audio while carrier/inbox work is blocked, injects full-storage and revoked-access errors, verifies original and earlier-export retention, and exercises atomic-state failure, audio focus, and recreation. It restores the sample cache file and preferences. Never register these components in the app APK or run synthetic mailbox setup against the phone.
+
+The public-speech check requires Standard/Tiny already downloaded and verified. It downloads no model, records no microphone audio, logs no recognized text, and runs actual local Whisper/VAD while the carrier monitor is held. Its synthetic Saved entry and generated transcript are removed afterward.
+
+Explicit partial-transfer validation is separate:
+
+```powershell
+python research/check_device_ui.py --test download-recovery --download-stage pause --serial emulator-5554
+python research/check_device_ui.py --test download-recovery --download-stage resume --serial emulator-5554
+```
+
+These two actions transfer the public 104 MB Tiny model. They require an unconnected sample emulator, preserve retained bytes across process termination, and verify all four pinned files. Do not run them as an incidental UI test or substitute Large on a memory-constrained emulator.
+
+Version 0.31 passed 419 TalkBack/focus assertions (135 focus operations), a final 471 adaptive-layout assertions (125 control observations including the compact Update state), 42 recovery assertions including a simulated incoming call, 11 real local-inference assertions, 35 selection assertions, 33 guided-onboarding assertions, 41 first-use/discovery assertions, and 38 quality/motion assertions. The earlier matched-quality layout passed 480 assertions/128 observations; counts depend on visible content. Host checks passed 223 behavior assertions plus contrast in 24 combinations. See the [final review](ux-final-review.md) for the distinction between these checks and remaining human/carrier validation.
