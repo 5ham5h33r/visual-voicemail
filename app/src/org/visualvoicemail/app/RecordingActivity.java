@@ -59,6 +59,31 @@ public final class RecordingActivity extends MotionActivity {
     private Ui.Icon shareControl;
     private boolean preparingShare;
     private boolean wasBusy, autoReadAttempted, autoReadPending;
+    private boolean playbackFramePosted;
+    private final Runnable playbackFrame =
+            new Runnable() {
+                @Override
+                public void run() {
+                    playbackFramePosted = false;
+                    if (destroyed || !visible || !prepared || player == null || !player.isPlaying())
+                        return;
+                    if (!seeking && !seekPending) seek.setProgress(player.getCurrentPosition());
+                    schedulePlaybackFrame();
+                }
+            };
+
+    private void schedulePlaybackFrame() {
+        if (!playbackFramePosted && visible && !destroyed && seek != null) {
+            playbackFramePosted = true;
+            seek.postOnAnimation(playbackFrame);
+        }
+    }
+
+    private void stopPlaybackFrames() {
+        if (seek != null) seek.removeCallbacks(playbackFrame);
+        playbackFramePosted = false;
+    }
+
     private final Runnable tick =
             new Runnable() {
                 public void run() {
@@ -1165,7 +1190,7 @@ public final class RecordingActivity extends MotionActivity {
             Toast.makeText(
                             this,
                             "Read status kept. Another mailbox update is running; use inbox actions"
-                                + " to retry.",
+                                    + " to retry.",
                             Toast.LENGTH_LONG)
                     .show();
     }
@@ -1186,12 +1211,13 @@ public final class RecordingActivity extends MotionActivity {
                             confirmed
                                     ? "Marked as read"
                                     : "Read status not confirmed. Refresh the inbox before"
-                                          + " retrying.",
+                                            + " retrying.",
                             Toast.LENGTH_LONG)
                     .show();
     }
 
     private void pause() {
+        stopPlaybackFrames();
         autoPlay = false;
         if (player != null && prepared && player.isPlaying()) player.pause();
         if (audio != null) audio.abandonAudioFocusRequest(focus);
@@ -1237,6 +1263,8 @@ public final class RecordingActivity extends MotionActivity {
     private void updatePlayer() {
         if (play == null) return;
         boolean playing = prepared && player != null && player.isPlaying();
+        if (playing) schedulePlaybackFrame();
+        else stopPlaybackFrames();
         play.name = playing ? "pause" : "play";
         play.invalidate();
         play.setContentDescription(playing ? "Pause recording" : "Play recording");
@@ -1244,7 +1272,7 @@ public final class RecordingActivity extends MotionActivity {
         seek.setEnabled(prepared);
         if (prepared) {
             int position = player.getCurrentPosition();
-            if (!seeking) seek.setProgress(position);
+            if (!seeking && !seekPending) seek.setProgress(position);
             time.setText(duration(position));
             remaining.setText("−" + duration(Math.max(0, player.getDuration() - position)));
             AudioDeviceInfo route = player.getRoutedDevice();
@@ -1399,6 +1427,7 @@ public final class RecordingActivity extends MotionActivity {
     }
 
     private void release() {
+        stopPlaybackFrames();
         request++;
         loading = false;
         prepared = false;
