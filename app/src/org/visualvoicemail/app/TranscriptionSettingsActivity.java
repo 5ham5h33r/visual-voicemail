@@ -196,7 +196,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                                                 + Transcription.selected(this).title
                                                                 + "?")
                                                 .setMessage(
-                                                        "Saved transcripts and recordings are kept."
+                                                        "Complete and partial files for this model will be removed. Saved transcripts and recordings are kept."
                                                             + " This option will need downloading"
                                                             + " again before you can use it.")
                                                 .setPositiveButton(
@@ -275,7 +275,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
         TranscriptionQuality q = Transcription.selected(this);
         ui.show(
                 new AlertDialog.Builder(this)
-                        .setTitle("Download " + q.title + "?")
+                        .setTitle(Transcription.downloadAction(this) + "?")
                         .setMessage(
                                 "About "
                                         + q.sizeLabel()
@@ -283,14 +283,14 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                                         + " recordings and transcripts stay on this phone."
                                         + (q == TranscriptionQuality.HIGHEST
                                                 ? "\n\n"
-                                                        + "Allow about 3.6 GB of free storage for"
+                                                        + "Allow about 2 GB of free storage for"
                                                         + " setup. Large v3 can take minutes per"
                                                         + " recording and use several GB of memory."
                                                         + " Keep the app open; choose Standard or"
                                                         + " Enhanced for faster results."
                                                 : ""))
                         .setPositiveButton(
-                                "Download",
+                                Transcription.downloadAction(this),
                                 (d, w) -> {
                                     Transcription.download(this);
                                     previous = "";
@@ -325,7 +325,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
         if (active)
             state.setText(
                     Transcription.cancelled
-                            ? "Cancelling after the current operation…"
+                            ? Transcription.downloading ? "Pausing download..." : "Stopping after the current phrase..."
                             : Transcription.status);
         else if (!Transcription.failure.isEmpty() && Transcription.job.equals("model"))
             state.setText(Transcription.failure);
@@ -333,18 +333,23 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
             state.setText(
                     ready
                             ? "Ready for new transcripts"
-                            : q.title
+                            : Transcription.downloadedBytes(this, q) > 0
+                                    ? "Saved download progress is available. Resume to continue, or remove it to free space. Your recordings and saved text are kept."
+                                    : q.title
                                     + " needs a one-time "
                                     + q.sizeLabel()
                                     + " download. Listening and saved transcripts remain"
                                     + " available.");
-        progress.setVisibility(active && Transcription.downloading ? View.VISIBLE : View.GONE);
-        progress.setProgress(Transcription.progress);
-        download.setText("Download " + q.title + " · " + q.sizeLabel());
+        long retained = Transcription.downloadedBytes(this, q);
+        progress.setVisibility((active && Transcription.downloading || !ready && retained > 0) ? View.VISIBLE : View.GONE);
+        progress.setProgress(active ? Transcription.progress : (int)(retained * 100 / q.bytes()));
+        download.setText(Transcription.downloadAction(this) + " · " + q.sizeLabel());
         download.setVisibility(!ready && !active ? View.VISIBLE : View.GONE);
+        cancel.setText(Transcription.downloading ? "Pause download" : "Stop transcription");
         cancel.setVisibility(active ? View.VISIBLE : View.GONE);
         cancel.setEnabled(!Transcription.cancelled);
-        remove.setVisibility(ready && !active ? View.VISIBLE : View.GONE);
+        remove.setText(ready ? "Remove downloaded model" : "Remove download");
+        remove.setVisibility((ready || Transcription.downloadedBytes(this, q)>0) && !active ? View.VISIBLE : View.GONE);
         for (int i = 0; i < choices.length; i++) {
             View v = choices[i];
             TranscriptionQuality option = qualities[i];

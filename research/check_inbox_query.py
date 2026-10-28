@@ -29,7 +29,9 @@ subprocess.run([JAVA, '-jar', str(TOOLS / 'ecj.jar'), '-8', '-encoding', 'UTF-8'
                 str(ROOT / 'app/src/org/visualvoicemail/app/ArchiveBatch.java'),
                 str(ROOT / 'app/tests/ArchiveBatchTest.java'),
                 str(ROOT / 'app/src/org/visualvoicemail/app/GreetingSave.java'),
-                str(ROOT / 'app/tests/GreetingSaveTest.java')], check=True)
+                str(ROOT / 'app/tests/GreetingSaveTest.java'),
+                str(ROOT / 'app/src/org/visualvoicemail/app/ResumableDownload.java'),
+                str(ROOT / 'app/tests/ResumableDownloadTest.java')], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.InboxQueryTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.SettingsLogicTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.ExportAudioFormatTest'], check=True)
@@ -41,3 +43,5 @@ subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.ReadBatchTest
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.SettingsSearchTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.ArchiveBatchTest'], check=True)
 subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.GreetingSaveTest'], check=True)
+
+subprocess.run([JAVA, '-cp', str(output), 'org.visualvoicemail.app.ResumableDownloadTest'], check=True)

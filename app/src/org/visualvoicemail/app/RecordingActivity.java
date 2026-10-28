@@ -784,7 +784,7 @@ public final class RecordingActivity extends MotionActivity {
                                         .equals(transcript.language));
         String work =
                 Transcription.cancelled
-                        ? "Cancelling after the current operation…"
+                        ? Transcription.downloading ? "Pausing download..." : "Stopping after the current phrase..."
                         : Transcription.status;
         String problem =
                 (!Transcription.failure.isEmpty()
@@ -846,8 +846,9 @@ public final class RecordingActivity extends MotionActivity {
                                         ? englishVisible
                                                 ? "Translate to English"
                                                 : "Transcribe recording"
-                                        : "Set up transcription");
+                                        : Transcription.downloadedBytes(this, quality)>0 ? "Resume model setup" : "Set up transcription");
         speechAction.setEnabled(!Transcription.busy);
+        cancelSpeech.setText(Transcription.downloading ? "Pause download" : "Stop transcription");
         cancelSpeech.setVisibility(own ? View.VISIBLE : View.GONE);
         cancelSpeech.setEnabled(!Transcription.cancelled);
         transcriptState.setVisibility(
@@ -874,7 +875,7 @@ public final class RecordingActivity extends MotionActivity {
         TranscriptionQuality quality = Transcription.selected(this);
         ui.show(
                 new AlertDialog.Builder(this)
-                        .setTitle("Download " + quality.title + "?")
+                        .setTitle(Transcription.downloadAction(this) + "?")
                         .setMessage(
                                 quality.label()
                                         + " needs a one-time "
@@ -884,13 +885,13 @@ public final class RecordingActivity extends MotionActivity {
                                         + " Listening remains available."
                                         + (quality == TranscriptionQuality.HIGHEST
                                                 ? "\n\n"
-                                                      + "Allow about 3.6 GB of free storage for"
+                                                      + "Allow about 2 GB of free storage for"
                                                       + " setup. Large v3 uses several GB of memory"
                                                       + " and can take minutes per recording. Keep"
                                                       + " the app open."
                                                 : ""))
                         .setPositiveButton(
-                                "Download",
+                                Transcription.downloadAction(this),
                                 (d, w) -> {
                                     transcribeAfterDownload = true;
                                     setupQuality = quality.key;
