@@ -74,6 +74,12 @@ public final class SelectionTransitionCheck extends DeviceCheckInstrumentation {
         return field(scroll(), "modeAnimator") != null;
     }
 
+    private void awaitMode() throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 2500;
+        while (running() && SystemClock.uptimeMillis() < deadline) Thread.sleep(20);
+        waitForIdleSync();
+    }
+
     private void tap(View view) {
         int[] at = new int[2];
         view.getLocationOnScreen(at);
@@ -117,7 +123,7 @@ public final class SelectionTransitionCheck extends DeviceCheckInstrumentation {
                     .putBoolean("refresh_on_open", false)
                     .putBoolean("reduce_motion", false)
                     .putBoolean("auto_transcribe", false)
-                    .putBoolean("contact_names",false)
+                    .putBoolean("contact_names", false)
                     .commit();
             for (int i = 0; i < 24; i++)
                 fixtures.add(
@@ -134,8 +140,10 @@ public final class SelectionTransitionCheck extends DeviceCheckInstrumentation {
                                             Intent.FLAG_ACTIVITY_NEW_TASK
                                                     | Intent.FLAG_ACTIVITY_CLEAR_TASK));
             Thread.sleep(800);
-            for(int i=0;i<50&&!screen.hasWindowFocus();i++)Thread.sleep(100);
-            if(!screen.hasWindowFocus())throw new IllegalStateException("The test app needs foreground focus for physical gesture checks");
+            for (int i = 0; i < 50 && !screen.hasWindowFocus(); i++) Thread.sleep(100);
+            if (!screen.hasWindowFocus())
+                throw new IllegalStateException(
+                        "The test app needs foreground focus for physical gesture checks");
             jump(0);
             View header = (View) field(screen, "inboxHeader"),
                     selected = (View) field(screen, "selectionBar");
@@ -179,16 +187,17 @@ public final class SelectionTransitionCheck extends DeviceCheckInstrumentation {
             sendPointerSync(
                     MotionEvent.obtain(
                             down, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x, y, 0));
-            Thread.sleep(80);
+            awaitMode();
             ui(
                     () ->
                             screen.getWindow()
                                     .getDecorView()
                                     .getViewTreeObserver()
                                     .removeOnPreDrawListener(listener));
-            out.putBoolean("gesture_window_focus",screen.hasWindowFocus());
-            out.putBoolean("gesture_card_attached",card.isAttachedToWindow());
-            out.putBoolean("gesture_current_messages",messages==field(screen,"messages"));
+            out.putBoolean("gesture_window_focus", screen.hasWindowFocus());
+            out.putBoolean("gesture_card_attached", card.isAttachedToWindow());
+            out.putBoolean("gesture_current_messages", messages == field(screen, "messages"));
+            out.putInt("sampled_frames", frames.size());
             check((Boolean) field(screen, "selecting"));
             check(frames.size() >= 4);
             check(frames.get(0)[1] > oldHeight * .7f && frames.get(0)[2] > 700);
@@ -296,7 +305,11 @@ public final class SelectionTransitionCheck extends DeviceCheckInstrumentation {
         } finally {
             SharedPreferences.Editor restore = prefs.edit();
             for (String key :
-                    Arrays.asList("refresh_on_open", "reduce_motion", "auto_transcribe", "contact_names")) {
+                    Arrays.asList(
+                            "refresh_on_open",
+                            "reduce_motion",
+                            "auto_transcribe",
+                            "contact_names")) {
                 Object v = before.get(key);
                 if (v == null) restore.remove(key);
                 else restore.putBoolean(key, (Boolean) v);

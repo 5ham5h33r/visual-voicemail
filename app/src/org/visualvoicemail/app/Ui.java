@@ -65,7 +65,8 @@ final class Ui {
         t.setTextColor(color);
         t.setTypeface(Typeface.create(bold ? "sans-serif-medium" : "sans-serif", 0));
         t.setIncludeFontPadding(false);
-        if (android.os.Build.VERSION.SDK_INT >= 28 && bold && size >= 18) t.setAccessibilityHeading(true);
+        if (android.os.Build.VERSION.SDK_INT >= 28 && bold && size >= 18)
+            t.setAccessibilityHeading(true);
         return t;
     }
 
@@ -86,12 +87,72 @@ final class Ui {
         b.setTypeface(Typeface.create("sans-serif-medium", 0));
         b.setMinHeight(dp(48));
         b.setPadding(dp(16), dp(10), dp(16), dp(10));
-        b.setBackground(
-                new RippleDrawable(
-                        ColorStateList.valueOf(divider), shape(primary ? accent : tint, 16), null));
+        b.setBackground(buttonBackground(primary));
         b.setOnClickListener(v -> action.run());
         AppMotion.press(b);
         return b;
+    }
+
+    RippleDrawable buttonBackground(boolean primary) {
+        GradientDrawable fill = shape(primary ? accent : tint, 16);
+        return new RippleDrawable(ColorStateList.valueOf(divider), fill, null);
+    }
+
+    void settingValue(Button button, String title, String value) {
+        android.text.SpannableString text = new android.text.SpannableString(title + "\n" + value);
+        text.setSpan(
+                new android.text.style.TypefaceSpan("sans-serif-medium"), 0, title.length(), 0);
+        text.setSpan(
+                new android.text.style.RelativeSizeSpan(12f / 14),
+                title.length() + 1,
+                text.length(),
+                0);
+        text.setSpan(
+                new android.text.style.ForegroundColorSpan(secondary),
+                title.length() + 1,
+                text.length(),
+                0);
+        button.setText(text);
+        button.setTextSize(14);
+        button.setTextColor(this.text);
+        button.setTypeface(Typeface.create("sans-serif", 0));
+        button.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        button.setMinHeight(dp(64));
+        button.setBackground(
+                new RippleDrawable(ColorStateList.valueOf(divider), shape(0, 16), null));
+        button.setContentDescription(
+                title + ". " + value + ". Change " + title.toLowerCase(java.util.Locale.ROOT));
+        android.graphics.drawable.Drawable arrow =
+                new android.graphics.drawable.Drawable() {
+                    final Paint paint = new Paint(3);
+
+                    @Override
+                    public void draw(Canvas canvas) {
+                        canvas.save();
+                        canvas.translate(getBounds().left, getBounds().top);
+                        paint.setColor(secondary);
+                        paint.setStrokeWidth(dp(1.6f));
+                        paint.setStyle(Paint.Style.STROKE);
+                        paint.setStrokeCap(Paint.Cap.ROUND);
+                        canvas.drawLine(dp(7), dp(5), dp(12), dp(10), paint);
+                        canvas.drawLine(dp(12), dp(10), dp(7), dp(15), paint);
+                        canvas.restore();
+                    }
+
+                    @Override
+                    public void setAlpha(int alpha) {}
+
+                    @Override
+                    public void setColorFilter(android.graphics.ColorFilter filter) {}
+
+                    @Override
+                    public int getOpacity() {
+                        return android.graphics.PixelFormat.TRANSLUCENT;
+                    }
+                };
+        arrow.setBounds(0, 0, dp(20), dp(20));
+        button.setCompoundDrawablePadding(dp(12));
+        button.setCompoundDrawablesRelative(null, null, arrow, null);
     }
 
     void show(android.app.AlertDialog dialog) {
@@ -265,11 +326,14 @@ final class Ui {
                 c.drawCircle(7, 8, 3, p);
             } else if (name.equals("read")) {
                 c.drawCircle(0, 0, 10, p);
-                c.drawLine(-5, 0, -1, 4, p); c.drawLine(-1, 4, 6, -4, p);
+                c.drawLine(-5, 0, -1, 4, p);
+                c.drawLine(-1, 4, 6, -4, p);
             } else if (name.equals("trash")) {
                 c.drawRoundRect(-7, -6, 7, 11, 2, 2, p);
-                c.drawLine(-10, -9, 10, -9, p); c.drawLine(-4, -12, 4, -12, p);
-                c.drawLine(-3, -2, -3, 7, p); c.drawLine(3, -2, 3, 7, p);
+                c.drawLine(-10, -9, 10, -9, p);
+                c.drawLine(-4, -12, 4, -12, p);
+                c.drawLine(-3, -2, -3, 7, p);
+                c.drawLine(3, -2, 3, 7, p);
             } else if (name.equals("phone")) {
                 Path handset = new Path();
                 handset.moveTo(-8, -10);

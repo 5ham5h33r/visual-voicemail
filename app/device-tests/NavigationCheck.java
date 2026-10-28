@@ -71,6 +71,7 @@ public final class NavigationCheck extends DeviceCheckInstrumentation {
         Intent i =
                 new Intent()
                         .setClassName(context, "org.visualvoicemail.app." + name)
+                        .putExtra("english", false)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         if (id != null) i.putExtra("id", id).putExtra("caller", "Navigation check");
         Activity a = startActivitySync(i);
@@ -113,6 +114,7 @@ public final class NavigationCheck extends DeviceCheckInstrumentation {
                                                     context,
                                                     "org.visualvoicemail.app.RecordingActivity")
                                             .putExtra("id", id)
+                                            .putExtra("english", false)
                                             .putExtra("caller", "Navigation check")));
             screen = await(recording);
             Activity detail = screen;
