@@ -38,6 +38,8 @@ final class SettingsSearch {
                 return "contacts caller address book names permission";
             case "Message order":
                 return "sort newest oldest date inbox";
+            case "Mark as read when playback starts":
+                return "automatic auto read unread listened listen playback status";
             case "Playback speed":
                 return "audio rate faster slower 0.75 1 1.25 1.5 2";
             case "Skip interval":

@@ -56,13 +56,14 @@ public final class RecordingActivity extends MotionActivity {
     private AppMenu shareMenu;
     private Ui.Icon shareControl;
     private boolean preparingShare;
-    private boolean wasBusy;
+    private boolean wasBusy, autoReadAttempted, autoReadPending;
     private final Runnable tick =
             new Runnable() {
                 public void run() {
                     if (destroyed) return;
                     updatePlayer();
                     updateSpeech();
+                    updateReadStatus();
                     if (visible) handler.postDelayed(this, 250);
                 }
             };
@@ -92,6 +93,8 @@ public final class RecordingActivity extends MotionActivity {
         transcribeAfterDownload =
                 state != null && state.getBoolean("transcribe_after_download", false);
         setupQuality = state == null ? "" : state.getString("setup_quality", "");
+        autoReadAttempted = state != null && state.getBoolean("auto_read_attempted", false);
+        autoReadPending = state != null && state.getBoolean("auto_read_pending", false);
         pendingPosition = state == null ? 0 : state.getInt("position", 0);
         selectedMatch = state == null ? 0 : state.getInt("match", 0);
         autoPlay = state == null && getIntent().getBooleanExtra("play", false);
@@ -526,7 +529,7 @@ public final class RecordingActivity extends MotionActivity {
                         android.net.Uri uri =
                                 ShareProvider.prepare(
                                         this,
-                                        CarrierClient.get(this).audio(message),
+                                        CarrierClient.get(this).availableAudio(message),
                                         message.optString("date"));
                         String type = getContentResolver().getType(uri);
                         android.content.Intent share = ShareIntents.audio(uri, type);
@@ -913,9 +916,7 @@ public final class RecordingActivity extends MotionActivity {
         worker.execute(
                 () -> {
                     try {
-                        CarrierClient client = CarrierClient.get(this);
-                        File cached = client.cachedAudio(message);
-                        final File file = cached != null ? cached : client.audio(message);
+                        final File file = CarrierClient.get(this).availableAudio(message);
                         handler.post(
                                 () -> {
                                     if (destroyed || version != request) return;
@@ -1036,12 +1037,38 @@ public final class RecordingActivity extends MotionActivity {
             player.setPlaybackParams(
                     new PlaybackParams().setSpeed(SettingsActivity.speed(this)).setPitch(1));
             player.start();
+            markReadAfterPlayback();
             autoPlay = false;
             updatePlayer();
         } catch (RuntimeException e) {
             pause();
             playerProblem("Playback couldn't start. Try 1× speed.");
         }
+    }
+
+    private void markReadAfterPlayback() {
+        if (autoReadAttempted || InboxQuery.isRead(message.optString("flag"))
+                || !getSharedPreferences("settings", 0).getBoolean("read_on_play", false)) return;
+        autoReadAttempted = true;
+        autoReadPending = MailboxBatch.read(this, java.util.Collections.singletonList(id), true);
+        if (!autoReadPending) Toast.makeText(this,
+                "Read status kept. Another mailbox update is running; use inbox actions to retry.",
+                Toast.LENGTH_LONG).show();
+    }
+
+    private void updateReadStatus() {
+        if (!autoReadPending || MailboxBatch.busy) return;
+        autoReadPending = false;
+        boolean confirmed = false;
+        for (JSONObject item : CarrierClient.get(this).cachedInbox())
+            if (id.equals(item.optString("objectid"))) {
+                confirmed = InboxQuery.isRead(item.optString("flag"));
+                if (confirmed) message = item;
+                break;
+            }
+        if (visible) Toast.makeText(this, confirmed ? "Marked as read"
+                : "Read status not confirmed. Refresh the inbox before retrying.",
+                Toast.LENGTH_LONG).show();
     }
 
     private void pause() {
@@ -1305,6 +1332,8 @@ public final class RecordingActivity extends MotionActivity {
     @Override
     protected void onSaveInstanceState(Bundle s) {
         super.onSaveInstanceState(s);
+        s.putBoolean("auto_read_attempted", autoReadAttempted);
+        s.putBoolean("auto_read_pending", autoReadPending);
         s.putString("find", find);
         s.putBoolean("english", englishVisible);
         s.putBoolean("transcribe_after_download", transcribeAfterDownload);

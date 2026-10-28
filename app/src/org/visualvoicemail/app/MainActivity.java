@@ -51,6 +51,7 @@ import org.json.JSONObject;
 /** Native carrier inbox with local transcript search; no dialer role. */
 public final class MainActivity extends MotionActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService fileWorker = Executors.newSingleThreadExecutor();
     private final ExecutorService contactWorker = Executors.newSingleThreadExecutor();
     private Map<String, String> contactNames = new HashMap<>();
     private CancellationSignal contactSignal;
@@ -878,7 +879,7 @@ public final class MainActivity extends MotionActivity {
         Uri destination=DownloadFolder.selected(this);
         if(!DownloadFolder.accessible(this,destination)) {
             AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Choose download location")
-                .setMessage("Choose a folder for saved audio copies. These are ordinary audio files that other apps with folder access can open. Carrier messages and the private playback cache are kept.")
+                .setMessage("Choose a folder for exported audio copies. These are ordinary audio files that other apps with folder access can open. Carrier messages and the private playback cache are kept.")
                 .setPositiveButton("Choose folder",(d,w)->{
                     pendingSaveId=message.optString("objectid");
                     try { startActivityForResult(DownloadFolder.picker(this),DOWNLOAD_FOLDER_REQUEST); }
@@ -887,15 +888,15 @@ public final class MainActivity extends MotionActivity {
             if(!AppMotion.enabled(this))dialog.getWindow().setWindowAnimations(0); dialog.show(); AppMotion.buttons(dialog); dialog.getWindow().setBackgroundDrawable(shape(surface,28));
             dialog.getButton(-1).setAllCaps(false); dialog.getButton(-2).setAllCaps(false); return;
         }
-        savingCopy=true; status.setTextColor(secondary); status.setText("Saving audio copy…");
-        worker.execute(()->{
+        savingCopy=true; status.setTextColor(secondary); status.setText("Exporting audio…");
+        fileWorker.execute(()->{
             try {
-                File recording=carrier.audio(message);
+                File recording=carrier.availableAudio(message);
                 DownloadFolder.save(getApplicationContext(),destination,recording,message.optString("date"));
                 record("audio_copy_saved",true);
                 runOnUiThread(()->{
                     if(destroyed)return;
-                    savingCopy=false; render(); status.setTextColor(secondary); status.setText("Audio copy saved · "+DownloadFolder.describe(this));
+                    savingCopy=false; render(); status.setTextColor(secondary); status.setText("Audio exported · "+DownloadFolder.describe(this));
                 });
             } catch(Exception failure) {
                 record("audio_copy_saved",false);
@@ -1158,6 +1159,9 @@ public final class MainActivity extends MotionActivity {
 
     private void clearDownloads() {
         if (clearingDownloads) return;
+        if (savingCopy || Transcription.busy || MailboxBatch.busy) {
+            status.setText("Wait for the current audio operation before clearing playback cache."); return;
+        }
         clearingDownloads=true; refresh.setEnabled(false); status.setText("Clearing playback cache…");
         worker.execute(()->{
             try {
@@ -1187,7 +1191,7 @@ public final class MainActivity extends MotionActivity {
         for(FilterPage page:filterPages)if(page!=null)for(MessageRow row:page.cards.values())row.dispose();
         if (Build.VERSION.SDK_INT >= 33 && selectionBackRegistered)
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(selectionBack);
-        handler.removeCallbacksAndMessages(null); worker.shutdown();
+        handler.removeCallbacksAndMessages(null); worker.shutdown(); fileWorker.shutdown();
         if (contactSignal != null) contactSignal.cancel(); contactWorker.shutdown(); super.onDestroy();
     }
 }

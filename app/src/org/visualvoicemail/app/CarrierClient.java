@@ -319,20 +319,25 @@ public final class CarrierClient {
     }
 
     /** Seen is added with PUT; unread removes that flag, never the voicemail itself. */
-    public synchronized List<JSONObject> setRead(String id, boolean read) throws Exception {
-        if (SavedMailbox.get(context).removed(id)) {
-            SavedMailbox.get(context).setRead(id, read);
-            return cachedInbox();
+    public List<JSONObject> setRead(String id, boolean read) throws Exception {
+        SavedMailbox saved = SavedMailbox.get(context);
+        synchronized (saved) {
+            if (saved.removed(id)) {
+                saved.setRead(id, read);
+                return cachedInbox();
+            }
         }
-        applyRead(id, read);
-        List<JSONObject> refreshed = sync();
-        for (JSONObject message : refreshed) if (id.equals(message.optString("objectid"))) {
-            boolean verified = InboxQuery.isRead(message.optString("flag")) == read;
-            diagnostics.put("read_update_verified", verified); saveDiagnostics();
-            if (!verified) throw new IOException("Read status hasn't been confirmed by the carrier. Refresh to check.");
-            return refreshed;
+        synchronized (this) {
+            applyRead(id, read);
+            List<JSONObject> refreshed = sync();
+            for (JSONObject message : refreshed) if (id.equals(message.optString("objectid"))) {
+                boolean verified = InboxQuery.isRead(message.optString("flag")) == read;
+                diagnostics.put("read_update_verified", verified); saveDiagnostics();
+                if (!verified) throw new IOException("Read status hasn't been confirmed by the carrier. Refresh to check.");
+                return refreshed;
+            }
+            throw new IOException("This message is no longer in the mailbox. Refresh to check.");
         }
-        throw new IOException("This message is no longer in the mailbox. Refresh to check.");
     }
 
     private void applyRead(String id, boolean read) throws Exception {
@@ -356,7 +361,28 @@ public final class CarrierClient {
     }
 
     /** Individual flag requests, then one server refresh; only confirmed states count as success. */
-    synchronized int setReadBatch(List<String> ids, boolean read) throws Exception {
+    int setReadBatch(List<String> ids, boolean read) throws Exception {
+        boolean local = true;
+        for (String id : ids) if (!SavedMailbox.get(context).removed(id)) local = false;
+        if (local) return ReadBatch.run(ids, read, new ReadBatch.Backend() {
+            @Override public void update(String id, boolean target) throws Exception {
+                SavedMailbox saved = SavedMailbox.get(context);
+                synchronized (saved) {
+                    if (!saved.removed(id)) throw new IOException("Refresh to confirm carrier read status.");
+                    saved.setRead(id, target);
+                }
+            }
+            @Override public Map<String, Boolean> refresh() {
+                Map<String, Boolean> states = new java.util.HashMap<>();
+                for (JSONObject item : cachedInbox())
+                    states.put(item.optString("objectid"), InboxQuery.isRead(item.optString("flag")));
+                return states;
+            }
+        });
+        synchronized (this) { return runReadBatch(ids, read); }
+    }
+
+    private int runReadBatch(List<String> ids, boolean read) throws Exception {
         boolean localOnly = true;
         for (String id : ids) if (!SavedMailbox.get(context).removed(id)) localOnly = false;
         final boolean offline = localOnly;
@@ -420,6 +446,12 @@ public final class CarrierClient {
         } catch (Exception ignored) { return null; }
     }
 
+    /** Resolve available audio without waiting for network synchronization. */
+    public File availableAudio(JSONObject message) throws Exception {
+        File local = cachedAudio(message);
+        return local != null ? local : audio(message);
+    }
+
     public synchronized File audio(JSONObject message) throws Exception {
         stage("downloading_audio");
         File saved = SavedMailbox.get(context).cachedAudio(message.optString("objectid"));
@@ -479,7 +511,7 @@ public final class CarrierClient {
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.27 Android");
+        connection.setRequestProperty("User-Agent", "VisualVoiceMail org.visualvoicemail.app 0.28 Android");
     }
 
     private void disconnect(HttpsURLConnection connection) {
