@@ -15,6 +15,7 @@ parser.add_argument('--simulated-call', action='store_true', help='Wait for a ho
 parser.add_argument('--download-stage', choices=['pause','resume'], help='Explicit emulator-only public Tiny model download check')
 parser.add_argument('--compile-only', action='store_true')
 parser.add_argument('--release-stage', choices=['before', 'after'], help='Explicit emulator-only signing-upgrade witness stage')
+parser.add_argument('--demo-scene', choices=['all', 'playback'], default='all', help='Optional isolated native demo recapture')
 args = parser.parse_args()
 if args.test == 'release-upgrade' and not args.release_stage and not args.compile_only:
     parser.error('--test release-upgrade requires --release-stage before/after.')
@@ -88,6 +89,8 @@ try:
         extras = ['-e', 'simulated_call', 'true']
     if args.test == 'release-upgrade':
         extras = ['-e', 'release_stage', args.release_stage]
+    if args.test == 'product-demo':
+        extras = ['-e', 'demo_scene', args.demo_scene]
     result = run(*device, 'shell', 'am', 'instrument', '-w', *extras, package + '/.' + name, capture=True).stdout
     print(result)
     if 'passed=true' not in result or 'INSTRUMENTATION_CODE: -1' not in result:

@@ -23,6 +23,7 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
     final Map<String, JSONObject> backups = new LinkedHashMap<>();
     final Map<String, String> names = new HashMap<>();
     boolean prepared;
+    boolean playbackOnly;
     int clips;
 
     Object call(Object target, String name, Class<?>[] types, Object... args) throws Exception {
@@ -263,6 +264,7 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
     @Override
     public void onCreate(Bundle args) {
         super.onCreate(args);
+        playbackOnly = "playback".equals(args.getString("demo_scene", "all"));
         start();
     }
 
@@ -380,27 +382,29 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
                     .commit();
             prepared = true;
             String first = messages.getJSONObject(0).getString("objectid");
-            launch("MainActivity", first, callers[0]);
-            record(
-                    "inbox",
-                    12,
-                    () -> {
-                        Thread.sleep(700);
-                        swipe(true);
-                        Thread.sleep(900);
-                        swipe(true);
-                        Thread.sleep(900);
-                        swipe(false);
-                        swipe(false);
-                    });
-            record(
-                    "search",
-                    10,
-                    () -> {
-                        Thread.sleep(600);
-                        type((EditText) field(screen, "search"), "design");
-                        Thread.sleep(1800);
-                    });
+            if (!playbackOnly) {
+                launch("MainActivity", first, callers[0]);
+                record(
+                        "inbox",
+                        12,
+                        () -> {
+                            Thread.sleep(700);
+                            swipe(true);
+                            Thread.sleep(900);
+                            swipe(true);
+                            Thread.sleep(900);
+                            swipe(false);
+                            swipe(false);
+                        });
+                record(
+                        "search",
+                        10,
+                        () -> {
+                            Thread.sleep(600);
+                            type((EditText) field(screen, "search"), "design");
+                            Thread.sleep(1800);
+                        });
+            }
             launch("RecordingActivity", first, callers[0]);
             long ready = SystemClock.uptimeMillis() + 5000;
             while (!(Boolean) field(screen, "prepared") && SystemClock.uptimeMillis() < ready)
@@ -419,42 +423,56 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
                         invoke("pause");
                         click((View) field(screen, "findControl"));
                         type((EditText) field(screen, "search"), "design");
+                        EditText input = (EditText) field(screen, "search");
+                        View find = (View) field(screen, "findControl");
+                        ui(
+                                () -> {
+                                    input.clearFocus();
+                                    find.requestFocus();
+                                    screen.getSystemService(
+                                                    android.view.inputmethod.InputMethodManager
+                                                            .class)
+                                            .hideSoftInputFromWindow(input.getWindowToken(), 0);
+                                });
                         Thread.sleep(1000);
                     });
-            launch("TranscriptionSettingsActivity", first, callers[0]);
-            record(
-                    "quality",
-                    9,
-                    () -> {
-                        View[] choices = (View[]) field(screen, "choices");
-                        Thread.sleep(650);
-                        click(choices[1]);
-                        Thread.sleep(850);
-                        click(choices[2]);
-                        Thread.sleep(1500);
-                    });
-            prefs.edit().putString("transcription_quality", "standard").commit();
-            launch("MainActivity", first, callers[0]);
-            record(
-                    "selection",
-                    10,
-                    () -> {
-                        LinearLayout list = (LinearLayout) field(screen, "messages");
-                        Thread.sleep(500);
-                        ui(() -> list.getChildAt(0).performLongClick());
-                        Thread.sleep(1000);
-                        Map<?, ?> rows = (Map<?, ?>) field(screen, "rows");
-                        Object second = rows.get(messages.getJSONObject(1).getString("objectid"));
-                        click((View) field(second, "check"));
-                        Thread.sleep(1000);
-                        click((View) field(screen, "selectAll"));
-                        Thread.sleep(3000);
-                        invoke("clearSelection");
-                    });
-            for (int mode = 1; mode <= 3; mode++) {
-                prefs.edit().putInt("appearance", mode).commit();
-                launch("RecordingActivity", first, callers[0]);
-                capture("theme-" + mode);
+            if (!playbackOnly) {
+                launch("TranscriptionSettingsActivity", first, callers[0]);
+                record(
+                        "quality",
+                        9,
+                        () -> {
+                            View[] choices = (View[]) field(screen, "choices");
+                            Thread.sleep(650);
+                            click(choices[1]);
+                            Thread.sleep(850);
+                            click(choices[2]);
+                            Thread.sleep(1500);
+                        });
+                prefs.edit().putString("transcription_quality", "standard").commit();
+                launch("MainActivity", first, callers[0]);
+                record(
+                        "selection",
+                        10,
+                        () -> {
+                            LinearLayout list = (LinearLayout) field(screen, "messages");
+                            Thread.sleep(500);
+                            ui(() -> list.getChildAt(0).performLongClick());
+                            Thread.sleep(1000);
+                            Map<?, ?> rows = (Map<?, ?>) field(screen, "rows");
+                            Object second =
+                                    rows.get(messages.getJSONObject(1).getString("objectid"));
+                            click((View) field(second, "check"));
+                            Thread.sleep(1000);
+                            click((View) field(screen, "selectAll"));
+                            Thread.sleep(3000);
+                            invoke("clearSelection");
+                        });
+                for (int mode = 1; mode <= 3; mode++) {
+                    prefs.edit().putInt("appearance", mode).commit();
+                    launch("RecordingActivity", first, callers[0]);
+                    capture("theme-" + mode);
+                }
             }
             out.putBoolean("passed", true);
             out.putInt("demo_clips", clips);
