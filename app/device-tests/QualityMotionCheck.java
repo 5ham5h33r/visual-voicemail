@@ -35,6 +35,18 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
         if (!value) throw new Exception("check " + checks);
     }
 
+    private boolean awaitActionWidth(Button action, boolean compact) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 4000;
+        do {
+            waitForIdleSync();
+            int width = action.getWidth(), parent = ((View) action.getParent()).getWidth();
+            if (width > 0 && parent > 0 && (compact ? width < parent : width == parent))
+                return true;
+            Thread.sleep(40);
+        } while (SystemClock.uptimeMillis() < deadline);
+        return false;
+    }
+
     private View find(View root, String text) {
         if (root instanceof TextView && ((TextView) root).getText().toString().startsWith(text))
             return root;
@@ -43,6 +55,17 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
                 View found = find(((ViewGroup) root).getChildAt(i), text);
                 if (found != null) return found;
             }
+        return null;
+    }
+
+    private View awaitControl(Activity activity, String text) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 5000;
+        do {
+            waitForIdleSync();
+            View view = find(activity.getWindow().getDecorView(), text);
+            if (activity.hasWindowFocus() && view != null) return view;
+            Thread.sleep(50);
+        } while (SystemClock.uptimeMillis() < deadline);
         return null;
     }
 
@@ -116,11 +139,14 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             View about = find(screen.getWindow().getDecorView(), "About these options");
             runOnMainSync(() -> about.performClick());
             waitForIdleSync();
-            List<android.view.accessibility.AccessibilityNodeInfo> copy = java.util.Collections.emptyList();
+            List<android.view.accessibility.AccessibilityNodeInfo> copy =
+                    java.util.Collections.emptyList();
             long popupDeadline = SystemClock.uptimeMillis() + 5000;
             do {
-                android.view.accessibility.AccessibilityNodeInfo popup = getUiAutomation().getRootInActiveWindow();
-                if (popup != null) copy = popup.findAccessibilityNodeInfosByText("Standard (Whisper Tiny)");
+                android.view.accessibility.AccessibilityNodeInfo popup =
+                        getUiAutomation().getRootInActiveWindow();
+                if (popup != null)
+                    copy = popup.findAccessibilityNodeInfosByText("Standard (Whisper Tiny)");
                 if (!copy.isEmpty()) break;
                 Thread.sleep(50);
             } while (SystemClock.uptimeMillis() < popupDeadline);
@@ -152,6 +178,67 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
                             .getText()
                             .toString()
                             .contains("Update transcript"));
+            Object shown = field(screen, "transcript");
+            Field shownQuality = shown.getClass().getDeclaredField("quality"),
+                    shownLanguage = shown.getClass().getDeclaredField("language");
+            shownQuality.setAccessible(true);
+            shownLanguage.setAccessible(true);
+            Object previousQuality = shownQuality.get(shown),
+                    previousLanguage = shownLanguage.get(shown);
+            shownQuality.set(shown, "highest");
+            shownLanguage.set(shown, "en");
+            method(speech, "select", Context.class, String.class).invoke(null, context, "highest");
+            prefs.edit().putString("speech_language", "fr").commit();
+            runOnMainSync(
+                    () -> {
+                        try {
+                            method(recording.getClass(), "updateSpeech").invoke(recording);
+                        } catch (Exception error) {
+                            throw new RuntimeException(error);
+                        }
+                    });
+            String changedLanguage =
+                    ((TextView) field(screen, "transcriptState")).getText().toString();
+            check(
+                    changedLanguage.contains("Language changed: French.")
+                            && !changedLanguage.contains("Saved with"));
+            waitForIdleSync();
+            Button update = (Button) field(screen, "speechAction");
+            check(awaitActionWidth(update, true));
+            check(update.getHeight() >= 48 * context.getResources().getDisplayMetrics().density);
+            Field current = screen.getClass().getDeclaredField("transcript");
+            current.setAccessible(true);
+            current.set(screen, null);
+            Field renderedState = screen.getClass().getDeclaredField("lastSpeechState");
+            renderedState.setAccessible(true);
+            renderedState.set(screen, "");
+            runOnMainSync(
+                    () -> {
+                        try {
+                            method(recording.getClass(), "updateSpeech").invoke(recording);
+                        } catch (Exception error) {
+                            throw new RuntimeException(error);
+                        }
+                    });
+            waitForIdleSync();
+            check(awaitActionWidth(update, false));
+            current.set(screen, shown);
+            prefs.edit().putString("speech_language", "en").commit();
+            runOnMainSync(
+                    () -> {
+                        try {
+                            method(recording.getClass(), "updateSpeech").invoke(recording);
+                        } catch (Exception error) {
+                            throw new RuntimeException(error);
+                        }
+                    });
+            check(((View) field(screen, "transcriptState")).getVisibility() == View.GONE);
+            Object unchanged =
+                    method(speech, "cached", Context.class, String.class).invoke(null, context, id);
+            check(old.equals(method(unchanged.getClass(), "json").invoke(unchanged).toString()));
+            shownQuality.set(shown, previousQuality);
+            shownLanguage.set(shown, previousLanguage);
+            method(speech, "select", Context.class, String.class).invoke(null, context, "enhanced");
             screen =
                     startActivitySync(
                             new Intent()
@@ -175,7 +262,7 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             Thread.sleep(300);
             android.widget.Switch reduce =
                     (android.widget.Switch)
-                            find(screen.getWindow().getDecorView(), "Reduce motion");
+                            awaitControl(screen, "Reduce motion");
             check(reduce != null);
             runOnMainSync(() -> reduce.setChecked(true));
             Class<?> motion = Class.forName("org.visualvoicemail.app.AppMotion");
@@ -260,10 +347,13 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             result.putBoolean("passed", true);
         } catch (Throwable e) {
             result.putString("failure_class", e.getClass().getSimpleName());
+            if (e.getMessage() != null && e.getMessage().startsWith("check "))
+                result.putString("failure", e.getMessage());
             result.putBoolean("passed", false);
         } finally {
             SharedPreferences.Editor edit = prefs.edit();
-            for (String key : new String[] {"transcription_quality", "reduce_motion"}) {
+            for (String key :
+                    new String[] {"transcription_quality", "reduce_motion", "speech_language"}) {
                 Object v = before.get(key);
                 if (v instanceof String) edit.putString(key, (String) v);
                 else if (v instanceof Boolean) edit.putBoolean(key, (Boolean) v);

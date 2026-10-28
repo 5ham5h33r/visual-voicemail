@@ -6,11 +6,17 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-Version 0.30 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
+Version 0.31 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
+
+Get Started opens the inbox directly; the interactive introduction and control tour remain optional. Model downloads support verified Pause/Resume. Cached playback, sharing, export, and transcription remain available during slow carrier work. Settings offers an optional mark-as-read-on-play policy, off by default. TalkBack focus, large-text selection controls, and export/interruption recovery have native emulator coverage; the [final UX review](docs/ux-final-review.md) records the remaining human and carrier validation limits.
 
 Transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Tiny and Base are English-only; Large v3 adds automatic/manual language selection and a separate English translation. Original and translated text are both searchable. The recording page includes Call and Share actions for text or audio. Settings also includes personal greeting setup with local recording/import, preview, and an explicit carrier-save confirmation. Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Settings has local search by name or feature. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
 
 ## Screenshots
+
+Version 0.31 transcript view with direct Search and inline quality controls, captured on the S24-sized emulator. The caller, date, and text are synthetic sample data; no personal voicemail or phone number appears.
+
+<a href="docs/screenshots/transcript-search.png"><img src="docs/screenshots/transcript-search.png" width="300" alt="Current light recording view showing direct transcript Search, inline quality, and sample text"></a>
 
 Recording screenshots show version 0.25 with smaller icons and balanced player spacing. Other screenshots from earlier versions show the compact interface on the S24 Ultra, including version 0.18 expanded/collapsed headers and bulk selection. Long-inbox and selection examples use synthetic messages; the model-choice page is from version 0.16. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. Some images still show the earlier Marked label; version 0.24 uses Saved. System status icons are omitted. Select an image to view it at full size.
 
@@ -68,7 +74,7 @@ Recording screenshots show version 0.25 with smaller icons and balanced player s
 
 The [event-driven notification investigation](docs/event-driven-notifications.md) explains current SMS/push eligibility and limits.
 
-The [five-question UX review](docs/ux-review.md) covers the whole app, the changes in this pass, and remaining usability gaps.
+The [final five-question UX review](docs/ux-final-review.md) covers the whole app, the completed follow-up changes, and remaining usability gaps. [Implementation evidence](docs/ux-improvements.md) records each phase's scope and checks.
 
 - [Carrier protocol and device findings](docs/carrier-research.md)
 - [Independent probe results and limits](docs/independent-probe.md)

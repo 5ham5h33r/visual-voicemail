@@ -1,5 +1,7 @@
 # Five-question follow-up review
 
+The approved follow-ups below are implemented in versions 0.28–0.31. See the [implementation evidence](ux-improvements.md) and [final five-question review](ux-final-review.md). This page preserves the findings that led to that work.
+
 Reviewed version 0.27 on 27 October 2026 after the approved implementation pass. The emulator remains at the measured S24 Ultra viewport: 1440 x 3120, 600 dpi. Earlier 411 dp and 320 x 480 dp large-text checks remain relevant evidence. This is a heuristic review, not a new-user study or a claim that every failure path has been reproduced.
 
 The core recording layout is substantially clearer. Play has balanced space, every speed retains its center, and smaller visible icons retain comfortable targets. This pass found three concrete follow-ups in source inspection: inconsistent storage wording, local actions that can wait for carrier synchronization, and misleading download-retry wording.

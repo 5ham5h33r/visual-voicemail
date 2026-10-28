@@ -1,5 +1,7 @@
 # Five-question UX review
 
+For the completed version 0.31 pass, see the [final review](ux-final-review.md) and [implementation evidence](ux-improvements.md). This baseline describes version 0.27.
+
 The [follow-up review](ux-follow-up-review.md) repeats these questions after implementation and records the newly identified priorities.
 
 This review covers version 0.27: introduction and permissions, connection, inbox/search/selection, playback, transcripts and model setup, notifications, Settings, exports, and greetings. It is a heuristic assessment supported by native device checks and reviewed screenshots. It is not a measured first-user study.
