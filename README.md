@@ -6,7 +6,7 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-[Download the signed v0.32 preview APK](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.32). The release includes a checksum and public signing-certificate report. Repository access is required while this project is private. See [release builds and upgrade notes](docs/releases.md).
+[Download the signed v0.33 preview APK](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.33). The release includes a checksum and public signing-certificate report. Repository access is required while this project is private. See [release builds and upgrade notes](docs/releases.md).
 
 Version 0.31 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
 
@@ -19,13 +19,13 @@ Transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper 
 Version 0.33 groups the transcript beneath the player in one quiet card, with compact filled actions and grouped language/quality settings. These S24-sized emulator captures use synthetic caller, date, and transcript data; no personal voicemail or phone number appears.
 
 <table>
-  <tr><th>Transcript · Light</th><th>Transcript · Dark</th><th>Transcript · AMOLED</th></tr>
+  <tr><th>Transcript Â· Light</th><th>Transcript Â· Dark</th><th>Transcript Â· AMOLED</th></tr>
   <tr>
     <td><img src="docs/screenshots/transcription-recording-light.png" width="230" alt="Light transcript card beneath the player with sample text and compact update action"></td>
     <td><img src="docs/screenshots/transcription-recording-dark.png" width="230" alt="Dark transcript card with sample text"></td>
     <td><img src="docs/screenshots/transcription-recording-amoled.png" width="230" alt="AMOLED transcript card with sample text"></td>
   </tr>
-  <tr><th>Transcription · Light</th><th>Transcription · Dark</th><th>Transcription · AMOLED</th></tr>
+  <tr><th>Transcription Â· Light</th><th>Transcription Â· Dark</th><th>Transcription Â· AMOLED</th></tr>
   <tr>
     <td><img src="docs/screenshots/transcription-quality-light.png" width="230" alt="Grouped language and output rows and compact quality choices in Light"></td>
     <td><img src="docs/screenshots/transcription-quality-dark.png" width="230" alt="Grouped transcription settings in Dark"></td>
@@ -38,19 +38,19 @@ See the [interface direction](docs/interface-principles.md) and [transcription c
 Recording screenshots show version 0.25 with smaller icons and balanced player spacing. Other screenshots from earlier versions show the compact interface on the S24 Ultra, including version 0.18 expanded/collapsed headers and bulk selection. Long-inbox and selection examples use synthetic messages; the model-choice page is from version 0.16. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. Some images still show the earlier Marked label; version 0.24 uses Saved. System status icons are omitted. Select an image to view it at full size.
 
 <table>
-  <tr><th>Recording · Dark</th><th>Recording · Light</th><th>Recording · AMOLED</th></tr>
+  <tr><th>Recording Â· Dark</th><th>Recording Â· Light</th><th>Recording Â· AMOLED</th></tr>
   <tr>
     <td><a href="docs/screenshots/recording-dark.png"><img src="docs/screenshots/recording-dark.png" width="230" alt="Dark recording detail with sample transcript and compact media controls"></a></td>
     <td><a href="docs/screenshots/recording-light.png"><img src="docs/screenshots/recording-light.png" width="230" alt="Light recording detail with sample transcript"></a></td>
     <td><a href="docs/screenshots/recording-amoled.png"><img src="docs/screenshots/recording-amoled.png" width="230" alt="True-black recording detail with sample transcript"></a></td>
   </tr>
-  <tr><th>Inbox · Dark</th><th>Inbox · Light</th><th>Inbox · AMOLED</th></tr>
+  <tr><th>Inbox Â· Dark</th><th>Inbox Â· Light</th><th>Inbox Â· AMOLED</th></tr>
   <tr>
     <td><a href="docs/screenshots/inbox-dark.png"><img src="docs/screenshots/inbox-dark.png" width="230" alt="Dark inbox with personal details hidden"></a></td>
     <td><a href="docs/screenshots/inbox-light.png"><img src="docs/screenshots/inbox-light.png" width="230" alt="Light inbox with personal details hidden"></a></td>
     <td><a href="docs/screenshots/inbox-amoled.png"><img src="docs/screenshots/inbox-amoled.png" width="230" alt="True-black inbox with personal details hidden"></a></td>
   </tr>
-  <tr><th>Scrolled inbox · Light</th><th>Scrolled inbox · Dark</th><th>Scrolled inbox · AMOLED</th></tr>
+  <tr><th>Scrolled inbox Â· Light</th><th>Scrolled inbox Â· Dark</th><th>Scrolled inbox Â· AMOLED</th></tr>
   <tr>
     <td><a href="docs/screenshots/collapsed-light.png"><img src="docs/screenshots/collapsed-light.png" width="230" alt="Sample inbox with compact toolbar in Light"></a></td>
     <td><a href="docs/screenshots/collapsed-dark.png"><img src="docs/screenshots/collapsed-dark.png" width="230" alt="Sample inbox with compact toolbar in Dark"></a></td>
@@ -62,7 +62,7 @@ Recording screenshots show version 0.25 with smaller icons and balanced player s
     <td><a href="docs/screenshots/onboarding-transcript.png"><img src="docs/screenshots/onboarding-transcript.png" width="230" alt="Introduction with a tappable example of transcript navigation"></a></td>
     <td><a href="docs/screenshots/settings-light.png"><img src="docs/screenshots/settings-light.png" width="230" alt="Light settings with appearance, help, and playback options"></a></td>
   </tr>
-  <tr><th>Bulk actions · Light</th><th>Bulk actions · Dark</th><th>Bulk actions · AMOLED</th></tr>
+  <tr><th>Bulk actions Â· Light</th><th>Bulk actions Â· Dark</th><th>Bulk actions Â· AMOLED</th></tr>
   <tr>
     <td><a href="docs/screenshots/bulk-light.png"><img src="docs/screenshots/bulk-light.png" width="230" alt="Light inbox selection with caller details and transcript hidden"></a></td>
     <td><a href="docs/screenshots/bulk-dark.png"><img src="docs/screenshots/bulk-dark.png" width="230" alt="Dark inbox selection with bulk transcription, read status, and deletion marks"></a></td>
@@ -71,7 +71,7 @@ Recording screenshots show version 0.25 with smaller icons and balanced player s
 </table>
 
 <table>
-  <tr><th>Inbox actions · Light</th><th>Inbox actions · Dark</th><th>Inbox actions · AMOLED</th></tr>
+  <tr><th>Inbox actions Â· Light</th><th>Inbox actions Â· Dark</th><th>Inbox actions Â· AMOLED</th></tr>
   <tr>
     <td><img src="docs/screenshots/actions-menu-light.png" width="230" alt="Light inbox menu with mint selection feedback"></td>
     <td><img src="docs/screenshots/actions-menu-dark.png" width="230" alt="Dark inbox menu matching the app surface and type"></td>

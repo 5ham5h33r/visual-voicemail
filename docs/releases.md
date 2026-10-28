@@ -1,6 +1,6 @@
 # Signed APK releases
 
-[Download version 0.32](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.32) from GitHub Releases. This is a preview release with the version 0.31 feature set and release packaging. The repository is currently private, so access to its release assets requires repository access. Publishing an APK does not change repository visibility or establish Play Store/F-Droid availability.
+[Download version 0.33](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.33) from GitHub Releases. This preview adds a grouped transcript card, clearer transcription controls, and coordinated selection layout. The repository is currently private, so access to its release assets requires repository access. Publishing an APK does not change repository visibility or establish Play Store/F-Droid availability.
 
 The universal APK supports Android 8.0+ (API 26), arm64-v8a phones, and x86_64 emulators. It is signed and non-debuggable. Speech models download separately after explicit selection. `SHA256SUMS` verifies the downloaded APK bytes; `SIGNING-CERTIFICATE.txt` records public signing certificate information. Neither contains private keys.
 
@@ -41,3 +41,5 @@ CI builds the normal app/probe, checks host behavior/contrast, compiles instrume
 For an owner release, build from the merged release commit, verify the signed APK, exercise an in-place emulator upgrade and playback, then publish the APK plus its SHA-256 checksum and public certificate report against the matching Git tag. Keep preview status until the remaining [UX/reliability validation](ux-final-review.md) is complete. Instant independent carrier push, real arrival/idle/reboot timing, and live greeting replacement remain unverified.
 
 Signing follows the official [apksigner tool](https://developer.android.com/tools/apksigner) and [v3.1 rotation guidance](https://source.android.com/docs/security/features/apksigning/v3-1).
+
+Version 0.33 updated the S24 Ultra in place with the existing signing lineage. It passed 140 native phone checks for transcription controls, playback/search, selection transitions, and checkbox feedback. The S24-sized emulator passed 53 control/theme, 514 adaptive-layout, 35 selection, and 102 per-frame layout assertions. Reviewed sample captures cover all three themes. Software-emulator timing failures and the successful physical follow-up are recorded in [transcription controls](transcription-controls.md).
