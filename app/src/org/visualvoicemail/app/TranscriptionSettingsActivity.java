@@ -12,6 +12,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
     private LinearLayout content;
     private TextView state;
     private Button download, cancel, remove;
+    private TextView recommendation;
     private Button language, output;
     private ProgressBar progress;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -78,6 +79,7 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                         14,
                         ui.secondary,
                         false);
+        recommendation = explanation;
         explanation.setLineSpacing(ui.dp(4), 1);
         ui.add(content, explanation, 14);
         language =
@@ -314,6 +316,10 @@ public final class TranscriptionSettingsActivity extends MotionActivity {
                         + SpeechOptions.english(this);
         if (current.equals(previous)) return;
         previous = current;
+        boolean multilingual = !"en".equals(SpeechOptions.language(this, q)) || SpeechOptions.english(this);
+        recommendation.setText(multilingual
+            ? "For this language or English translation, use Highest quality (Large v3). Check its download and memory needs below."
+            : "Start with Standard (Tiny) for English. Larger models are optional; your saved text is kept when quality changes.");
         language.setText(
                 "Language · " + SpeechOptions.label(SpeechOptions.language(this, q)) + "  ›");
         output.setText(

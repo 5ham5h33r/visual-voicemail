@@ -48,6 +48,17 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
         return null;
     }
 
+    View awaitGuide() throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 6000;
+        View[] overlay = {null};
+        do {
+            runOnMainSync(() -> overlay[0] = guide(a.getWindow().getDecorView()));
+            if (overlay[0] != null) return overlay[0];
+            Thread.sleep(50);
+        } while (SystemClock.uptimeMillis() < deadline);
+        return null;
+    }
+
     void tap(String text) throws Exception {
         View v = find(a.getWindow().getDecorView(), text);
         check(v != null);
@@ -93,7 +104,7 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
             a = waitForMonitorWithTimeout(main, 5000);
             check(a != null);
             Thread.sleep(1000);
-            check(guide(a.getWindow().getDecorView()) != null);
+            check(awaitGuide() != null);
             for (int i = 0; i < 3; i++) {
                 tap("Next");
                 if (i == 1)
@@ -132,7 +143,7 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
             a = waitForMonitorWithTimeout(recording, 5000);
             check(a != null);
             Thread.sleep(900);
-            check(guide(a.getWindow().getDecorView()) != null);
+            check(awaitGuide() != null);
             tap("Next");
             tap("Next");
             tap("Next");
@@ -159,7 +170,7 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
                         }
                     });
             Thread.sleep(500);
-            check(guide(a.getWindow().getDecorView()) != null);
+            check(awaitGuide() != null);
             tap("Skip tour");
             check(guide(a.getWindow().getDecorView()) == null);
             check(!prefs.getBoolean("guide_recording", true));

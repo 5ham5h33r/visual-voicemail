@@ -18,9 +18,20 @@ The quality page and recording use Pause download, Resume/Retry/Verify download,
 
 Sixty-two deterministic host checks cover continuation/fallback, invalid ranges, changed identity, corruption, truncated transfer, unavailable host, cancellation, orphaned progress, strong validators, and complete partial-file verification. A separate emulator test downloaded the public English Tiny model: nine checks confirmed retained partial progress and the Resume/Remove UI; after the app process ended, fourteen checks confirmed the same prefix survived, download resumed, and all four pinned model hashes passed. This is not evidence of Large inference performance on the 2 GB emulator.
 
+## 3. First use and transcript discovery
+
+Version 0.30 offers Get Started directly from the first Welcome screen, with Show me around retaining the four-screen interactive introduction and anchored control tour. The quick route opens the inbox without requiring Contacts, alerts, model setup, or a tour. Those choices remain available contextually and in Settings.
+
+Connection preflight explains known Airplane-mode or all-SIM-slots-absent cases before a network attempt. It offers network settings, cancellation, and an explicit Try anyway action. Unknown SIM/capability states and dormant cellular networks are not rejected. No new phone-state permission is requested or device setting changed automatically.
+
+The transcript has a direct Search icon, keeps quality selection on the page, and retains other actions in Transcript options. Search does not start playback. Closing search clears highlights and stays on the recording; an inbox search result does not automatically open the keyboard. Search is disabled with an explanatory accessibility label until text exists.
+
+Two native S24-sized header alternatives were compared with sample data. Keeping quality inline retained a single 48 dp control row and fit Standard, Enhanced, and Highest labels without wrapping the title. Moving quality underneath added another row. The inline form was selected at normal text size; larger fonts/narrow windows keep the adaptive stacked form. This is a measured layout comparison and design judgment, not a human preference study.
+
+The quality page recommends Standard for English and explains when the language/output needs Large. Existing quality options, technical model names, download costs, and explicit download confirmation remain available. Forty-one first-use/discovery assertions, 33 guided-onboarding assertions, and 47 recording assertions passed on the S24-sized emulator. Earlier fixed sleeps in tour checks now use bounded overlay readiness.
+
 ## Remaining approved phases
 
-- A shorter first-use route to playback, connection prerequisites, simpler speech-model recommendations, and improved transcript-search discovery.
 - TalkBack/focus/state, display/theme/motion, interruption, revoked-folder, process-restart, and low-storage checks with public fixtures.
 - Final five-question review with completed evidence and explicit phone/carrier or human-study limits. Real arrivals/idle/reboot and user-chosen greeting replacement remain dependent on physical-phone availability and the chosen test action.
 

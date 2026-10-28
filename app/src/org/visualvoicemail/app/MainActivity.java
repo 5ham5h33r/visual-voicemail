@@ -338,10 +338,27 @@ public final class MainActivity extends MotionActivity {
 
     private void sync() { sync(false); }
 
-    private void sync(boolean reconnect) {
+    private void sync(boolean reconnect) { sync(reconnect, false); }
+
+    private void sync(boolean reconnect, boolean tryAnyway) {
         if (syncing || updatingRead || clearingDownloads || MailboxBatch.busy) return;
+        if (!tryAnyway && (!carrier.hasSession() || reconnect)) {
+            String prerequisite = ConnectionHelp.blocker(this);
+            if (prerequisite != null) {
+                new Ui(this).show(new AlertDialog.Builder(this).setTitle("Check mobile data")
+                    .setMessage(prerequisite)
+                    .setPositiveButton("Network settings", (d,w) -> {
+                        try { startActivity(new Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)); }
+                        catch (android.content.ActivityNotFoundException missing) {
+                            status.setText("Open Android Settings to check your SIM and mobile data.");
+                        }
+                    }).setNeutralButton("Try anyway", (d,w) -> sync(reconnect, true))
+                    .setNegativeButton("Cancel", null).create());
+                return;
+            }
+        }
         syncing = true; refresh.setEnabled(false); refresh.setContentDescription("Refreshing mailbox");
-        status.setTextColor(secondary); status.setText("Checking your mailbox…");
+        status.setTextColor(secondary); status.setText(carrier.hasSession() ? "Checking your mailbox..." : "Connecting using Mint mobile data...");
         worker.execute(() -> {
             try {
                 List<JSONObject> result = reconnect ? carrier.reconnect() : carrier.sync();
@@ -440,7 +457,7 @@ public final class MainActivity extends MotionActivity {
                 action = "Clear search"; next = () -> search.setText("");
             } else if (!carrier.hasSession() && inbox.isEmpty()) {
                 title = "Your voicemail, here";
-                detail = "Connect using Mint mobile data. Keep your existing mailbox and dialer.";
+                detail = "Choose Mint for mobile data, then connect. Wi-Fi can stay on. Your existing mailbox and dialer are kept.";
                 action = "Connect mailbox"; next = () -> sync();
             } else if (choice == 1) {
                 title = "You're all caught up";
