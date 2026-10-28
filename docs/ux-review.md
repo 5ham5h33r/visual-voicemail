@@ -1,5 +1,7 @@
 # Five-question UX review
 
+The [follow-up review](ux-follow-up-review.md) repeats these questions after implementation and records the newly identified priorities.
+
 This review covers version 0.27: introduction and permissions, connection, inbox/search/selection, playback, transcripts and model setup, notifications, Settings, exports, and greetings. It is a heuristic assessment supported by native device checks and reviewed screenshots. It is not a measured first-user study.
 
 ## 1. Where are users most likely to drop off?
@@ -26,7 +28,7 @@ Transcription introduces a model download. Standard (Tiny, 104 MB) is the defaul
 
 1. **A horizontal swipe becomes a recording tap or vertical scroll.** Direction arbitration, cancelled child gestures, rapid reversals, selection mode, boundaries, and preserved search have native regression coverage. Adjacent pages have a visible gap and track the finger. Filter taps remain available.
 2. **Connectivity fails while work is underway.** Cached inbox data and saved text remain visible. Cached recording preparation now bypasses the carrier synchronization lock; a blocked refresh cannot delay opening that audio. Carrier deletion verifies the local copy first, reconciles uncertain responses, and reports partial results. Greeting upload/activation has retry reconciliation and read-back confirmation; no live replacement was performed.
-3. **Large text or a short window leaves controls clipped.** A 320 × 480 dp per-activity viewport at 160% and 200% font size exercised six pages, selection, and top/bottom scroll positions. The sweep passed 455 assertions across 125 visible-control observations. It caught and fixed clipping of Settings' leading back target. This does not establish every intermediate scroll position, localization, or full screen-reader comprehension.
+3. **Large text or a short window leaves controls clipped.** A 320 Ã— 480 dp per-activity viewport at 160% and 200% font size exercised six pages, selection, and top/bottom scroll positions. The sweep passed 455 assertions across 125 visible-control observations. It caught and fixed clipping of Settings' leading back target. This does not establish every intermediate scroll position, localization, or full screen-reader comprehension.
 
 ## 4. Compared with three familiar apps, what is missing?
 
