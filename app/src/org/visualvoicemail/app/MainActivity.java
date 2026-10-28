@@ -293,16 +293,23 @@ public final class MainActivity extends MotionActivity {
         String[] actions = {"Transcribe", "Mark read", "Delete"};
         for (int i = 0; i < actions.length; i++) {
             final int action = i;
-            Button control = button(actions[i], false); control.setTextSize(13);
-            control.setMinWidth(0); control.setMinimumWidth(0);
-            control.setPadding(dp(4), 0, dp(4), 0);
-            control.setOnClickListener(v -> {
+            Runnable perform = () -> {
                 if (action == 0) confirmTranscripts();
                 else if (action == 1) changeSelectedRead(true);
                 else confirmMarks(true);
-            });
+            };
+            View control;
+            if (compactSelection()) {
+                control = new Ui(this).icon(i == 0 ? "transcript" : i == 1 ? "read" : "trash", actions[i], false, perform);
+                control.setTooltipText(actions[i]);
+            } else {
+                Button textControl = button(actions[i], false); textControl.setTextSize(13);
+                textControl.setMinWidth(0); textControl.setMinimumWidth(0);
+                textControl.setPadding(dp(4), 0, dp(4), 0);
+                textControl.setOnClickListener(v -> perform.run()); control = textControl;
+            }
             control.setContentDescription(i == 2 ? "Remove selected voicemails from carrier and keep saved copies" : actions[i] + " for selected voicemails");
-            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -2, 1);
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, compactSelection() ? dp(48) : -2, 1);
             if (i > 0) size.setMarginStart(dp(6));
             bulkBar.addView(control, size);
         }
@@ -543,6 +550,10 @@ public final class MainActivity extends MotionActivity {
 
     private void updateSelection() { updateSelection(false); }
 
+    private boolean compactSelection() {
+        return getResources().getConfiguration().fontScale > 1.3f || getResources().getConfiguration().screenWidthDp < 360;
+    }
+
     private void updateSelection(boolean animate) {
         boolean modeChanged = selecting != displayedSelection;
         displayedSelection = selecting;
@@ -553,13 +564,16 @@ public final class MainActivity extends MotionActivity {
         inboxScroll.selectionMode(selecting, animate);
         inboxTools.setVisibility(View.VISIBLE);
         compactTitle.setText(filter == 1 ? "Unread voicemail" : filter == 2 ? "Saved voicemail" : "Voicemail");
-        String count = selectedIds.size() + " selected";
+        String fullCount = selectedIds.size() + " selected";
+        String count = compactSelection() ? String.valueOf(selectedIds.size()) : fullCount;
+        selectionCount.setContentDescription(fullCount);
         boolean countChanged = !count.contentEquals(selectionCount.getText());
         selectionCount.setText(count);
         if (modeChanged) AppMotion.settle(selectionCount);
         else if (animate && countChanged) AppMotion.reveal(selectionCount, 120, 0);
-        selectAll.setText(!shownMessages.isEmpty() && selectedIds.size() == shownMessages.size() ? "Deselect all" : "Select all");
-        selectAll.setContentDescription("Select or deselect all " + shownMessages.size() + " voicemails in current results");
+        boolean all = !shownMessages.isEmpty() && selectedIds.size() == shownMessages.size();
+        selectAll.setText(compactSelection() ? (all ? "None" : "All") : all ? "Deselect all" : "Select all");
+        selectAll.setContentDescription((all ? "Deselect" : "Select") + " all " + shownMessages.size() + " voicemails in current results");
         for (int i = 0; i < bulkBar.getChildCount(); i++)
             bulkBar.getChildAt(i).setEnabled(!selectedIds.isEmpty() && !MailboxBatch.busy);
         if (Build.VERSION.SDK_INT >= 33) {
@@ -735,6 +749,7 @@ public final class MainActivity extends MotionActivity {
             root.setBackground(new RippleDrawable(ColorStateList.valueOf(divider), fill, null));
             heading.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout info = column();
+            info.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
             TextView name = text(caller, 16, primary, true);
             info.addView(name);
             if (contactNames.containsKey(ContactNames.number(message)))
@@ -754,7 +769,10 @@ public final class MainActivity extends MotionActivity {
             root.setAccessibilityDelegate(new View.AccessibilityDelegate() {
                 @Override public void onInitializeAccessibilityNodeInfo(View host, android.view.accessibility.AccessibilityNodeInfo info) {
                     super.onInitializeAccessibilityNodeInfo(host, info);
+                    info.setClassName(selecting ? android.widget.CheckBox.class.getName() : Button.class.getName());
                     info.setCheckable(selecting); info.setChecked(host.isSelected());
+                    if (!selecting) info.addAction(new android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction(
+                        android.view.accessibility.AccessibilityNodeInfo.ACTION_LONG_CLICK, "Select voicemail"));
                 }
             });
             String state = message.optBoolean("_carrier_removed") ? "Saved · Removed from carrier"
@@ -794,6 +812,8 @@ public final class MainActivity extends MotionActivity {
             boolean visible = root.isAttachedToWindow() && root.getGlobalVisibleRect(visibleBounds);
             boolean motion = animate && visible && AppMotion.enabled(MainActivity.this);
             boolean selected = selecting && selectedIds.contains(id);
+            boolean keyboardFocus = root.hasFocus();
+            boolean spokenFocus = root.isAccessibilityFocused() || check.isAccessibilityFocused();
             boolean changedMode = rowSelectionMode != selecting;
             rowSelectionMode = selecting;
             if (changedMode) AppMotion.selectionLayout(root, motion);
@@ -812,7 +832,20 @@ public final class MainActivity extends MotionActivity {
             if (!motion) check.jumpDrawablesToCurrentState();
             check.setContentDescription((selected ? "Deselect" : "Select") + " voicemail from " + caller);
             root.setSelected(selected);
-            root.setContentDescription((selecting ? "Select" : "Open") + " voicemail from " + caller + ", " + when);
+            root.setFocusable(!selecting);
+            root.setImportantForAccessibility(selecting ? View.IMPORTANT_FOR_ACCESSIBILITY_NO : View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+            String summary = caller + ", " + when + ". " + saved.getText();
+            check.setContentDescription((selected ? "Deselect" : "Select") + " voicemail from " + summary);
+            String excerpt = preview == null ? "" : preview.getText().toString();
+            int end = excerpt.offsetByCodePoints(0, Math.min(120, excerpt.codePointCount(0, excerpt.length())));
+            root.setContentDescription("Open voicemail from " + summary + (excerpt.isEmpty() ? "" : ". Preview: " + excerpt.substring(0, end) + (end < excerpt.length() ? "..." : "")));
+            if (changedMode && keyboardFocus) { if (selecting) check.requestFocus(); else root.requestFocus(); }
+            if (changedMode && spokenFocus) {
+                View target = selecting ? check : root;
+                target.post(() -> target.performAccessibilityAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null));
+            }
+            saved.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            if (preview != null) preview.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             int target = selected ? accentSurface : surface;
             if (!motion) {
                 if (selectionFill != null) { selectionFill.cancel(); selectionFill = null; }
@@ -907,8 +940,10 @@ public final class MainActivity extends MotionActivity {
         }
         savingCopy=true; status.setTextColor(secondary); status.setText("Exporting audio…");
         fileWorker.execute(()->{
+            boolean audioReady=false;
             try {
                 File recording=carrier.availableAudio(message);
+                audioReady=true;
                 DownloadFolder.save(getApplicationContext(),destination,recording,message.optString("date"));
                 record("audio_copy_saved",true);
                 runOnUiThread(()->{
@@ -917,10 +952,13 @@ public final class MainActivity extends MotionActivity {
                 });
             } catch(Exception failure) {
                 record("audio_copy_saved",false);
+                String recovery=audioReady ? "Couldn't export. Check free space or choose Download location again in Settings. Your recording is kept."
+                    : message.optBoolean("_carrier_removed") ? "The Saved recording couldn't be opened. Restore an exported backup if available."
+                    : "Couldn't open audio for export. Check your connection and retry. Your mailbox is kept.";
                 runOnUiThread(()->{
                     if(destroyed)return;
                     savingCopy=false; status.setTextColor(error);
-                    status.setText("Couldn't save the audio copy. Check Download location in Settings and your connection, then retry.");
+                    status.setText(recovery);
                 });
             }
         });
@@ -1035,7 +1073,9 @@ public final class MainActivity extends MotionActivity {
     private LinearLayout row() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.HORIZONTAL); return layout; }
     private TextView text(String content, int size, int color, boolean medium) {
         TextView label = new TextView(this); label.setText(content); label.setTextSize(size); label.setTextColor(color);
-        label.setTypeface(Typeface.create(medium ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL)); return label;
+        label.setTypeface(Typeface.create(medium ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
+        if (Build.VERSION.SDK_INT >= 28 && medium && size >= 18) label.setAccessibilityHeading(true);
+        return label;
     }
     private GradientDrawable shape(int color, int radius) { GradientDrawable drawable = new GradientDrawable(); drawable.setColor(color); drawable.setCornerRadius(dp(radius)); return drawable; }
     private Button button(String label, boolean filled) {

@@ -7,10 +7,11 @@ import subprocess
 import zipfile
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation', 'notification-eligibility', 'saved-mailbox', 'multilingual', 'share', 'greeting', 'layout', 'emulator-setup', 'local-actions', 'download-recovery', 'first-use'], default='recording')
+parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation', 'notification-eligibility', 'saved-mailbox', 'multilingual', 'share', 'greeting', 'layout', 'emulator-setup', 'local-actions', 'download-recovery', 'first-use', 'accessibility', 'resilience', 'public-speech'], default='recording')
 parser.add_argument('--serial', help='ADB device serial; omit only with one connected device')
 parser.add_argument('--speech-fixture', help='Public 16 kHz PCM WAV for isolated audio checks or emulator setup')
 parser.add_argument('--language-fixtures', help='Directory of public multilingual WAV fixtures')
+parser.add_argument('--simulated-call', action='store_true', help='Wait for a host-injected local emulator call in the resilience check')
 parser.add_argument('--download-stage', choices=['pause','resume'], help='Explicit emulator-only public Tiny model download check')
 parser.add_argument('--compile-only', action='store_true')
 args = parser.parse_args()
@@ -20,7 +21,7 @@ bt = tools / 'build-tools/android-16'
 java = next((tools / 'jre21').glob('*/bin/java.exe'), None) or shutil.which('java')
 if not java:
     raise SystemExit('Install Java 17+ and build the app first.')
-name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck', 'notification-eligibility': 'NotificationEligibilityCheck', 'saved-mailbox': 'SavedMailboxCheck', 'multilingual': 'MultilingualFlowCheck', 'share': 'ShareFlowCheck', 'greeting': 'GreetingFlowCheck', 'layout': 'LayoutAccessibilityCheck', 'emulator-setup': 'EmulatorMailboxSetup', 'local-actions': 'LocalActionsCheck', 'download-recovery': 'DownloadRecoveryCheck', 'first-use': 'FirstUseDiscoveryCheck'}[args.test]
+name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck', 'notification-eligibility': 'NotificationEligibilityCheck', 'saved-mailbox': 'SavedMailboxCheck', 'multilingual': 'MultilingualFlowCheck', 'share': 'ShareFlowCheck', 'greeting': 'GreetingFlowCheck', 'layout': 'LayoutAccessibilityCheck', 'emulator-setup': 'EmulatorMailboxSetup', 'local-actions': 'LocalActionsCheck', 'download-recovery': 'DownloadRecoveryCheck', 'first-use': 'FirstUseDiscoveryCheck', 'accessibility': 'AccessibilityWalkthroughCheck', 'resilience': 'ResilienceCheck', 'public-speech': 'PublicSpeechCheck'}[args.test]
 output = root / 'app/build' / ('device-' + args.test)
 classes, dex = output / 'classes', output / 'dex'
 classes.mkdir(parents=True, exist_ok=True)
@@ -45,9 +46,15 @@ existing = subprocess.run([str(p) for p in [*device, 'shell', 'pm', 'path', pack
 if existing.strip():
     raise SystemExit('The temporary check package is already installed; refusing to replace it.')
 manifest = output / 'AndroidManifest.xml'
+fixtures = ''
+if args.test == 'resilience':
+    fixtures = '''<provider android:name=".ExportFixtureProvider" android:authorities="org.visualvoicemail.checks.documents"
+        android:exported="true" android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
+        <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER"/></intent-filter>
+        </provider><receiver android:name=".ExportGrantReceiver" android:exported="true"/>'''
 manifest.write_text(f'''<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="{package}">
 <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
-<application android:label="Voicemail UI checks" android:debuggable="true"/>
+<application android:label="Voicemail UI checks" android:debuggable="true">{fixtures}</application>
 <instrumentation android:name=".{name}" android:targetPackage="org.visualvoicemail.app"/>
 </manifest>''', encoding='utf-8')
 run(java, '-cp', bt / 'lib/d8.jar', 'com.android.tools.r8.D8', '--min-api', '26',
@@ -57,7 +64,7 @@ run(bt / ('aapt2.exe' if os.name == 'nt' else 'aapt2'), 'link', '-I', tools / 'a
     '--manifest', manifest, '-o', unsigned)
 with zipfile.ZipFile(unsigned, 'a', compression=zipfile.ZIP_DEFLATED) as archive:
     archive.write(dex / 'classes.dex', 'classes.dex')
-    if args.test in ('bulk', 'saved-mailbox', 'greeting', 'emulator-setup', 'local-actions'):
+    if args.test in ('bulk', 'saved-mailbox', 'greeting', 'emulator-setup', 'local-actions', 'resilience', 'public-speech'):
         if not args.speech_fixture or not pathlib.Path(args.speech_fixture).is_file():
             raise SystemExit('This check requires --speech-fixture with a public PCM WAV fixture.')
         archive.write(args.speech_fixture, 'assets/speech-fixture.wav')
@@ -74,6 +81,8 @@ try:
     if args.test == 'download-recovery' and not args.download_stage:
         raise SystemExit('--test download-recovery requires an explicit --download-stage.')
     extras = ['-e', 'stage', args.download_stage] if args.test == 'download-recovery' else []
+    if args.test == 'resilience' and args.simulated_call:
+        extras = ['-e', 'simulated_call', 'true']
     result = run(*device, 'shell', 'am', 'instrument', '-w', *extras, package + '/.' + name, capture=True).stdout
     print(result)
     if 'passed=true' not in result or 'INSTRUMENTATION_CODE: -1' not in result:

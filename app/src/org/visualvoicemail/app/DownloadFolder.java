@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.UriPermission;
 import android.net.Uri;
+import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import java.io.File;
 import java.io.FileInputStream;
@@ -82,16 +83,24 @@ final class DownloadFolder {
         Uri created=DocumentsContract.createDocument(context.getContentResolver(),parent,format.mime,format.filename(date));
         if(created==null) throw new IOException("The selected folder couldn't create an audio file.");
         try {
-            try(FileInputStream input=new FileInputStream(source); OutputStream output=context.getContentResolver().openOutputStream(created,"w")) {
-                if(output==null) throw new IOException("The new audio file couldn't be opened.");
-                byte[] buffer=new byte[8192]; int length; long copied=0;
-                while((length=input.read(buffer))!=-1) {
-                    copied+=length;
-                    if(copied>25L*1024*1024) throw new IOException("This recording exceeds the saved-copy size limit.");
-                    output.write(buffer,0,length);
+            try(ParcelFileDescriptor descriptor=context.getContentResolver().openFileDescriptor(created,"w")) {
+                if(descriptor==null) throw new IOException("The new audio file couldn't be opened.");
+                try(OutputStream output=new ParcelFileDescriptor.AutoCloseOutputStream(descriptor); FileInputStream input=new FileInputStream(source)) {
+                    try {
+                        byte[] buffer=new byte[8192]; int length; long copied=0;
+                        while((length=input.read(buffer))!=-1) {
+                            copied+=length;
+                            if(copied>25L*1024*1024) throw new IOException("This recording exceeds the export size limit.");
+                            output.write(buffer,0,length);
+                        }
+                        if(copied==0) throw new IOException("The recording is empty.");
+                        output.flush();
+                        descriptor.checkError();
+                    } catch(IOException failure) {
+                        descriptor.checkError();
+                        throw failure;
+                    }
                 }
-                if(copied==0) throw new IOException("The recording is empty.");
-                output.flush();
             }
             return created;
         } catch(Exception failure) {

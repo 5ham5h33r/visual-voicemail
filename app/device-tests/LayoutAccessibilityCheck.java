@@ -194,6 +194,8 @@ public final class LayoutAccessibilityCheck extends DeviceCheckInstrumentation {
                             "TutorialActivity"
                         }) {
                     page = name;
+                    if (name.equals("RecordingActivity"))
+                        prefs.edit().putString("transcription_quality", "enhanced").commit();
                     Intent intent =
                             new Intent()
                                     .setClassName(c, "org.visualvoicemail.app." + name)
@@ -216,6 +218,14 @@ public final class LayoutAccessibilityCheck extends DeviceCheckInstrumentation {
                     ui(() -> scrollAll(screen.getWindow().getDecorView()));
                     Thread.sleep(100);
                     scan();
+                    if (name.equals("TutorialActivity")) {
+                        Field replay = screen.getClass().getDeclaredField("replay"); replay.setAccessible(true);
+                        Method build = screen.getClass().getDeclaredMethod("build", boolean.class); build.setAccessible(true);
+                        ui(() -> { try { replay.setBoolean(screen, false); build.invoke(screen, false); }
+                            catch (Exception error) { throw new RuntimeException(error); } });
+                        scan();
+                        ui(() -> scrollAll(screen.getWindow().getDecorView())); scan();
+                    }
                     Activity done = screen;
                     ui(() -> done.finish());
                     screen = null;
@@ -233,10 +243,11 @@ public final class LayoutAccessibilityCheck extends DeviceCheckInstrumentation {
             SharedPreferences.Editor restore = prefs.edit();
             for (String key :
                     new String[] {
-                        "refresh_on_open", "auto_transcribe", "reduce_motion", "guide_recording"
+                        "refresh_on_open", "auto_transcribe", "reduce_motion", "guide_recording", "transcription_quality"
                     }) {
                 Object value = before.get(key);
                 if (value instanceof Boolean) restore.putBoolean(key, (Boolean) value);
+                else if (value instanceof String) restore.putString(key, (String) value);
                 else restore.remove(key);
             }
             restore.commit();
