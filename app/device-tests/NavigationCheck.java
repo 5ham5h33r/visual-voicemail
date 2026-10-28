@@ -45,6 +45,17 @@ public final class NavigationCheck extends DeviceCheckInstrumentation {
         Thread.sleep(450);
     }
 
+    private void focused(Activity activity) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 5000;
+        boolean[] focus = {false};
+        do {
+            runOnMainSync(() -> focus[0] = activity.hasWindowFocus());
+            if (focus[0]) break;
+            Thread.sleep(50);
+        } while (SystemClock.uptimeMillis() < deadline);
+        check(focus[0]);
+    }
+
     private ActivityMonitor monitor(String name) {
         return addMonitor("org.visualvoicemail.app." + name, null, false);
     }
@@ -92,7 +103,7 @@ public final class NavigationCheck extends DeviceCheckInstrumentation {
             screen = await(settings);
             check(!screen.isTaskRoot());
             click(find(screen.getWindow().getDecorView(), "Back to voicemail"));
-            check(main.hasWindowFocus());
+            focused(main);
             ActivityMonitor recording = monitor("RecordingActivity");
             runOnMainSync(
                     () ->
@@ -109,9 +120,9 @@ public final class NavigationCheck extends DeviceCheckInstrumentation {
             click((View) field(screen, "qualityControl"));
             screen = await(quality);
             click(find(screen.getWindow().getDecorView(), "Back to Settings"));
-            check(detail.hasWindowFocus());
+            focused(detail);
             click(find(detail.getWindow().getDecorView(), "Back to voicemail"));
-            check(main.hasWindowFocus());
+            focused(main);
             for (String name : new String[] {"SettingsActivity", "RecordingActivity"}) {
                 screen = root(name, name.equals("RecordingActivity") ? id : null);
                 Thread.sleep(500);
@@ -119,7 +130,7 @@ public final class NavigationCheck extends DeviceCheckInstrumentation {
                 ActivityMonitor home = monitor("MainActivity");
                 click(find(screen.getWindow().getDecorView(), "Back to voicemail"));
                 Activity restored = await(home);
-                check(restored.hasWindowFocus());
+                focused(restored);
             }
             for (boolean systemBack : new boolean[] {false, true}) {
                 screen = root("TranscriptionSettingsActivity", null);
@@ -133,7 +144,7 @@ public final class NavigationCheck extends DeviceCheckInstrumentation {
                 check(!screen.isTaskRoot());
                 click(find(screen.getWindow().getDecorView(), "Back to voicemail"));
                 Activity restoredHome = await(home);
-                check(restoredHome.hasWindowFocus());
+                focused(restoredHome);
             }
             out.putBoolean("passed", true);
         } catch (Throwable e) {

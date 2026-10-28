@@ -100,6 +100,7 @@ public final class SettingsActivity extends MotionActivity {
         if(settingsSearch!=null) { restoreSearchFocus=settingsSearch.hasFocus(); searchCursor=settingsSearch.getSelectionStart(); }
         sections.clear();
         LinearLayout root = column(); root.setBackgroundColor(background);
+        root.setClipToPadding(false);
         root.setPadding(dp(20), dp(20), dp(20), dp(8));
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             if (Build.VERSION.SDK_INT >= 30) {
