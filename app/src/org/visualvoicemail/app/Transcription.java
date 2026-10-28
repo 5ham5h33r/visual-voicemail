@@ -9,8 +9,6 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -101,80 +99,59 @@ final class Transcription {
         failure = "";
         progress = 0;
         status = "Downloading " + quality.title + "…";
-        WORK.execute(
-                () -> {
-                    File temporary = null;
-                    try {
-                        File root = directory(c, quality);
-                        if (root.getUsableSpace() < quality.bytes() * 2 + 20000000)
-                            throw new java.io.IOException("storage");
-                        long completed = 0, total = 0;
-                        for (long size : SIZES) total += size;
-                        for (int i = 0; i < NAMES.length; i++) {
-                            File target = new File(root, NAMES[i]);
-                            if (target.length() == SIZES[i] && digest(target).equals(HASHES[i])) {
-                                completed += SIZES[i];
-                                continue;
+        WORK.execute(() -> {
+            final ResumableDownload transfer = new ResumableDownload();
+            activeDownload = transfer;
+            try {
+                File root = directory(c, quality);
+                if (root.getUsableSpace() < quality.bytes() - downloadedBytes(c, quality) + 20000000)
+                    throw new java.io.IOException("storage");
+                long completed = 0;
+                final long total = quality.bytes();
+                for (int i = 0; i < NAMES.length; i++) {
+                    final long previous = completed;
+                    transfer.fetch(new File(root, NAMES[i]), quality.url(i), SIZES[i], HASHES[i],
+                        new ResumableDownload.Control() {
+                            public boolean stopped() { return cancelled; }
+                            public void progress(long bytes) {
+                                progress = (int)((previous + bytes) * 100 / total);
+                                status = bytes + previous == total ? "Verifying " + quality.title + "..."
+                                    : "Downloading " + quality.title + " · " + progress + "%";
                             }
-                            URL url = new URL(quality.url(i));
-                            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                            connection.setConnectTimeout(20000);
-                            connection.setReadTimeout(20000);
-                            temporary = new File(root, NAMES[i] + ".part");
-                            long received = 0;
-                            MessageDigest hash = MessageDigest.getInstance("SHA-256");
-                            try {
-                                if (connection.getResponseCode() != 200)
-                                    throw new java.io.IOException("download");
-                                try (java.io.InputStream in = connection.getInputStream();
-                                        FileOutputStream out = new FileOutputStream(temporary)) {
-                                    byte[] buffer = new byte[65536];
-                                    int n;
-                                    while ((n = in.read(buffer)) != -1) {
-                                        if (cancelled) throw new java.io.InterruptedIOException();
-                                        received += n;
-                                        if (received > SIZES[i])
-                                            throw new java.io.IOException("size");
-                                        out.write(buffer, 0, n);
-                                        hash.update(buffer, 0, n);
-                                        progress = (int) ((completed + received) * 100 / total);
-                                        status =
-                                                "Downloading "
-                                                        + quality.title
-                                                        + " · "
-                                                        + progress
-                                                        + "%";
-                                    }
-                                    out.getFD().sync();
-                                }
-                                if (received != SIZES[i] || !hex(hash.digest()).equals(HASHES[i]))
-                                    throw new java.io.IOException("verification");
-                                if (!temporary.renameTo(target))
-                                    throw new java.io.IOException("storage");
-                                temporary = null;
-                                completed += received;
-                            } finally {
-                                connection.disconnect();
-                            }
-                        }
-                        if (cancelled) throw new java.io.InterruptedIOException();
-                        try (FileOutputStream marker =
-                                new FileOutputStream(new File(root, "verified-v1"))) {
-                            marker.write(1);
-                        }
-                        status = quality.title + " ready";
-                    } catch (Exception e) {
-                        failure =
-                                cancelled
-                                        ? "Download cancelled. You can resume when ready."
-                                        : "Model download didn't finish. Check your connection and"
-                                                + " free space, then retry.";
-                    } finally {
-                        if (temporary != null) temporary.delete();
-                        downloading = false;
-                        busy = false;
-                    }
-                });
+                        });
+                    completed += SIZES[i];
+                }
+                if (cancelled) throw new java.io.InterruptedIOException();
+                try (FileOutputStream marker = new FileOutputStream(new File(root, "verified-v1"))) {
+                    marker.write(1); marker.getFD().sync();
+                }
+                status = quality.title + " ready";
+            } catch (Exception e) {
+                failure = cancelled ? "Download paused. Resume to continue; saved progress is kept."
+                    : "Download stopped. Saved progress is kept; check your connection and free space, then retry. Files that fail verification must download again.";
+            } finally {
+                activeDownload = null; downloading = false; busy = false;
+            }
+        });
+    }
+
+    private static volatile ResumableDownload activeDownload;
+
+    static long downloadedBytes(Context c, TranscriptionQuality q) {
+        File root = directory(c, q); String[] names = q.names(), hashes = q.hashes();
+        long[] sizes = q.sizes(); long bytes = 0;
+        for (int i=0;i<names.length;i++) {
+            File target = new File(root, names[i]);
+            bytes += target.isFile() && target.length() == sizes[i] ? sizes[i]
+                : ResumableDownload.retained(target, q.url(i), sizes[i], hashes[i]);
+        }
+        return bytes;
+    }
+
+    static String downloadAction(Context c) {
+        TranscriptionQuality q = selected(c); long kept = downloadedBytes(c, q);
+        return kept >= q.bytes() ? "Verify download" : kept > 0 ? "Resume download"
+            : job.equals("model") && !failure.isEmpty() ? "Retry download" : "Download " + q.title;
     }
 
     static volatile boolean batch;
@@ -443,6 +420,8 @@ final class Transcription {
 
     static void cancel() {
         cancelled = true;
+        ResumableDownload transfer = activeDownload;
+        if (transfer != null) transfer.stop();
     }
 
     static synchronized boolean clear(Context c, boolean model) {
@@ -461,7 +440,8 @@ final class Transcription {
                                             "(?:transcript|translation)-[0-9a-f]{64}\\.enc(?:\\.bak|\\.new)?");
             if (model)
                 for (String name : NAMES)
-                    if (file.getName().equals(name) || file.getName().equals(name + ".part"))
+                    if (file.getName().equals(name) || file.getName().equals(name + ".part")
+                            || file.getName().equals(name + ".part.meta") || file.getName().equals(name + ".part.meta.new"))
                         selected = true;
             if (selected && !file.delete()) okay = false;
         }

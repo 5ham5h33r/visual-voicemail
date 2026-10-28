@@ -116,11 +116,14 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             View about = find(screen.getWindow().getDecorView(), "About these options");
             runOnMainSync(() -> about.performClick());
             waitForIdleSync();
-            Thread.sleep(150);
-            android.view.accessibility.AccessibilityNodeInfo popup =
-                    getUiAutomation().getRootInActiveWindow();
-            List<android.view.accessibility.AccessibilityNodeInfo> copy =
-                    popup.findAccessibilityNodeInfosByText("Standard (Whisper Tiny)");
+            List<android.view.accessibility.AccessibilityNodeInfo> copy = java.util.Collections.emptyList();
+            long popupDeadline = SystemClock.uptimeMillis() + 5000;
+            do {
+                android.view.accessibility.AccessibilityNodeInfo popup = getUiAutomation().getRootInActiveWindow();
+                if (popup != null) copy = popup.findAccessibilityNodeInfosByText("Standard (Whisper Tiny)");
+                if (!copy.isEmpty()) break;
+                Thread.sleep(50);
+            } while (SystemClock.uptimeMillis() < popupDeadline);
             check(!copy.isEmpty());
             String explanation = copy.get(0).getText().toString();
             check(
