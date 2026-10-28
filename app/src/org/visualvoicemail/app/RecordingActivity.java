@@ -51,7 +51,8 @@ public final class RecordingActivity extends MotionActivity {
     private final List<int[]> matches = new ArrayList<>();
     private String lastSpeechState = "";
     private View transcriptHeading, transcriptSearch;
-    private Ui.Icon clearFind;
+    private Ui.Icon clearFind, findControl;
+    private android.window.OnBackInvokedCallback findBack;
     private AppMenu transcriptMenu;
     private AppMenu shareMenu;
     private Ui.Icon shareControl;
@@ -306,6 +307,8 @@ public final class RecordingActivity extends MotionActivity {
                         "Transcript options",
                         false,
                         () -> showTranscriptOptions(transcriptSearch));
+        findControl = icon("search", "Search transcript", false, this::showFind);
+        heading.addView(findControl);
         heading.addView(transcriptSearch);
         ui.add(content, heading, 20);
         qualityControl =
@@ -324,11 +327,9 @@ public final class RecordingActivity extends MotionActivity {
         qualityControl.setBackground(
                 new android.graphics.drawable.RippleDrawable(
                         ColorStateList.valueOf(ui.divider), ui.shape(0, 12), null));
-        if (getResources().getConfiguration().fontScale <= 1.2f
+        if (getResources().getConfiguration().fontScale <= 1.05f
                 && getResources().getConfiguration().screenWidthDp >= 360) {
-            heading.removeView(transcriptSearch);
             heading.addView(qualityControl, 1, new LinearLayout.LayoutParams(-2, ui.dp(48)));
-            heading.addView(transcriptSearch, 2);
         } else content.addView(qualityControl, new LinearLayout.LayoutParams(-2, -2));
         outputTabs = ui.row();
         originalTab = ui.button("Original", false, () -> switchOutput(false));
@@ -406,6 +407,7 @@ public final class RecordingActivity extends MotionActivity {
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         showTranscript();
+        if (!find.isEmpty()) bindFindBack();
         updateSpeech();
         ui.enter(content);
     }
@@ -578,11 +580,40 @@ public final class RecordingActivity extends MotionActivity {
         AppMotion.reveal(transcriptBody, 140, 2);
     }
 
+    private void showFind() {
+        AppMotion.visibility(findBox, true);
+        search.requestFocus();
+        getSystemService(android.view.inputmethod.InputMethodManager.class).showSoftInput(search, 0);
+        bindFindBack();
+    }
+
+    private void bindFindBack() {
+        if (Build.VERSION.SDK_INT >= 33 && findBack == null) {
+            findBack = () -> closeFind();
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, findBack);
+        }
+    }
+
+    private boolean closeFind() {
+        if (findBox.getVisibility() != View.VISIBLE) return false;
+        search.setText(""); search.clearFocus();
+        getSystemService(android.view.inputmethod.InputMethodManager.class).hideSoftInputFromWindow(search.getWindowToken(), 0);
+        AppMotion.visibility(findBox, false);
+        if (Build.VERSION.SDK_INT >= 33 && findBack != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(findBack); findBack = null;
+        }
+        findControl.requestFocus();
+        return true;
+    }
+
+    @Override public void onBackPressed() { if (!closeFind()) super.onBackPressed(); }
+
     private void showTranscriptOptions(View anchor) {
         if (transcriptMenu != null) transcriptMenu.dismiss();
         AppMenu menu = new AppMenu(this, anchor);
         transcriptMenu = menu;
-        menu.getMenu().add(0, 0, 0, "Find in transcript");
+        menu.getMenu().add(0, 0, 0, "Find in transcript").setEnabled(transcript != null && !transcript.segments.isEmpty());
         menu.getMenu()
                 .add(
                         0,
@@ -612,10 +643,7 @@ public final class RecordingActivity extends MotionActivity {
         menu.setOnMenuItemClickListener(
                 item -> {
                     if (item.getItemId() == 0) {
-                        AppMotion.visibility(findBox, true);
-                        search.requestFocus();
-                        getSystemService(android.view.inputmethod.InputMethodManager.class)
-                                .showSoftInput(search, 0);
+                        showFind();
                     } else if (item.getItemId() == 1)
                         SpeechOptions.chooseLanguage(
                                 this,
@@ -777,6 +805,10 @@ public final class RecordingActivity extends MotionActivity {
         wasBusy = Transcription.busy;
         boolean own =
                 Transcription.busy && (Transcription.downloading || id.equals(Transcription.job));
+        boolean searchable = transcript != null && !transcript.segments.isEmpty();
+        findControl.setEnabled(searchable);
+        findControl.setAlpha(searchable ? 1f : .4f);
+        findControl.setContentDescription(searchable ? "Search transcript" : "Search transcript unavailable until text is generated");
         boolean changed =
                 transcript != null
                         && (!quality.key.equals(transcript.quality)
@@ -1229,9 +1261,9 @@ public final class RecordingActivity extends MotionActivity {
                         false));
         tips.add(
                 new GuideOverlay.Tip(
-                        transcriptSearch,
+                        findControl,
                         "Find the detail",
-                        "Open Transcript options to find a word or phrase, then use previous and"
+                        "Tap Search transcript to find a word or phrase, then use previous and"
                             + " next to move between matches. Searching won't start playback.",
                         false));
         tips.add(new GuideOverlay.Tip(shareControl,"Share a copy","Choose Transcript or Voice recording, then choose where to share. If an English translation is saved, you can share either text version.",false));

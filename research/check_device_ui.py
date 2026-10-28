@@ -7,7 +7,7 @@ import subprocess
 import zipfile
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation', 'notification-eligibility', 'saved-mailbox', 'multilingual', 'share', 'greeting', 'layout', 'emulator-setup', 'local-actions', 'download-recovery'], default='recording')
+parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation', 'notification-eligibility', 'saved-mailbox', 'multilingual', 'share', 'greeting', 'layout', 'emulator-setup', 'local-actions', 'download-recovery', 'first-use'], default='recording')
 parser.add_argument('--serial', help='ADB device serial; omit only with one connected device')
 parser.add_argument('--speech-fixture', help='Public 16 kHz PCM WAV for isolated audio checks or emulator setup')
 parser.add_argument('--language-fixtures', help='Directory of public multilingual WAV fixtures')
@@ -20,7 +20,7 @@ bt = tools / 'build-tools/android-16'
 java = next((tools / 'jre21').glob('*/bin/java.exe'), None) or shutil.which('java')
 if not java:
     raise SystemExit('Install Java 17+ and build the app first.')
-name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck', 'notification-eligibility': 'NotificationEligibilityCheck', 'saved-mailbox': 'SavedMailboxCheck', 'multilingual': 'MultilingualFlowCheck', 'share': 'ShareFlowCheck', 'greeting': 'GreetingFlowCheck', 'layout': 'LayoutAccessibilityCheck', 'emulator-setup': 'EmulatorMailboxSetup', 'local-actions': 'LocalActionsCheck', 'download-recovery': 'DownloadRecoveryCheck'}[args.test]
+name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck', 'notification-eligibility': 'NotificationEligibilityCheck', 'saved-mailbox': 'SavedMailboxCheck', 'multilingual': 'MultilingualFlowCheck', 'share': 'ShareFlowCheck', 'greeting': 'GreetingFlowCheck', 'layout': 'LayoutAccessibilityCheck', 'emulator-setup': 'EmulatorMailboxSetup', 'local-actions': 'LocalActionsCheck', 'download-recovery': 'DownloadRecoveryCheck', 'first-use': 'FirstUseDiscoveryCheck'}[args.test]
 output = root / 'app/build' / ('device-' + args.test)
 classes, dex = output / 'classes', output / 'dex'
 classes.mkdir(parents=True, exist_ok=True)

@@ -264,13 +264,21 @@ public final class TutorialActivity extends MotionActivity {
             progress.addView(dot, p);
         }
         progress.setContentDescription("Introduction " + (page + 1) + " of 4");
-        root.addView(progress);
+        boolean quickStart = page == 0 && !replay;
+        if (quickStart) {
+            root.addView(ui.button("Show me around", false, () -> {
+                page = 1;
+                getSharedPreferences("settings", 0).edit().putInt(PAGE, page).apply();
+                build(true);
+            }), new LinearLayout.LayoutParams(-1, -2));
+        } else root.addView(progress);
         root.addView(
                 ui.button(
-                        page == 3 ? "Get Started" : "Continue",
+                        quickStart || page == 3 ? "Get Started" : "Continue",
                         true,
                         () -> {
-                            if (page == 3) complete(true);
+                            if (quickStart) complete(false);
+                            else if (page == 3) complete(true);
                             else {
                                 page++;
                                 getSharedPreferences("settings", 0)
@@ -327,15 +335,10 @@ public final class TutorialActivity extends MotionActivity {
         acknowledge(this);
         if (page == 3)
             getSharedPreferences("settings", 0).edit().putBoolean("alerts_prompted", true).apply();
-        if (guide) {
-            getSharedPreferences("settings", 0).edit().putBoolean("guide_recording", true).apply();
-            startActivity(
-                    new Intent(this, MainActivity.class)
-                            .addFlags(
-                                    Intent.FLAG_ACTIVITY_CLEAR_TOP
-                                            | Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                            .putExtra("guide", true));
-        }
+        getSharedPreferences("settings", 0).edit().putBoolean("guide_recording", guide).apply();
+        startActivity(new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra("guide", guide));
         setResult(RESULT_OK);
         finish();
     }
