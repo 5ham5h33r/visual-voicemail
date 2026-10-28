@@ -55,6 +55,7 @@ public final class SettingsSearchTest {
         check(SettingsSearch.matches("Spanish","TRANSCRIPTION","Recording language","English"));
         check(!SettingsSearch.matches("Spanish","PLAYBACK","Audio output","Follow device"));
         check(SettingsSearch.matches("outgoing message","MAILBOX & SYNC","Voicemail greeting","Record or choose audio"));
+        check(SettingsSearch.matches("automatic unread", "PLAYBACK", "Mark as read when playback starts", "Off"));
         System.out.println("Passed " + checks + " settings search checks.");
     }
 }

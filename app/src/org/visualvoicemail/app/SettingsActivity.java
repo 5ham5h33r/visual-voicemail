@@ -177,6 +177,8 @@ public final class SettingsActivity extends MotionActivity {
                 choice -> { preferences.edit().putBoolean("oldest_first",choice==1).apply(); build(); }));
 
         LinearLayout playback = group("PLAYBACK");
+        toggle(playback,"Mark as read when playback starts",
+            "Off keeps read status manual. When on, carrier changes need a connection; only confirmed changes update the inbox.","read_on_play",false);
         int speed = clamp(preferences.getInt("playback_speed",1), SPEEDS.length);
         row(playback,"Playback speed",SPEEDS[speed], () -> choose("Playback speed", SPEEDS, speed,
             choice -> { preferences.edit().putInt("playback_speed",choice).apply(); build(); }));
@@ -240,7 +242,7 @@ public final class SettingsActivity extends MotionActivity {
             long[] stats = RecordingCache.stats(new File(getFilesDir(),"audio"));
             note(storage,stats[0]+(stats[0]==1?" privately cached recording":" privately cached recordings")+" · "+size(stats[1]));
         } catch (Exception ignored) { note(storage,"Downloaded storage is currently unavailable."); }
-        row(storage,"Clear playback cache","Keep saved audio copies, carrier messages, and the inbox", () -> confirm("Clear playback cache?",
+        row(storage,"Clear playback cache","Keep Saved recordings, exported files, carrier messages, and the inbox", () -> confirm("Clear playback cache?",
             "Remove temporary playback files. Recordings in Saved, exported copies, the inbox, and carrier messages are kept. A connection may be needed to play other recordings again.",
             "Clear cache", () -> action(CLEAR_DOWNLOADS)));
 
@@ -248,7 +250,7 @@ public final class SettingsActivity extends MotionActivity {
         row(privacy,"App permissions","Manage Contacts and other Android app permissions", () ->
             open(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()))));
         row(privacy,"Privacy","How messages, contacts, and downloads are handled", () -> info("Privacy",
-            "Mailbox credentials and inbox metadata are encrypted on this phone using Android Keystore. Playback files use app-private storage. Saved audio copies go to your chosen folder and follow that folder's access and backup rules.\n\nContact names are looked up locally and kept in memory. Names and search queries are not sent to the carrier or a project server.\n\nTranscription runs locally. Saved transcripts are encrypted using Android Keystore. The one-time speech model download contacts its public model host; audio and recognized text are never uploaded for transcription.\n\nThere are no analytics or advertising services. Mailbox authentication and message requests communicate with the carrier."));
+            "Mailbox credentials and inbox metadata are encrypted on this phone using Android Keystore. Playback files use app-private storage. Recordings in Saved stay inside this app, including after carrier removal. Uninstalling removes these app-local recordings and transcripts. Export audio copies to your chosen folder for files you can keep outside the app; those files follow the folder's access and backup rules.\n\nContact names are looked up locally and kept in memory. Names and search queries are not sent to the carrier or a project server.\n\nTranscription runs locally. Saved transcripts are encrypted using Android Keystore. The one-time speech model download contacts its public model host; audio and recognized text are never uploaded for transcription.\n\nThere are no analytics or advertising services. Mailbox authentication and message requests communicate with the carrier."));
 
         LinearLayout about = group("ABOUT");
         String version;

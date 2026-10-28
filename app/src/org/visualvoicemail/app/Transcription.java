@@ -318,7 +318,7 @@ final class Transcription {
         OfflineRecognizer recognizer = null;
         Vad vad = null;
         try {
-            File audio = CarrierClient.get(c).audio(message);
+            File audio = CarrierClient.get(c).availableAudio(message);
             if (cancelled) throw new java.io.InterruptedIOException();
             status = "Reading audio on this phone…";
             float[] samples = AudioSamples.read(audio);
