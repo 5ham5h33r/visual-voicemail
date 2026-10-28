@@ -1,0 +1,23 @@
+{
+  "file": "voice-mail-product-demo.mp4",
+  "bytes": 2897917,
+  "sha256": "4e7af1de418c818e6b1db6bb5a3d2763826152c71e9aac08db88de7ce719c740",
+  "duration_seconds": 44.0,
+  "video": {
+    "codec": "h264",
+    "width": 1080,
+    "height": 1350,
+    "frames": 1320,
+    "fps": 30
+  },
+  "audio": {
+    "codec": "aac",
+    "sample_rate": 48000,
+    "channels": 2,
+    "integrated_loudness_lufs": -18.0,
+    "true_peak_dbfs": -6.9
+  },
+  "full_decode": "passed",
+  "fast_start": true,
+  "content": "Fictional callers, reserved sample numbers, scripted sample transcripts; original synthesized soundtrack"
+}

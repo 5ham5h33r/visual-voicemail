@@ -52,7 +52,7 @@ Settings search filters actual controls. Light, Dark, AMOLED, native focusable c
 
 Inbox polish, saved-copy carrier deletion, multilingual/English output, calling/sharing, model-description paragraphs, greeting setup, and adaptive-layout hardening are implemented. The explicitly authorized single-message Mint deletion was confirmed by fresh listings while its saved audio/transcript remained intact. Greeting behavior is tested with public audio and a simulated carrier, plus read-only Mint discovery; replacing the real greeting requires the user's chosen draft and explicit Save.
 
-Direct carrier push remains unverified under the independent, non-default-dialer requirement. The [notification investigation](event-driven-notifications.md) records the Android eligibility and sender-compatibility limits. Scheduled fallback is honestly labeled; the companion notification-listener approach is not part of this design. The promo video remains paused at the user's request.
+Direct carrier push remains unverified under the independent, non-default-dialer requirement. The [notification investigation](event-driven-notifications.md) records the Android eligibility and sender-compatibility limits. Scheduled fallback is honestly labeled; the companion notification-listener approach is not part of this design. The promo was paused during this review; the later [native product demo](../media/promo/README.md) follows the user's renewed video request.
 
 ## References
 

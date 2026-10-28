@@ -1,0 +1,13 @@
+# Five-question review after the transcript card pass
+
+This is a heuristic review of version 0.33, supported by native checks and reviewed synthetic screenshots. It does not replace a first-user study.
+
+| Question | Assessment and remaining concern |
+| --- | --- |
+| Where might someone drop off? | The transcript now shares one card with its controls. Visible filled actions distinguish setup/update from explanatory text. Model downloads and Mint entitlement still create the largest first-use hurdles; measure time to first playback with a new user. |
+| Which assumptions may be wrong? | A chosen quality does not replace existing text. The card shows the saved quality and an explicit update action when needed. Plain quality names stay compact; model names and language capability remain on the choice page and in accessibility labels. Test whether new users understand that distinction. |
+| Which three edge cases could fail? | Long Saved status previously changed card height and froze the inbox during selection; stable heights and descendant-only bounds transitions fix that path. Narrow windows/large text can stack the transcript controls. Missing models or interrupted work keep playback and previous text available. Broader device and localization coverage remains open. |
+| How does this compare with familiar apps? | Apple Phone provides the playback/transcript mental model, Samsung settings provide grouped title/value rows, and Gmail provides scoped multi-selection. The transcript now has a clear boundary below the player without putting a separate card around each phrase. Real phone gesture checks verify reversal and header movement; visual resemblance alone would not establish usability. |
+| What breaks with low context or poor connectivity? | Cached recordings and saved text remain usable offline; transcription needs a model first. Explicit download labels and About explain the tradeoff. Independent carrier push remains unverified and scheduled alerts can be delayed. Audible TalkBack comprehension, long-idle/reboot delivery, and first-user understanding still need human/carrier validation. |
+
+The S24 Ultra passed 140 quality/motion, recording/playback, transition, and checkbox assertions. The S24-sized emulator passed 53 control/theme assertions, 514 adaptive-layout assertions, 35 selection assertions, and 102 per-frame layout assertions. Software-emulator timing failures are recorded in [transcription controls](transcription-controls.md), with the successful phone follow-up. No further card/layout defect emerged from this review; the remaining concerns require broader validation rather than another decorative restyle.

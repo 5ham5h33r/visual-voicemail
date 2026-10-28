@@ -1,9 +1,11 @@
-I'm building Voice Mail, a native Android visual voicemail app, starting with Mint Mobile.
+I built Voice Mail because I wanted a cleaner way to use my Mint Mobile voicemail on Android.
 
-It connects to the existing carrier mailbox and works alongside your usual dialer. The current build includes contact/number/date search, playback controls, saved audio copies, and Light, Dark, and AMOLED themes.
+It connects to the existing carrier mailbox while Samsung Phone stays my dialer. No call-forwarding setup. Whisper runs on the phone for transcription, with search across saved text and phrase taps that jump into the recording.
 
-This video shows the development preview. Caller details are hidden. Transcription is planned; I'm validating the core voicemail experience first.
+This engineering demo shows the inbox, transcript playback/search, bulk selection, and Light/Dark/AMOLED themes. I also included the path from the carrier mailbox through private storage to on-device transcription.
 
-I'd like feedback on the inbox and playback flow.
+I tested the latest UI on my S24 Ultra. The video uses a matching-size Android emulator with fictional callers and sample text. This is still a preview: independent carrier push is unverified, and recognition can make mistakes.
 
-#AndroidDevelopment #ProductDesign
+I'd like feedback on the transcript and playback flow.
+
+#AndroidDevelopment #ProductDesign #OnDeviceAI

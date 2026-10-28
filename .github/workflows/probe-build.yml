@@ -34,7 +34,7 @@ jobs:
         if: matrix.module == 'app'
         run: python3 probe/build.py --module app --release --unsigned
       - name: Check original Python sources
-        run: python3 -m compileall -q research/*.py probe/*.py
+        run: python3 -m compileall -q research/*.py probe/*.py media/promo/*.py
       - name: Check native theme text contrast
         if: matrix.module == 'app'
         run: python3 research/check_ui_contrast.py
