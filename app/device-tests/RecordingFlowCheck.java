@@ -11,6 +11,7 @@ import org.json.*;
 
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class RecordingFlowCheck extends DeviceCheckInstrumentation {
     int checks = 0;
@@ -47,6 +48,10 @@ public class RecordingFlowCheck extends DeviceCheckInstrumentation {
     @Override
     public void onStart() {
         Bundle result = new Bundle();
+        CountDownLatch releaseCarrier = new CountDownLatch(1);
+        Thread blockedCarrier = null;
+        SharedPreferences prefs = getTargetContext().getSharedPreferences("settings", 0);
+        Object oldSpeed = prefs.getAll().get("playback_speed");
         try {
             c = getTargetContext();
             Class<?> carrier = Class.forName("org.visualvoicemail.app.CarrierClient");
@@ -60,14 +65,74 @@ public class RecordingFlowCheck extends DeviceCheckInstrumentation {
                             .putExtra("id", id)
                             .putExtra("caller", "Private test caller")
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            check(method(carrier, "cachedAudio", JSONObject.class).invoke(client, message) != null);
+            CountDownLatch carrierHeld = new CountDownLatch(1);
+            blockedCarrier =
+                    new Thread(
+                            () -> {
+                                synchronized (client) {
+                                    carrierHeld.countDown();
+                                    try {
+                                        releaseCarrier.await(15, TimeUnit.SECONDS);
+                                    } catch (InterruptedException interrupted) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                }
+                            },
+                            "held-carrier-check");
+            blockedCarrier.start();
+            check(carrierHeld.await(2, TimeUnit.SECONDS));
             screen = startActivitySync(intent);
             Thread.sleep(1500);
             check((Boolean) get(screen, "prepared"));
-            View playButton=(View)get(screen,"play");ViewGroup controls=(ViewGroup)playButton.getParent();
-            ViewGroup mediaCard=(ViewGroup)controls.getParent();
-            check(controls.getPaddingTop()==controls.getPaddingBottom()&&controls.getPaddingBottom()>=8*c.getResources().getDisplayMetrics().density);
-            check(mediaCard.getPaddingTop()==mediaCard.getPaddingBottom());
-            check(Math.abs(playButton.getLeft()+playButton.getWidth()/2f-controls.getWidth()/2f)<=c.getResources().getDisplayMetrics().density);
+            check(blockedCarrier.isAlive() && releaseCarrier.getCount() == 1);
+            releaseCarrier.countDown();
+            blockedCarrier.join(1000);
+            View playButton = (View) get(screen, "play");
+            ViewGroup controls = (ViewGroup) playButton.getParent();
+            ViewGroup mediaCard = (ViewGroup) controls.getParent();
+            check(
+                    controls.getPaddingTop() == controls.getPaddingBottom()
+                            && controls.getPaddingBottom()
+                                    >= 8 * c.getResources().getDisplayMetrics().density);
+            check(mediaCard.getPaddingTop() == mediaCard.getPaddingBottom());
+            check(
+                    Math.abs(
+                                    playButton.getLeft()
+                                            + playButton.getWidth() / 2f
+                                            - controls.getWidth() / 2f)
+                            <= c.getResources().getDisplayMetrics().density);
+            Button speedControl = (Button) get(screen, "speed");
+            for (int index = 0; index < 5; index++) {
+                prefs.edit().putInt("playback_speed", index).commit();
+                runOnMainSync(
+                        () -> {
+                            try {
+                                speedControl.setText(
+                                        (String)
+                                                method(screen.getClass(), "speedLabel")
+                                                        .invoke(screen));
+                            } catch (Exception failure) {
+                                throw new RuntimeException(failure);
+                            }
+                        });
+                waitForIdleSync();
+                Thread.sleep(50);
+                check(
+                        Math.abs(
+                                        playButton.getLeft()
+                                                + playButton.getWidth() / 2f
+                                                - controls.getWidth() / 2f)
+                                <= c.getResources().getDisplayMetrics().density);
+                check(
+                        speedControl.getLayout().getLineCount() == 1
+                                && speedControl.getLayout().getEllipsisCount(0) == 0);
+                check(
+                        speedControl.getPaint().measureText(speedControl.getText().toString())
+                                <= speedControl.getWidth()
+                                        - speedControl.getPaddingLeft()
+                                        - speedControl.getPaddingRight());
+            }
             View call = (View) get(screen, "callControl");
             check(call.getVisibility() == View.VISIBLE);
             Intent dial =
@@ -230,6 +295,16 @@ public class RecordingFlowCheck extends DeviceCheckInstrumentation {
             result.putString("failure_class", e.getClass().getSimpleName());
             result.putBoolean("passed", false);
         } finally {
+            releaseCarrier.countDown();
+            if (blockedCarrier != null)
+                try {
+                    blockedCarrier.join(1000);
+                } catch (InterruptedException ignored) {
+                }
+            SharedPreferences.Editor restore = prefs.edit();
+            if (oldSpeed instanceof Integer) restore.putInt("playback_speed", (Integer) oldSpeed);
+            else restore.remove("playback_speed");
+            restore.commit();
             finish(-1, result);
         }
     }

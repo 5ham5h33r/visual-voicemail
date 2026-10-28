@@ -1,80 +1,60 @@
 # Five-question UX review
 
-This is a heuristic review of the working version 0.23, not a usability study or measured conversion report. Evidence includes the native S24 Ultra screens, sanitized documentation captures, implementation inspection, and device regression checks. The scope covers introduction and permissions, mailbox connection, inbox/search/selection, recording playback, transcripts and model setup, notifications, Settings, downloads, and recovery states.
-
-The UI implementation now passes 293 device checks, including physical gestures, direct drag tracking, rounded glyph pixels, preview alignment, and native menu selection. The user approved the companion [game plan](ux-game-plan.md), including notification research, multilingual/English translation, greeting setup, and a subsequent carrier-deletion flow that retains verified local copies.
-
-The core listen/read/search flow is coherent. The app still needs work before calling its first-use, accessibility, and failure-recovery experience complete. Functional test counts do not establish that new users understand the interface.
+This review covers version 0.27: introduction and permissions, connection, inbox/search/selection, playback, transcripts and model setup, notifications, Settings, exports, and greetings. It is a heuristic assessment supported by native device checks and reviewed screenshots. It is not a measured first-user study.
 
 ## 1. Where are users most likely to drop off?
 
-**Partial pass. The largest risks are before the first successful playback and the first transcript.**
+**Partial pass: connection and model setup remain the largest obstacles.** The short introduction is skippable; the follow-up tour highlights actual controls. Settings can replay it. Contacts, notifications, and microphone access have contextual entry points rather than one mandatory permission wall.
 
-The four-screen introduction can be skipped and the subsequent guide highlights actual controls. Optional contacts and notifications have their own explanations. Those are useful safeguards, but an introduction plus a tour can still delay the user's goal. Validate a shorter route to a real inbox with first-time users; the tutorials should help when needed rather than become a prerequisite.
+A disconnected inbox has a visible Connect mailbox action and mobile-data guidance. Authentication still depends on Mint connectivity; an emulator cannot validate SIM entitlement. Validate comprehension and time to first successful playback with someone unfamiliar with the app.
 
-Mint connection depends on mobile data. A person on good Wi-Fi can still fail the first connection and assume the app is broken. The source shows actionable network errors, but we have not tested comprehension with new users. Version 0.23 adds a prominent **Connect mailbox** action to the disconnected state instead of expecting a small Refresh control to communicate initial setup. A future connection flow should identify the unmet prerequisite before asking the person to retry.
-
-Transcription adds another setup step: a model download. The app explains sizes, recommends Wi-Fi, and keeps playback available. However, choosing among three models and waiting for setup is still substantial work. Standard should remain the first choice, with larger options discoverable later. Full Large v3 is a 1.78 GB download and may take minutes per recording; “Highest quality” must never be interpreted as an accuracy guarantee.
+Transcription introduces a model download. Standard (Tiny, 104 MB) is the default; Enhanced (Base, 161 MB) and Highest quality (full Large v3, 1.78 GB) are available from the transcript and Settings. Large enables other languages and English translation. Costs and limitations are explained before selection. Playback remains available during setup. Highest quality does not guarantee accurate words or translation.
 
 ## 2. What assumptions might not be true?
 
-**Needs work. Several hidden assumptions affect meaning, not just appearance.**
-
-| Assumption | Evidence and response |
+| Assumption | Current response |
 | --- | --- |
-| Everyone knows long-press selects messages | It is useful as a shortcut but insufficient as the only entry. Version 0.23 retains an explicit **Inbox actions → Select messages** route and updates the guide. |
-| More visible text buttons make the inbox easier | Select and Refresh competed beside a small section label. Version 0.23 removes the standalone Select label and uses a labeled, 48 dp Refresh icon. Initial connection still has a visible text action. |
-| “Marked” means the same thing to everyone | It can suggest a favorite, flag, or deletion mark. The empty state and populated explanation now identify deletion marks, but the short tab label still deserves a wording pass. The bulk label now says “Mark for deletion.” The user has since requested actual carrier deletion with local retention; that is a separate follow-up. Carrier recordings are not erased. |
-| Opening or listening means a message becomes read | Current read status is explicitly changed through carrier actions; simply opening the player does not automatically mark it read. Decide this behavior deliberately and explain it before changing carrier flags automatically. |
-| Transcript search searches every recording | Only already-saved transcripts are searchable. The guide and empty-search copy explain the saved-text scope. A recording without a transcript cannot match words that have not been recognized. |
-| A quality change replaces old transcripts | It does not. Existing transcripts remain, the saved quality is shown, and replacement requires an explicit update. Keep this behavior. |
-| New-message alerts arrive instantly | They use scheduled mailbox checks, subject to Android delays. Setup and Settings explain this; a local test notification proves display permission, not new carrier delivery. |
+| Everyone discovers long-press selection | Inbox actions also offers Select messages. Selection includes a count, Select all, and scoped bulk actions. |
+| Delete means only a local mark | Delete now saves and verifies a durable recording before carrier removal, then confirms absence by fresh sync. The retained copy appears in Saved. Removing that copy is separate. Old marks never automatically delete carrier messages. |
+| Listening automatically marks a message read | Read/unread is explicit. Opening or playing does not silently change carrier flags. |
+| Search can find words in every voicemail | It searches contacts, numbers, dates, and already-saved original/English text. Audio without a transcript cannot match unrecognized words. |
+| Changing quality rewrites previous transcripts | Saved text is preserved until an explicit update. Original and English output remain separate. |
+| Notifications are instant | Scheduled checks remain subject to Android delays. No standalone carrier push delivery has been verified. A test alert proves notification display only. |
+| Sharing or calling should happen immediately | The handset opens the phone app with a number ready. Share asks for Transcript or Voice recording, then opens Android's destination chooser. Neither action silently sends content or places a call. |
 
-## 3. What are three edge cases the design might fail in?
+## 3. What are three edge cases this design might fail in?
 
-**Partial pass. These are the highest-impact cases for this app.**
+1. **A horizontal swipe becomes a recording tap or vertical scroll.** Direction arbitration, cancelled child gestures, rapid reversals, selection mode, boundaries, and preserved search have native regression coverage. Adjacent pages have a visible gap and track the finger. Filter taps remain available.
+2. **Connectivity fails while work is underway.** Cached inbox data and saved text remain visible. Cached recording preparation now bypasses the carrier synchronization lock; a blocked refresh cannot delay opening that audio. Carrier deletion verifies the local copy first, reconciles uncertain responses, and reports partial results. Greeting upload/activation has retry reconciliation and read-back confirmation; no live replacement was performed.
+3. **Large text or a short window leaves controls clipped.** A 320 � 480 dp per-activity viewport at 160% and 200% font size exercised six pages, selection, and top/bottom scroll positions. The sweep passed 455 assertions across 125 visible-control observations. It caught and fixed clipping of Settings' leading back target. This does not establish every intermediate scroll position, localization, or full screen-reader comprehension.
 
-1. **A horizontal swipe becomes a scroll, a recording tap, or a selection gesture.** Version 0.23 arbitrates direction after touch slop, cancels the old child gesture when horizontal navigation wins, preserves ordinary vertical scrolling, disables filter swipes during selection, and resists the first/last boundaries. Tab taps remain available. Interrupted navigation and cancelled gestures need explicit device checks, not a screenshot review alone.
-2. **An empty screen has multiple possible causes.** No mailbox, no unread messages, no deletion marks, no search matches, contact lookup in progress, and a failed refresh are different states. Version 0.23 gives each filter/search scope its own explanation and a recovery action. A failed refresh must keep the saved inbox and report failure instead of claiming the mailbox is empty. Search text stays in place when switching tabs.
-3. **Work is interrupted.** Bulk carrier updates can partially succeed; a local transcription queue or large model can be cancelled or interrupted; folder access can be revoked. The app preserves old transcripts, verifies read updates, reports partial outcomes, and separates private playback from exported copies. Broad process-death recovery, full storage, revoked provider access, audio route changes, and incoming-call interruption still need device coverage. Do not imply that current tests cover all of these.
+## 4. Compared with three familiar apps, what is missing?
 
-## 4. Compared with three familiar apps, what's missing?
+| Reference | Pattern and current assessment |
+| --- | --- |
+| Gmail | Long-press selection, Select all scoped to visible results, and bulk actions are present. Carrier removal with an app-local Saved copy is explained before confirmation because it differs from a conventional trash folder. |
+| Apple Phone | Opening a voicemail leads to paused audio and its transcript. Small handset/share glyphs sit in 48 dp targets. Play stays centered for every speed, with equal card and control-row vertical padding. Phrase taps seek into the recording. |
+| Samsung Voice Recorder | Header condensation, recording/transcript context, and quality selection on the transcript are present. Model download/setup still asks more of the user than an integrated system service. |
 
-**The core patterns are recognizable; the vocabulary and polish are less consistent.**
-
-| Familiar reference | Pattern worth retaining | Our assessment |
-| --- | --- | --- |
-| Gmail | Long-press, a selection count, Select all, and actions on the selected set | Present. Select all correctly uses the current filter/search results. An explicit menu route supplements the gesture. Deletion marks must stay visibly distinct from actual mail-style deletion. |
-| Apple Phone | A message leads naturally to playback and its transcript | Present. Opening a row shows the recording paused; Play is a separate immediate action. Tappable transcript phrases and transcript search support catching up. Audit all child-page back-control spacing together, rather than fixing Settings alone and assuming consistency. |
-| Samsung Voice Recorder | A recording and its transcript form one understandable task | Present. Quality is reachable from the transcript itself, with plain-language choices plus model names. Model setup remains text-heavy and requires more effort than the familiar “Transcribe” mental model. |
-
-Version 0.23 adds directional list motion, an animated tab indicator, swipe navigation, quieter secondary controls, and a Settings header moved 12 dp toward the leading edge. A 48 dp control remains tappable even when the visible icon is small. These changes improve hierarchy; they are not a substitute for testing whether people find the actions.
+Motion is shared across button presses, selection, menus, navigation, and filter transitions. Actions are immediate, interrupted animations retarget, and Reduce motion is supported. These are design judgments; similar controls do not establish identical platform behavior or usability.
 
 ## 5. What breaks with low context, no technical experience, or bad connectivity?
 
-**Good foundation, incomplete validation.**
+**A usable foundation with explicit remaining limits.** Saved recordings and text work locally. The player hides routine helper/status text and retains loading/error feedback. Lower English-only models do not pretend to support multilingual output. English text keeps source-audio phrase anchors without claiming exact translated-word timing. Public Spanish/French fixtures passed, although an idiom produced awkward literal English; users need to verify consequential text against audio.
 
-Saved recordings and saved transcripts work offline; a failed mailbox refresh preserves cached data. This is a real strength. The UI must distinguish saved content from content that still needs downloading, and playback from a transcript model that has not been installed.
+Settings search filters actual controls. Light, Dark, AMOLED, native focusable controls, scaled text, reduced motion, and contrast checks are present. Full TalkBack listening/traversal, localization/RTL, broader devices, full storage, audio interruption, reboot/long-idle notification delivery, and first-time-user comprehension remain release-validation work.
 
-Permissions are optional and denied access has a Settings route. Contact lookup is local. Folder export uses Android's picker, but “private playback cache” versus “saved audio copy” is still a distinction that some people will miss. Keep the export action and its destination clear; avoid leading with storage implementation details.
+## Outcome of the approved plan
 
-The app supports Light, Dark, AMOLED, font scaling, native focusable controls, and Reduce motion. Contrast and relevant touch targets are checked. Full TalkBack traversal, large-font/narrow-window behavior across every flow, localization/RTL, and a first-time user session are still open. Those are release-readiness gaps, not reasons to shrink tap areas or remove the explicit selection route.
+Inbox polish, saved-copy carrier deletion, multilingual/English output, calling/sharing, model-description paragraphs, greeting setup, and adaptive-layout hardening are implemented. The explicitly authorized single-message Mint deletion was confirmed by fresh listings while its saved audio/transcript remained intact. Greeting behavior is tested with public audio and a simulated carrier, plus read-only Mint discovery; replacing the real greeting requires the user's chosen draft and explicit Save.
 
-## Priorities after this pass
-
-1. Validate the mobile-data connection/retry flow and time to first successful playback with a new user.
-2. Resolve the meaning of Marked/Delete and explicitly decide when listening should mark a message read.
-3. Complete TalkBack, large-font, narrow-window, audio-interruption, and interrupted-work coverage.
-4. Reduce model-setup decision load while keeping technical details and large-download costs available.
-5. Investigate a Settings → Voicemail greeting flow. The original carrier API exposes greeting management, but changing greetings through our Mint session is not yet verified and is not implemented here.
+Direct carrier push remains unverified under the independent, non-default-dialer requirement. The [notification investigation](event-driven-notifications.md) records the Android eligibility and sender-compatibility limits. Scheduled fallback is honestly labeled; the companion notification-listener approach is not part of this design. The promo video remains paused at the user's request.
 
 ## References
 
-- [Samsung One UI design guide](https://design.samsung.com/global/contents/one-ui/download/oneui_design_guide_eng.pdf): app bars and selection entry through an explicit option or long-press.
-- [Apple toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars): familiar navigation and action organization.
-- [Android Views accessibility](https://developer.android.com/guide/topics/ui/accessibility/views/apps-views): at least 48 dp interactive targets.
-- [Gmail multi-message actions](https://support.google.com/mail/answer/7401?co=GENIE.Platform%3DAndroid&hl=en): touch-and-hold selection.
-- [Apple voicemail](https://support.apple.com/guide/iphone/iph003dae603/ios): voicemail playback and transcript context.
-- [Samsung Voice Recorder](https://www.samsung.com/us/support/answer/ANS10000942/): recording-to-transcript workflow.
-
-The comparisons are design judgments based on those patterns, not a claim that the three products use identical layouts, networks, or transcription systems.
+- [Samsung One UI guide](https://design.samsung.com/global/contents/one-ui/download/oneui_design_guide_eng.pdf)
+- [Apple toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)
+- [Android Views accessibility](https://developer.android.com/guide/topics/ui/accessibility/views/apps-views)
+- [Gmail multi-message actions](https://support.google.com/mail/answer/7401?co=GENIE.Platform%3DAndroid&hl=en)
+- [Apple voicemail](https://support.apple.com/guide/iphone/iph003dae603/ios)
+- [Samsung Voice Recorder](https://www.samsung.com/us/support/answer/ANS10000942/)

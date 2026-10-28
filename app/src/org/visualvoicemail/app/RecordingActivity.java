@@ -267,7 +267,10 @@ public final class RecordingActivity extends MotionActivity {
             tools.removeView(playerState);
             center.setMargins(0, 0, 0, 0);
             play.setLayoutParams(center);
-            controls.addView(speed, 0);
+            // Match the output target so changing speed never shifts the centered Play control.
+            speed.setSingleLine(true);
+            speed.setPadding(ui.dp(4), 0, ui.dp(4), 0);
+            controls.addView(speed, 0, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
             controls.addView(new View(this), 1, new LinearLayout.LayoutParams(0, 1, 1));
             controls.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
             controls.addView(outputControl);
@@ -910,7 +913,9 @@ public final class RecordingActivity extends MotionActivity {
         worker.execute(
                 () -> {
                     try {
-                        File file = CarrierClient.get(this).audio(message);
+                        CarrierClient client = CarrierClient.get(this);
+                        File cached = client.cachedAudio(message);
+                        final File file = cached != null ? cached : client.audio(message);
                         handler.post(
                                 () -> {
                                     if (destroyed || version != request) return;
