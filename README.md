@@ -91,7 +91,7 @@ Recording screenshots show version 0.25 with smaller icons and balanced player s
 
 The [event-driven notification investigation](docs/event-driven-notifications.md) explains current SMS/push eligibility and limits.
 
-The [final five-question UX review](docs/ux-final-review.md) covers the whole app, the completed follow-up changes, and remaining usability gaps. [Implementation evidence](docs/ux-improvements.md) records each phase's scope and checks.
+The [version 0.33 five-question review](docs/ux-review-0.33.md) covers the latest transcript card and controls. The earlier [app-wide review](docs/ux-final-review.md) and [implementation evidence](docs/ux-improvements.md) record the broader follow-up work and validation limits.
 
 - [Carrier protocol and device findings](docs/carrier-research.md)
 - [Independent probe results and limits](docs/independent-probe.md)
@@ -108,7 +108,7 @@ The [final five-question UX review](docs/ux-final-review.md) covers the whole ap
 - [Compact layout and back navigation](docs/compact-interface.md)
 - [First-use tutorial and replayable help](docs/tutorial.md)
 - [App icon and branding assets](docs/branding/README.md)
-- [LinkedIn promo video and post assets](media/promo/README.md)
+- [Native product demo video and LinkedIn post assets](media/promo/README.md)
 - [New voicemail notifications and background-check limits](docs/notifications.md)
 - [On-device transcription, search, and validation](docs/transcription.md)
 - [Multilingual transcripts and English translation](docs/translation.md)
