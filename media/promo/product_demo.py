@@ -90,11 +90,14 @@ def scene(index,t):
     elif index==2:
         text(im,'Find the message.',(72,154+shift),66,WHITE,True)
         text(im,'Search contacts and saved transcript text.',(74,250+shift),29,MUTED)
-        panel(im,CLIPS['search'].get(t),(126,342+shift),828,(0,145,1080,1325),24)
+        focus=ease((t-1.6)/.65)
+        width=round(828-68*focus);top=round(145+305*focus);bottom=round(1325+440*focus)
+        panel(im,CLIPS['search'].get(t),((WIDTH-width)/2,342-22*focus+shift),width,(0,top,1080,bottom),24)
     elif index==3:
         text(im,'Tap a phrase. Hear it.',(72,154+shift),64,WHITE,True)
         text(im,'Play from the text, or find a word inside it.',(74,250+shift),29,MUTED)
-        panel(im,CLIPS['playback'].get(t+1),(126,340+shift),828,(0,300,1080,1480),24)
+        top=round(300+350*ease((t-3.0)/.8))
+        panel(im,CLIPS['playback'].get(t+1),(126,340+shift),828,(0,top,1080,top+1180),24)
         text(im,'Phrase timing is approximate.',(540,1250),19,MUTED,False,True)
     elif index==4:
         text(im,'From audio to text.',(72,151+shift),65,WHITE,True)
