@@ -16,9 +16,24 @@ Transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper 
 
 ## Screenshots
 
-Version 0.31 transcript view with direct Search and inline quality controls, captured on the S24-sized emulator. The caller, date, and text are synthetic sample data; no personal voicemail or phone number appears.
+Version 0.33 groups the transcript beneath the player in one quiet card, with compact filled actions and grouped language/quality settings. These S24-sized emulator captures use synthetic caller, date, and transcript data; no personal voicemail or phone number appears.
 
-<a href="docs/screenshots/transcript-search.png"><img src="docs/screenshots/transcript-search.png" width="300" alt="Current light recording view showing direct transcript Search, inline quality, and sample text"></a>
+<table>
+  <tr><th>Transcript · Light</th><th>Transcript · Dark</th><th>Transcript · AMOLED</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/transcription-recording-light.png" width="230" alt="Light transcript card beneath the player with sample text and compact update action"></td>
+    <td><img src="docs/screenshots/transcription-recording-dark.png" width="230" alt="Dark transcript card with sample text"></td>
+    <td><img src="docs/screenshots/transcription-recording-amoled.png" width="230" alt="AMOLED transcript card with sample text"></td>
+  </tr>
+  <tr><th>Transcription · Light</th><th>Transcription · Dark</th><th>Transcription · AMOLED</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/transcription-quality-light.png" width="230" alt="Grouped language and output rows and compact quality choices in Light"></td>
+    <td><img src="docs/screenshots/transcription-quality-dark.png" width="230" alt="Grouped transcription settings in Dark"></td>
+    <td><img src="docs/screenshots/transcription-quality-amoled.png" width="230" alt="Grouped transcription settings in AMOLED"></td>
+  </tr>
+</table>
+
+See the [interface direction](docs/interface-principles.md) and [transcription control changes](docs/transcription-controls.md).
 
 Recording screenshots show version 0.25 with smaller icons and balanced player spacing. Other screenshots from earlier versions show the compact interface on the S24 Ultra, including version 0.18 expanded/collapsed headers and bulk selection. Long-inbox and selection examples use synthetic messages; the model-choice page is from version 0.16. Caller details and dates are hidden before capture; transcript screenshots use labeled sample text. Some images still show the earlier Marked label; version 0.24 uses Saved. System status icons are omitted. Select an image to view it at full size.
 

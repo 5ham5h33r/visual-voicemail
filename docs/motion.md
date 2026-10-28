@@ -1,5 +1,11 @@
 # Motion and tap feedback in version 0.15
 
+## Selection layout correction in version 0.33
+
+The row ChangeBounds transition previously captured the card root. Android then suppressed layout on its parent inbox while the header continued to collapse, producing a late upward jump. Row transitions now target only descendants inside each card. Caller/date/status text retains a stable single-line height, including long Saved status. Row bounds and header movement share a 240 ms standard easing curve; input, reversal, and Reduce motion behavior remain immediate.
+
+An emulator-only frame check uses synthetic two-message and 24-message inboxes with long status and transcript previews. It samples real pre-draw coordinates during entry and exit, checking stable card heights, an unsuppressed parent, and list placement against the visible header on every observed frame. This catches the original layout freeze instead of relying only on perceived animation speed. The underlying suppression behavior is described in [Android's ViewGroup source](https://android.googlesource.com/platform/frameworks/base/+/master/core/java/android/view/ViewGroup.java).
+
 The app follows Apple's [motion guidance](https://developer.apple.com/design/human-interface-guidelines/motion): feedback should be brief, purposeful, interruptible, and optional. These are design principles applied to native Android controls; the app retains Android navigation and accessibility behavior.
 
 Buttons press to 98% scale, icons to 96%, and cards/long rows to 99%, then return on release or cancellation. The press/release durations are 70/110 ms before Android's animation scaling. Touch listeners return control to Android immediately, so click actions do not wait for feedback to finish. Ripple, selection, checked state, text, and accessible labels also communicate the result.

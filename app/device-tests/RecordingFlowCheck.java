@@ -293,6 +293,8 @@ public class RecordingFlowCheck extends DeviceCheckInstrumentation {
         } catch (Throwable e) {
             result.putInt("checks", checks);
             result.putString("failure_class", e.getClass().getSimpleName());
+            if (e.getMessage() != null && e.getMessage().startsWith("check "))
+                result.putString("failure", e.getMessage());
             result.putBoolean("passed", false);
         } finally {
             releaseCarrier.countDown();

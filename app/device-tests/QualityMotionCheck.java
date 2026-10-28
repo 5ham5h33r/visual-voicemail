@@ -39,7 +39,10 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
         long deadline = SystemClock.uptimeMillis() + 4000;
         do {
             waitForIdleSync();
-            int width = action.getWidth(), parent = ((View) action.getParent()).getWidth();
+            int width = action.getWidth(),
+                    parent = ((View) field(screen, "transcriptStatus")).getWidth();
+            View status = (View) field(screen, "transcriptStatus");
+            parent -= status.getPaddingLeft() + status.getPaddingRight();
             if (width > 0 && parent > 0 && (compact ? width < parent : width == parent))
                 return true;
             Thread.sleep(40);
@@ -115,11 +118,12 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
                                     .setClassName(
                                             context, "org.visualvoicemail.app.RecordingActivity")
                                     .putExtra("id", id)
+                                    .putExtra("english", false)
                                     .putExtra("caller", "Device check")
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             Thread.sleep(800);
             Button quality = (Button) field(screen, "qualityControl");
-            check(quality.getText().toString().contains("Standard (Tiny)"));
+            check(quality.getText().toString().contains("Standard"));
             Activity recording = screen;
             ActivityMonitor picker =
                     addMonitor(
@@ -171,13 +175,15 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             check(old.equals(method(kept.getClass(), "json").invoke(kept).toString()));
             runOnMainSync(() -> screen.finish());
             screen = recording;
-            Thread.sleep(600);
-            check(quality.getText().toString().contains("Enhanced (Base)"));
+            long resumeDeadline = SystemClock.uptimeMillis() + 5000;
+            while ((!screen.hasWindowFocus() || !quality.getText().toString().contains("Enhanced"))
+                    && SystemClock.uptimeMillis() < resumeDeadline) Thread.sleep(50);
+            check(quality.getText().toString().contains("Enhanced"));
             check(
                     ((TextView) field(screen, "transcriptState"))
                             .getText()
                             .toString()
-                            .contains("Update transcript"));
+                            .contains("Saved with"));
             Object shown = field(screen, "transcript");
             Field shownQuality = shown.getClass().getDeclaredField("quality"),
                     shownLanguage = shown.getClass().getDeclaredField("language");
@@ -206,6 +212,18 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             Button update = (Button) field(screen, "speechAction");
             check(awaitActionWidth(update, true));
             check(update.getHeight() >= 48 * context.getResources().getDisplayMetrics().density);
+            android.graphics.Bitmap surface =
+                    android.graphics.Bitmap.createBitmap(
+                            update.getWidth(),
+                            update.getHeight(),
+                            android.graphics.Bitmap.Config.ARGB_8888);
+            runOnMainSync(() -> update.getBackground().draw(new android.graphics.Canvas(surface)));
+            check(
+                    android.graphics.Color.alpha(
+                                    surface.getPixel(
+                                            surface.getWidth() / 2, surface.getHeight() / 2))
+                            > 0);
+            surface.recycle();
             Field current = screen.getClass().getDeclaredField("transcript");
             current.setAccessible(true);
             current.set(screen, null);
@@ -261,8 +279,7 @@ public final class QualityMotionCheck extends DeviceCheckInstrumentation {
             screen = settings;
             Thread.sleep(300);
             android.widget.Switch reduce =
-                    (android.widget.Switch)
-                            awaitControl(screen, "Reduce motion");
+                    (android.widget.Switch) awaitControl(screen, "Reduce motion");
             check(reduce != null);
             runOnMainSync(() -> reduce.setChecked(true));
             Class<?> motion = Class.forName("org.visualvoicemail.app.AppMotion");

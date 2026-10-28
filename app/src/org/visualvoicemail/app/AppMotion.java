@@ -15,6 +15,12 @@ import android.view.animation.DecelerateInterpolator;
 
 /** Brief, interruptible feedback; Android controls navigation direction and animation scaling. */
 final class AppMotion {
+    static final int SELECTION_DURATION = 240;
+
+    static android.view.animation.Interpolator selectionCurve() {
+        return new android.view.animation.PathInterpolator(.4f, 0, .2f, 1);
+    }
+
     static boolean enabled(Context context) {
         return ValueAnimator.areAnimatorsEnabled()
                 && !context.getSharedPreferences("settings", 0).getBoolean("reduce_motion", false);
@@ -64,15 +70,27 @@ final class AppMotion {
     /** Selection controls and their label space change together, without delaying their actions. */
     static void selectionLayout(ViewGroup parent, boolean animate) {
         TransitionManager.endTransitions(parent);
-        if (animate && enabled(parent.getContext()) && parent.isLaidOut())
+        if (animate && enabled(parent.getContext()) && parent.isLaidOut()) {
+            ChangeBounds bounds = new ChangeBounds();
+            selectionChildren(bounds, parent);
             TransitionManager.beginDelayedTransition(
                     parent,
                     new TransitionSet()
                             .setOrdering(TransitionSet.ORDERING_TOGETHER)
-                            .addTransition(new ChangeBounds())
+                            .addTransition(bounds)
                             .addTransition(new Fade())
-                            .setDuration(160)
-                            .setInterpolator(new DecelerateInterpolator()));
+                            .setDuration(SELECTION_DURATION)
+                            .setInterpolator(selectionCurve()));
+        }
+    }
+
+    private static void selectionChildren(ChangeBounds transition, ViewGroup parent) {
+        // Animating the card itself suppresses its parent's layout and freezes inbox scrolling.
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            View child = parent.getChildAt(i);
+            transition.addTarget(child);
+            if (child instanceof ViewGroup) selectionChildren(transition, (ViewGroup) child);
+        }
     }
 
     static final class CheckBox extends android.widget.CheckBox {

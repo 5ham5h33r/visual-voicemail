@@ -755,6 +755,11 @@ public final class MainActivity extends MotionActivity {
             if (contactNames.containsKey(ContactNames.number(message)))
                 add(info, text(formattedNumber(message), 12, secondary, false), 4);
             add(info, text(date(message) + " · " + duration((int)(message.optDouble("duration", 0) * 1000)), 12, secondary, false), 4);
+            for (int i = 0; i < info.getChildCount(); i++) {
+                TextView line = (TextView) info.getChildAt(i);
+                line.setSingleLine(true);
+                line.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            }
             check.setButtonTintList(ColorStateList.valueOf(accent));
             check.setOnClickListener(v -> toggleSelection(message));
             heading.addView(check, new LinearLayout.LayoutParams(dp(48), dp(48)));
@@ -780,6 +785,8 @@ public final class MainActivity extends MotionActivity {
                 : marks.contains(message.optString("objectid")) ? "Old deletion mark · Still on carrier"
                 : InboxQuery.isRead(message.optString("flag")) ? "Read" : "Unread";
             saved = text(state + " · " + (transcripts.containsKey(message.optString("objectid")) ? "Transcript available" : carrier.cachedAudio(message) == null ? "Open to listen" : "Saved on this phone"), 12, secondary, false);
+            saved.setSingleLine(true);
+            saved.setEllipsize(android.text.TextUtils.TruncateAt.END);
             Transcript transcript = transcripts.get(message.optString("objectid"));
             boolean englishMatch = !query.trim().isEmpty() && translations.containsKey(id) && translations.get(id).matches(query)
                     && (transcript == null || !transcript.matches(query));

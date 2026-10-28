@@ -117,8 +117,8 @@ final class InboxScrollView extends ScrollView {
         selectedBar.setVisibility(VISIBLE);
         ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
         modeAnimator = animator;
-        animator.setDuration(220);
-        animator.setInterpolator(new DecelerateInterpolator());
+        animator.setDuration(AppMotion.SELECTION_DURATION);
+        animator.setInterpolator(AppMotion.selectionCurve());
         animator.addUpdateListener(
                 value -> {
                     float f = (Float) value.getAnimatedValue();

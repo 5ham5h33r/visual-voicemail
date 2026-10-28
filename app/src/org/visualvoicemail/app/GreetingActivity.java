@@ -170,7 +170,6 @@ public final class GreetingActivity extends MotionActivity {
                                             .setNegativeButton("Keep draft", null)
                                             .create());
                         });
-        discard.setBackgroundColor(0);
         discard.setTextSize(13);
         ui.add(body, discard, 0);
         status = ui.label("", 13, ui.secondary, false);
@@ -178,7 +177,6 @@ public final class GreetingActivity extends MotionActivity {
         ui.add(body, status, 12);
         Button carrierSetup =
                 ui.button("Call voicemail for greeting help", false, this::callVoicemail);
-        carrierSetup.setBackgroundColor(0);
         carrierSetup.setTextSize(13);
         ui.add(body, carrierSetup, 12);
         scroll.addView(body);

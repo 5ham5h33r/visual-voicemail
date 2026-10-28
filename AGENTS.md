@@ -21,3 +21,5 @@
 - Settings search filters the actual controls, preserves section context and the query across navigation/recreation, and never changes preferences merely by filtering. Keep the clear affordance hidden for empty search fields.
 
 - Selection changes update retained row/checkbox views in place so native checkmark transitions can finish. Keep state/actions immediate, cancel/retarget interrupted animations, and settle selection drawables/colors with Reduce motion.
+
+- Standalone body actions must have a visible contained button shape. Keep secondary actions compact with soft filled tint and 48 dp touch targets; avoid accent outlines and avoid stripping their backgrounds into ambiguous text. Flat toolbar/skip controls may retain their familiar contextual treatment. Group related transcription settings into title/value rows with chevrons, and show quality selection with radio indicators. Put detailed model explanations behind About rather than repeating paragraphs in every card.
