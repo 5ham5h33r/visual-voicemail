@@ -15,6 +15,8 @@ python probe/build.py --module app
 
 The verified debug APK is `app/build/visual-voice-mail.apk`. The app uses its own package (`org.visualvoicemail.app`) and generated debug signing key, separate from the diagnostic probe. CI builds and verifies both modules. The app build downloads checksum-pinned sherpa-onnx 2.0.1 and Kotlin 2.2.0 artifacts from their official release hosts. Native libraries support arm64-v8a phones and x86_64 emulators, with 16 KB ELF load alignment. Models are downloaded on the phone, separately from the APK.
 
+For a signed, non-debuggable APK use `python probe/build.py --module app --release` with the existing local release-signing configuration. First-time signing setup, identity backup, and development-to-release upgrade behavior are documented in [release instructions](../docs/releases.md). Signed downloads live in [GitHub Releases](https://github.com/5ham5h33r/visual-voicemail/releases).
+
 Authentication establishes an independent service instance and retrieves a service-instance token. The carrier mailbox interface requires its public `VVMOTT` profile/version headers, a subscriber `tel:` URI, and an encoded bearer token. These are protocol fields, not an official signing identity or an extracted credential. The app's User-Agent identifies this project.
 
 Mailbox credentials and the inbox are persisted with authenticated AES-GCM encryption using a key held in Android Keystore. On reopening, the saved inbox appears immediately and downloaded recordings can play from app-private storage. A valid restored token can refresh the mailbox over Wi-Fi; initial authentication or renewal still needs Mint cellular data. Tokens and subscriber identifiers are never written to diagnostic output or sent to a project server.

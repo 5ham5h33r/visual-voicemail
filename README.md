@@ -6,6 +6,8 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
+[Download the signed v0.32 preview APK](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.32). The release includes a checksum and public signing-certificate report. Repository access is required while this project is private. See [release builds and upgrade notes](docs/releases.md).
+
 Version 0.31 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
 
 Get Started opens the inbox directly; the interactive introduction and control tour remain optional. Model downloads support verified Pause/Resume. Cached playback, sharing, export, and transcription remain available during slow carrier work. Settings offers an optional mark-as-read-on-play policy, off by default. TalkBack focus, large-text selection controls, and export/interruption recovery have native emulator coverage; the [final UX review](docs/ux-final-review.md) records the remaining human and carrier validation limits.
