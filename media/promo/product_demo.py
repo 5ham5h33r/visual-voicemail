@@ -1,205 +1,332 @@
-"""Render a native-interaction product demo. Capture source footage with ProductDemoCapture first."""
+"""Render a 32-second launch film from real sample-emulator interactions."""
 from __future__ import annotations
-import argparse, hashlib, math, os, shutil, subprocess, json
-from functools import lru_cache
-from pathlib import Path
-import numpy as np
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
-ROOT=Path(__file__).resolve().parents[2]
-HERE=Path(__file__).resolve().parent
-WORK=HERE/'work'
-EXPORTS=HERE/'exports'
-WIDTH,HEIGHT,FPS,DURATION=1080,1350,60,44
-CUTS=(0,3,9,15,23,29,34,40,44)
-WHITE=(242,247,245); MINT=(158,230,199); MUTED=(162,180,171)
-FFMPEG=shutil.which('ffmpeg')
-if not FFMPEG: raise RuntimeError('FFmpeg is required')
-@lru_cache(None)
-def font(size,bold=False):
-    override=os.environ.get('PROMO_FONT_BOLD' if bold else 'PROMO_FONT_REGULAR')
-    candidates=[override,'C:/Windows/Fonts/seguisb.ttf' if bold else 'C:/Windows/Fonts/segoeui.ttf',
-      '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf']
-    for path in candidates:
-        if path and Path(path).is_file():return ImageFont.truetype(path,size)
-    raise RuntimeError('Set PROMO_FONT_REGULAR and PROMO_FONT_BOLD to installed fonts')
-def text(im,value,xy,size,color=WHITE,bold=False,center=False):
-    draw=ImageDraw.Draw(im);face=font(size,bold)
-    for row,line in enumerate(value.split('\n')):
-        box=draw.textbbox((0,0),line,font=face); x=xy[0]-(box[2]/2 if center else 0); y=xy[1]+row*size*1.18
-        if x<45 or x+box[2]>WIDTH-45:raise ValueError('Copy exceeds safe area: '+line)
-        draw.text((x,y),line,font=face,fill=color)
-def ease(t):
-    t=max(0,min(1,t));return t*t*(3-2*t)
-def background():
-    y,x=np.mgrid[:HEIGHT,:WIDTH]
-    glow=np.exp(-(((x-850)/900)**2+((y-420)/750)**2))
-    a=np.empty((HEIGHT,WIDTH,3),dtype=np.float32)
-    for c,base in enumerate([7,12,11]):a[:,:,c]=base+glow*[4,12,8][c]
-    return Image.fromarray(a.astype(np.uint8)).convert('RGBA')
-BG=background()
-ICON=Image.open(ROOT/'docs/branding/app-icon.png').convert('RGBA')
-@lru_cache(None)
-def icon(width):return ICON.resize((width,width),Image.Resampling.LANCZOS)
-@lru_cache(None)
-def mask(width,height,radius):
-    im=Image.new('L',(width,height));ImageDraw.Draw(im).rounded_rectangle((0,0,width-1,height-1),radius,fill=255);return im
-class Clip:
-    def __init__(self,name):self.path=WORK/(name+'.mp4');self.process=None;self.index=-1;self.last=None;self.size=None
-    def close(self):
-        if self.process:self.process.stdout.close();self.process.terminate();self.process.wait();self.process=None
-    def get(self,seconds):
-        target=max(0,int(seconds*FPS+1e-6))
-        if target<self.index:self.close();self.index=-1;self.last=None
-        if self.size is None:
-            metadata=json.loads(subprocess.check_output(['ffprobe','-v','quiet','-select_streams','v:0','-show_entries','stream=width,height','-of','json',str(self.path)]))['streams'][0]
-            self.size=(metadata['width'],metadata['height'])
-        if self.process is None:
-            self.process=subprocess.Popen([FFMPEG,'-v','error','-i',str(self.path),'-map','0:v:0','-vf',f'fps={FPS}','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
-        while self.index<target:
-            data=self.process.stdout.read(self.size[0]*self.size[1]*3)
-            if len(data)!=self.size[0]*self.size[1]*3:break
-            self.last=Image.frombytes('RGB',self.size,data);self.index+=1
-        if self.last is None:raise RuntimeError('No native frames in '+str(self.path))
-        return self.last
-CLIPS={name:Clip(name+'-stream') for name in ['inbox','search','playback','quality','selection']}
-THEMES=[Image.open(WORK/('theme-'+str(i)+'.png')).convert('RGB') for i in [1,2,3]]
-def panel(im,source,xy,width,crop=None,radius=30):
-    # Keep camera translation/scale fractional instead of snapping the crop and position to pixels.
-    ratio=source.width/1080
-    left,top,right,bottom=crop or (0,0,1080,2340)
-    left*=ratio;top*=ratio;right*=ratio;bottom*=ratio
-    x,y=xy;height=(bottom-top)*width/(right-left)
-    origin_x,origin_y=math.floor(x),math.floor(y)
-    w,h=math.ceil(width+(x-origin_x)),math.ceil(height+(y-origin_y))
-    scale=(right-left)/width
-    transform=(scale,0,left-(x-origin_x)*scale,0,scale,top-(y-origin_y)*scale)
-    layer=source.convert('RGBA').transform((w,h),Image.Transform.AFFINE,transform,Image.Resampling.BICUBIC)
-    coverage=Image.new('L',(w*2,h*2))
-    ImageDraw.Draw(coverage).rounded_rectangle(((x-origin_x)*2,(y-origin_y)*2,(x-origin_x+width)*2,(y-origin_y+height)*2),radius*2,fill=255)
-    layer.putalpha(coverage.resize((w,h),Image.Resampling.LANCZOS))
-    im.alpha_composite(layer,(origin_x,origin_y))
 
-def chip(im,value,x,y,width):
-    ImageDraw.Draw(im).rounded_rectangle((x,y,x+width,y+48),24,fill=(31,66,51));text(im,value,(x+width/2,y+8),22,MINT,True,True)
-def common():
-    im=BG.copy();im.alpha_composite(icon(42),(72,62));text(im,'VOICE MAIL',(130,67),22,WHITE,True)
-    text(im,'ENGINEERING DEMO',(780,72),18,MUTED)
-    text(im,'Development preview · Synthetic messages',(72,1285),20,MUTED)
-    return im
-def scene(index,t):
-    im=common();entry=ease(t/.55);shift=(1-entry)*20
-    if index==0:
-        im.alpha_composite(icon(116),(76,236))
-        text(im,'Voice\nMail',(72,402+shift),108,WHITE,True)
-        text(im,'Visual voicemail\nfor Android.',(78,705+shift),34,MUTED)
-        chip(im,'Mint Mobile preview',78,853,280)
-        panel(im,CLIPS['inbox'].get(0),(545,210+shift),455)
-    elif index==1:
-        panel(im,CLIPS['inbox'].get(t),(72,177+shift),476)
-        text(im,'Your inbox.\nYour dialer.',(608,370+shift),53,WHITE,True)
-        text(im,'Use your existing\nMint mailbox.',(610,553+shift),29,MUTED)
-        chip(im,'No forwarding setup',607,692,313)
-        text(im,'Swipe between\nAll, Unread, and Saved.',(610,818),27,MUTED)
-    elif index==2:
-        text(im,'Find the message.',(72,154+shift),66,WHITE,True)
-        text(im,'Search contacts and saved transcript text.',(74,250+shift),29,MUTED)
-        focus=ease((t-1.6)/.65)
-        width=828-108*focus;top=145+245*focus;bottom=1325+440*focus
-        panel(im,CLIPS['search'].get(t),((WIDTH-width)/2,342-22*focus+shift),width,(0,top,1080,bottom),24)
-    elif index==3:
-        text(im,'Tap a phrase. Hear it.',(72,154+shift),64,WHITE,True)
-        text(im,'Play from the text, or find a word inside it.',(74,250+shift),29,MUTED)
-        top=350+460*ease((t-3.0)/.8)
-        panel(im,CLIPS['playback'].get(t+1),(126,340+shift),828,(0,top,1080,top+1180),24)
-        text(im,'Phrase timing is approximate.',(540,1250),19,MUTED,False,True)
-    elif index==4:
-        text(im,'From audio to text.',(72,151+shift),65,WHITE,True)
-        text(im,'Whisper runs on the phone.',(74,248+shift),30,MUTED)
-        panel(im,CLIPS['quality'].get(t),(650,365),354,(0,0,1080,2340),24)
-        labels=[('Carrier mailbox','Mint Mobile'),('Private app storage','Audio + encrypted metadata'),('On-device Whisper','Tiny · Base · Large v3'),('Saved transcript','Searchable original / English text')]
-        draw=ImageDraw.Draw(im)
-        draw.rounded_rectangle((58,506,595,1150),26,outline=(54,82,68),width=1)
-        text(im,'ON YOUR PHONE',(88,519),18,MINT,True)
-        for i,(title,detail) in enumerate(labels):
-            y=357+i*193;active=ease((t-i*.55)/.55)
-            draw.rounded_rectangle((82,y,568,y+122),20,fill=(24+int(active*6),35+int(active*9),30+int(active*6)))
-            text(im,title,(105,y+17),29,WHITE,True);text(im,detail,(105,y+66),22,MUTED)
-            if i<3:
-                draw.line((325,y+128,325,y+187),fill=(58,89,73),width=3)
-                v=((t*.7-i*.24)%1);dot=y+132+v*47
-                strength=math.sin(math.pi*v)**2
-                dot_color=tuple(round(a+(b-a)*strength) for a,b in zip((22,37,29),MINT))
-                draw.ellipse((321,dot-4,329,dot+4),fill=dot_color)
-        text(im,'Choose a model before downloading.',(540,1215),24,MUTED,False,True)
-    elif index==5:
-        panel(im,CLIPS['selection'].get(t),(72,177+shift),476)
-        text(im,'Handle several\nmessages at once.',(608,350+shift),43,WHITE,True)
-        text(im,'Transcribe. Mark read.\nDelete from the carrier\nwith a retained copy.',(610,520+shift),27,MUTED)
-        chip(im,'Native multi-select',610,726,292)
-    elif index==6:
-        text(im,'Fits your phone.',(72,154+shift),68,WHITE,True)
-        text(im,'Light, Dark, and true-black AMOLED.',(74,250+shift),30,MUTED)
-        for i,(source,label) in enumerate(zip(THEMES,['Light','Dark','AMOLED'])):
-            x=63+i*326;delay=ease((t-i*.12)/.7)
-            panel(im,source,(x,425+(1-delay)*45),302,(0,0,1080,2002.5),24)
-            text(im,label,(x+151,1040),28,WHITE,False,True)
-        text(im,'Readable text. Comfortable touch targets.',(540,1173),27,MUTED,False,True)
+import argparse
+from functools import lru_cache
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+import subprocess
+
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve().parent
+WORK, EXPORTS = HERE / 'work', HERE / 'exports'
+WIDTH, HEIGHT, FPS, DURATION = 1080, 1350, 60, 32
+# 135 BPM, four beats per bar. Holds give each native interaction time to read.
+BAR = 16 / 9
+CUTS = tuple(b * BAR for b in (0, 2, 5, 7, 10, 12, 16, 18))
+BG = (16, 17, 20)
+WHITE, MINT, MUTED = (242, 245, 247), (152, 226, 195), (165, 173, 182)
+FFMPEG = shutil.which('ffmpeg')
+MUSIC = WORK / 'music/stylz.mp3'
+MUSIC_SHA256 = 'a0307e929eb60ed10488eacfdf8b3fddc893cf9b8680f5a55b65fb51b7075fdc'
+ICON = Image.open(ROOT / 'docs/branding/app-icon.png').convert('RGBA')
+
+
+@lru_cache(None)
+def font(size, bold=False):
+    override = os.environ.get('PROMO_FONT_BOLD' if bold else 'PROMO_FONT_REGULAR')
+    for file in (override,
+                 'C:/Windows/Fonts/seguisb.ttf' if bold else 'C:/Windows/Fonts/segoeui.ttf',
+                 '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else
+                 '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'):
+        if file and Path(file).is_file():
+            return ImageFont.truetype(file, size)
+    raise RuntimeError('Set PROMO_FONT_REGULAR and PROMO_FONT_BOLD to installed fonts')
+
+
+@lru_cache(None)
+def lettering(value, size, color, bold):
+    face = font(size * 2, bold)
+    bounds = ImageDraw.Draw(Image.new('L', (1, 1))).multiline_textbbox(
+        (0, 0), value, font=face, spacing=round(size * .2))
+    width, height = bounds[2] - bounds[0] + 16, bounds[3] - bounds[1] + 16
+    layer = Image.new('RGBA', (width, height))
+    ImageDraw.Draw(layer).multiline_text((8 - bounds[0], 8 - bounds[1]), value,
+                                        font=face, spacing=round(size * .2), fill=color)
+    return layer.resize((math.ceil(width / 2), math.ceil(height / 2)), Image.Resampling.LANCZOS)
+
+
+def composite(im, layer, x, y, opacity=1):
+    """Preserve fractional placement so slow motion does not snap to whole pixels."""
+    left, top = math.floor(x), math.floor(y)
+    dx, dy = x - left, y - top
+    if dx or dy:
+        layer = layer.transform((layer.width + 1, layer.height + 1), Image.Transform.AFFINE,
+                                (1, 0, -dx, 0, 1, -dy), Image.Resampling.BICUBIC)
+    if opacity < 1:
+        layer = layer.copy()
+        layer.putalpha(layer.getchannel('A').point(lambda a: round(a * max(0, opacity))))
+    im.alpha_composite(layer, (left, top))
+
+
+def text(im, value, x, y, size, color=WHITE, bold=False, opacity=1, center=False):
+    layer = lettering(value, size, color, bold)
+    if center:
+        x -= layer.width / 2
+    if x < 64 or x + layer.width > WIDTH - 64:
+        raise ValueError('Text exceeds safe area: ' + value)
+    composite(im, layer, x, y, opacity)
+
+
+def ease(t):
+    t = min(1, max(0, t))
+    return 1 - (1 - t) ** 3
+
+
+def smooth(t):
+    t = min(1, max(0, t))
+    return t * t * (3 - 2 * t)
+
+
+@lru_cache(None)
+def icon(size):
+    return ICON.resize((size, size), Image.Resampling.LANCZOS)
+
+
+class Clip:
+    def __init__(self, name):
+        self.path = WORK / (name + '-stream.mp4')
+        self.process, self.index, self.last = None, -1, None
+        metadata = json.loads(subprocess.check_output([
+            'ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries',
+            'stream=width,height', '-of', 'json', str(self.path)]))['streams'][0]
+        self.size = metadata['width'], metadata['height']
+
+    def close(self):
+        if self.process:
+            self.process.stdout.close()
+            self.process.terminate()
+            self.process.wait()
+            self.process = None
+
+    def get(self, seconds):
+        target = max(0, int(seconds * FPS + 1e-6))
+        if target < self.index:
+            self.close()
+            self.index, self.last = -1, None
+        if self.process is None:
+            self.process = subprocess.Popen([
+                FFMPEG, '-v', 'error', '-i', str(self.path), '-an', '-vf', 'fps=60',
+                '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        while self.index < target:
+            data = self.process.stdout.read(self.size[0] * self.size[1] * 3)
+            if len(data) != self.size[0] * self.size[1] * 3:
+                break
+            self.last = Image.frombytes('RGB', self.size, data)
+            self.index += 1
+        if self.last is None:
+            raise RuntimeError('Missing native frames: ' + self.path.name)
+        return self.last
+
+
+CLIPS = None
+THEMES = None
+
+
+def prepare():
+    global CLIPS, THEMES
+    CLIPS = {name: Clip(name) for name in ['inbox', 'playback', 'quality']}
+    THEMES = [Image.open(WORK / f'theme-{i}.png').convert('RGB') for i in (1, 2, 3)]
+
+
+def surface(im, source, box, x, y, width, radius=0, opacity=1):
+    """Place actual UI content only. No device shell, outline, bezel, or screen mask."""
+    ratio = source.width / 720
+    left, top, right, bottom = (v * ratio for v in box)
+    scale = (right - left) / width
+    height = (bottom - top) / scale
+    layer = source.convert('RGBA').transform(
+        (math.ceil(width), math.ceil(height)), Image.Transform.AFFINE,
+        (scale, 0, left, 0, scale, top), Image.Resampling.BICUBIC)
+    if radius:
+        # Match the app card's own corners, never a phone-shaped outer container.
+        alpha = Image.new('L', (layer.width * 2, layer.height * 2))
+        ImageDraw.Draw(alpha).rounded_rectangle((0, 0, alpha.width, alpha.height),
+                                                radius=radius / scale * 2, fill=255)
+        layer.putalpha(alpha.resize(layer.size, Image.Resampling.LANCZOS))
+    composite(im, layer, x, y, opacity)
+
+
+def brand(im, opacity=1, color=WHITE):
+    composite(im, icon(38), 88, 66, opacity)
+    text(im, 'VOICE MAIL', 139, 76, 19, color, True, opacity)
+
+
+def header(im, title, subtitle, t, size=64, color=WHITE):
+    entry = ease(t / .42)
+    text(im, title, 88, 176 + 14 * (1 - entry), size, color, bold=True, opacity=entry)
+    if subtitle:
+        text(im, subtitle, 90, 275 + 10 * (1 - entry), 28, MUTED, opacity=entry)
+
+
+def scene(index, t):
+    theme_text, theme_muted, theme_accent = WHITE, MUTED, MINT
+    canvas = BG
+    if index == 5:
+        interval = (CUTS[6] - CUTS[5]) / 3
+        current = min(2, int(t / interval))
+        alpha = smooth((t - current * interval) / .3) if current else 1
+        palettes = [((243, 244, 247), (23, 29, 35), (83, 96, 108), (18, 106, 83)),
+                    (BG, WHITE, MUTED, MINT), ((0, 0, 0), WHITE, MUTED, MINT)]
+        previous = palettes[max(0, current - 1)]
+        colors = [tuple(round(a + (b - a) * alpha) for a, b in zip(old, new))
+                  for old, new in zip(previous, palettes[current])]
+        canvas, theme_text, theme_muted, theme_accent = colors
+    im = Image.new('RGBA', (WIDTH, HEIGHT), canvas)
+    if index != 6:
+        brand(im, color=theme_text)
+    if index == 0:
+        entry = ease(t / .55)
+        text(im, 'Your voicemail.\nMade clearer.', 86, 262 + (1 - entry) * 22,
+             96, bold=True, opacity=entry)
+        text(im, 'Read, find, and play your messages.', 90, 532, 30, MUTED,
+             opacity=ease((t - .22) / .5))
+        reveal = ease((t - .25) / .7)
+        surface(im, CLIPS['inbox'].get(.4), (38, 600, 682, 865),
+                90, 741 + (1 - reveal) * 36, 900, 44, reveal)
+        text(im, 'ANDROID PREVIEW', 90, 1202, 19, MUTED)
+        text(im, 'Sample messages', 774, 1202, 18, MUTED)
+    elif index == 1:
+        header(im, 'Go straight to the moment.', 'Tap a phrase to play from there.', t, 62)
+        source = CLIPS['playback'].get(.25 + t)
+        # Two native app cards, with no full-screen or device-shaped container.
+        surface(im, source, (38, 248, 682, 529), 92, 356, 896, 44)
+        surface(im, source, (38, 560, 682, 900), 92, 788, 896, 44)
+        if t > 3.7:
+            text(im, 'Phrase timing is approximate.', 540, 1286, 18, MUTED, center=True)
+    elif index == 2:
+        header(im, 'Find the detail.', 'Search inside your saved transcripts.', t, 72)
+        source = CLIPS['playback'].get(6.3 + t)
+        travel = smooth(t / .42)
+        # The same transcript rises into focus; the frame never resembles a handset.
+        surface(im, source, (38, 560, 682, 1105), 92,
+                788 - 407 * travel, 896, 44)
+    elif index == 3:
+        entry = ease(t / .42)
+        text(im, 'Your mailbox.\nYour chosen dialer.', 88, 174 + (1 - entry) * 14,
+             66, bold=True, opacity=entry)
+        text(im, 'Keep your existing Mint voicemail.', 90, 354, 29, MUTED)
+        source = CLIPS['inbox'].get(.9 + t)
+        # Tabs + one complete message prove navigation without a tiny whole-phone shot.
+        surface(im, source, (24, 370, 696, 880), 92, 476, 896)
+        text(im, 'No forwarding setup.', 540, 1225, 27, MINT, center=True)
+    elif index == 4:
+        header(im, 'Transcribe on your phone.', 'Whisper runs locally.', t, 62)
+        source = CLIPS['quality'].get(.35 + t)
+        surface(im, source, (38, 495, 682, 925), 92, 432, 896, 44)
+        text(im, 'Choose a quality. Download its model.', 540, 1129, 27, MUTED, center=True)
+    elif index == 5:
+        header(im, 'Make it yours.', '', t, 78, color=theme_text)
+        interval = (CUTS[6] - CUTS[5]) / 3
+        current = min(2, int(t / interval))
+        alpha = smooth((t - current * interval) / .3) if current else 1
+        player = (38, 248, 682, 529)
+        transcript = (38, 560, 682, 900)
+        for box, y in [(player, 340), (transcript, 772)]:
+            if current:
+                surface(im, THEMES[current - 1], box, 92, y, 896, 44)
+            surface(im, THEMES[current], box, 92, y, 896, 44, alpha)
+        for i, name in enumerate(['Light', 'Dark', 'AMOLED']):
+            text(im, name, [257, 540, 823][i], 1271, 26,
+                 theme_accent if i == current else theme_muted, i == current, center=True)
     else:
-        im.alpha_composite(icon(148),(466,304))
-        text(im,'Voice Mail',(540,526+shift),98,WHITE,True,True)
-        text(im,'Built for Android.\nTested on Mint Mobile.',(540,689+shift),36,MUTED,False,True)
-        chip(im,'Version 0.34 preview',378,905,324)
-        text(im,'Music: Origami by Scott Buckley',(540,1048),23,MINT,False,True)
-        text(im,'CC BY 4.0 - scottbuckley.com.au',(540,1083),20,MUTED,False,True)
-        text(im,'A work in progress, ready for feedback.',(540,1188),27,WHITE,False,True)
+        entry = ease(t / .6)
+        composite(im, icon(136), 472, 329 + (1 - entry) * 18, entry)
+        text(im, 'Voice Mail', 540, 534, 104, bold=True, center=True, opacity=entry)
+        text(im, 'Built for Android.', 540, 707, 34, MUTED, center=True)
+        text(im, 'Tested on Mint Mobile.', 540, 758, 34, MUTED, center=True)
+        text(im, 'DEVELOPMENT PREVIEW', 540, 1031, 19, MINT, center=True)
+        text(im, 'Sample messages shown', 540, 1225, 18, MUTED, center=True)
     return im
+
 
 def frame_at(seconds):
-    index=next((i for i,end in enumerate(CUTS[1:]) if seconds<end),len(CUTS)-2)
-    elapsed=seconds-CUTS[index];im=scene(index,elapsed)
-    # Brief cross-dissolves join actual native footage and the engineering interlude.
-    if index and elapsed<.22:
-        previous=scene(index-1,CUTS[index]-CUTS[index-1]-.01)
-        im=Image.blend(previous,im,ease(elapsed/.22))
-    return im.convert('RGB')
-
-MUSIC=WORK/'music/origami.mp3'
-MUSIC_SHA256='8b8edd81ee2110a62169b48e3233e1556c0f9de10003b21f41a28e5b4bcbfe14'
-MUSIC_CREDIT="Origami by Scott Buckley - CC BY 4.0. https://www.scottbuckley.com.au/library/origami/ License: https://creativecommons.org/licenses/by/4.0/ Excerpt trimmed, faded and level-adjusted."
-
-def check_music():
-    if not MUSIC.is_file() or hashlib.sha256(MUSIC.read_bytes()).hexdigest()!=MUSIC_SHA256:
-        raise RuntimeError('Run python media/promo/fetch_music.py to fetch the verified licensed track.')
+    index = next((i for i, end in enumerate(CUTS[1:]) if seconds < end), 6)
+    return scene(index, seconds - CUTS[index]).convert('RGB')
 
 
-def stamp(t):
-    ms=round(t*1000);return f"00:{ms//60000:02d}:{ms//1000%60:02d},{ms%1000:03d}"
+def stamp(seconds):
+    ms = round(seconds * 1000)
+    return f'00:{ms // 60000:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}'
+
+
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--preview',action='store_true');args=parser.parse_args()
-    EXPORTS.mkdir(exist_ok=True);WORK.mkdir(exist_ok=True)
-    captions=[('Voice Mail. Visual voicemail for Android.','Tested on Mint Mobile.'),('Use your existing mailbox and your chosen dialer.','Swipe between All, Unread, and Saved.'),('Search contacts and saved transcript text.',''),('Tap a phrase to play its source audio.','Search inside the transcript. Timing is approximate.'),('Audio stays in private app storage. Metadata is encrypted.','Whisper transcribes on the phone: Tiny, Base, or Large v3.'),('Select several messages for transcription or read status.','Carrier deletion retains a verified Saved copy.'),('Light, Dark, and true-black AMOLED.',''),('Voice Mail 0.34. Android and Mint Mobile preview.','Music: Origami by Scott Buckley (CC BY 4.0). Synthetic messages.')]
-    (EXPORTS/'voice-mail-product-demo.srt').write_text('\n'.join(f'{i+1}\n{stamp(CUTS[i])} --> {stamp(CUTS[i+1])}\n'+a+('\n'+b if b else '')+'\n' for i,(a,b) in enumerate(captions)),encoding='utf-8')
-    if args.preview:
-        for i,start in enumerate(CUTS[:-1]):frame_at(start+1.2).save(WORK/f'product-scene-{i+1}.png')
-        frame_at(1.4).save(EXPORTS/'voice-mail-product-demo-cover.png')
-        for c in CLIPS.values():c.close()
-        print('Product storyboard ready');return
-    check_music()
-    target=EXPORTS/'voice-mail-product-demo.mp4'
-    command=[FFMPEG,'-y','-hide_banner','-loglevel','warning','-f','rawvideo','-pixel_format','rgb24','-video_size',f'{WIDTH}x{HEIGHT}','-framerate',str(FPS),'-i','pipe:0','-i',str(MUSIC),'-map','0:v:0','-map','1:a:0','-map_metadata','-1','-c:v','libx264','-preset','medium','-crf','19','-maxrate','12M','-bufsize','24M','-pix_fmt','yuv420p','-r',str(FPS),'-vf','scale=in_range=full:out_range=tv:out_color_matrix=bt709,setsar=1','-color_primaries','bt709','-color_trc','bt709','-colorspace','bt709','-color_range','tv','-profile:v','high','-level:v','4.2','-c:a','aac','-b:a','160k','-ar','48000','-af','atrim=0:44,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.45,afade=t=out:st=41.8:d=2.2,loudnorm=I=-18:TP=-2:LRA=7','-movflags','+faststart','-shortest','-metadata','title=Voice Mail - native engineering demo','-metadata','comment='+MUSIC_CREDIT,str(target)]
-    with (WORK/'product-ffmpeg.log').open('w') as log:
-        p=subprocess.Popen(command,stdin=subprocess.PIPE,stderr=log)
-        try:
-            for n in range(DURATION*FPS):
-                frame=frame_at(n/FPS)
-                if n==round(1.4*FPS):frame.save(EXPORTS/'voice-mail-product-demo-cover.png')
-                p.stdin.write(frame.tobytes())
-                if n%(FPS*4)==0:print(f'Rendered {n/FPS:.0f}/{DURATION}s',flush=True)
-            p.stdin.close()
-            if p.wait():raise RuntimeError('Encoding failed; see work/product-ffmpeg.log')
-        except BaseException:
-            p.kill();p.wait();raise
-        finally:
-            for c in CLIPS.values():c.close()
-    print(target,flush=True)
-if __name__=='__main__':main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--preview', action='store_true')
+    args = parser.parse_args()
+    if not FFMPEG:
+        raise RuntimeError('FFmpeg is required')
+    prepare()
+    EXPORTS.mkdir(exist_ok=True)
+    captions = [
+        'Your voicemail. Made clearer.',
+        'Tap a phrase to play from there. Phrase timing is approximate.',
+        'Search inside your saved transcripts.',
+        'Keep your existing Mint voicemail and chosen dialer. No forwarding setup.',
+        'Whisper transcribes on your phone. Models download separately.',
+        'Light, Dark, and true-black AMOLED.',
+        'Voice Mail. Android preview. Sample messages shown.',
+    ]
+    (EXPORTS / 'voice-mail-product-demo.srt').write_text('\n'.join(
+        f'{i + 1}\n{stamp(CUTS[i])} --> {stamp(CUTS[i + 1])}\n{copy}\n'
+        for i, copy in enumerate(captions)), encoding='utf-8')
+    try:
+        if args.preview:
+            for i, start in enumerate(CUTS[:-1]):
+                frame_at(start + min(1.2, (CUTS[i + 1] - start) / 2)).save(
+                    WORK / f'launch-scene-{i + 1}.png')
+            frame_at(1.5).save(EXPORTS / 'voice-mail-product-demo-cover.png')
+            print('Launch storyboard ready')
+            return
+        if not MUSIC.is_file() or hashlib.sha256(MUSIC.read_bytes()).hexdigest() != MUSIC_SHA256:
+            raise RuntimeError('Run media/promo/fetch_music.py for the verified soundtrack')
+        target = EXPORTS / 'voice-mail-product-demo.mp4'
+        command = [
+            FFMPEG, '-y', '-hide_banner', '-loglevel', 'warning',
+            '-f', 'rawvideo', '-pixel_format', 'rgb24', '-video_size', f'{WIDTH}x{HEIGHT}',
+            '-framerate', str(FPS), '-i', 'pipe:0', '-i', str(MUSIC),
+            '-map', '0:v:0', '-map', '1:a:0', '-map_metadata', '-1',
+            '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+            '-maxrate', '12M', '-bufsize', '24M', '-pix_fmt', 'yuv420p', '-r', str(FPS),
+            '-vf', 'scale=in_range=full:out_range=tv:out_color_matrix=bt709,setsar=1',
+            '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
+            '-color_range', 'tv', '-profile:v', 'high', '-level:v', '4.2',
+            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+            '-af', 'atrim=0:32,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.18,'
+                   'afade=t=out:st=30.65:d=1.35,loudnorm=I=-18:TP=-2:LRA=7',
+            '-movflags', '+faststart', '-shortest',
+            '-metadata', 'title=Voice Mail - product launch preview',
+            '-metadata', 'comment=Synthetic demo messages. Android development preview.', str(target),
+        ]
+        with (WORK / 'launch-ffmpeg.log').open('w', encoding='utf-8') as log:
+            process = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=log)
+            try:
+                for n in range(FPS * DURATION):
+                    frame = frame_at(n / FPS)
+                    if n == 90:
+                        frame.save(EXPORTS / 'voice-mail-product-demo-cover.png')
+                    process.stdin.write(frame.tobytes())
+                    if n % (FPS * 4) == 0:
+                        print(f'Rendered {n / FPS:.0f}/{DURATION}s', flush=True)
+                process.stdin.close()
+                if process.wait():
+                    raise RuntimeError('Encoding failed; see work/launch-ffmpeg.log')
+            except BaseException:
+                process.kill()
+                process.wait()
+                raise
+        print(target, flush=True)
+    finally:
+        for clip in CLIPS.values():
+            clip.close()
+
+
+if __name__ == '__main__':
+    main()

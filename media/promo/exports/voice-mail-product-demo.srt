@@ -1,37 +1,27 @@
 1
-00:00:00,000 --> 00:00:03,000
-Voice Mail. Visual voicemail for Android.
-Tested on Mint Mobile.
+00:00:00,000 --> 00:00:03,556
+Your voicemail. Made clearer.
 
 2
-00:00:03,000 --> 00:00:09,000
-Use your existing mailbox and your chosen dialer.
-Swipe between All, Unread, and Saved.
+00:00:03,556 --> 00:00:08,889
+Tap a phrase to play from there. Phrase timing is approximate.
 
 3
-00:00:09,000 --> 00:00:15,000
-Search contacts and saved transcript text.
+00:00:08,889 --> 00:00:12,444
+Search inside your saved transcripts.
 
 4
-00:00:15,000 --> 00:00:23,000
-Tap a phrase to play its source audio.
-Search inside the transcript. Timing is approximate.
+00:00:12,444 --> 00:00:17,778
+Keep your existing Mint voicemail and chosen dialer. No forwarding setup.
 
 5
-00:00:23,000 --> 00:00:29,000
-Audio stays in private app storage. Metadata is encrypted.
-Whisper transcribes on the phone: Tiny, Base, or Large v3.
+00:00:17,778 --> 00:00:21,333
+Whisper transcribes on your phone. Models download separately.
 
 6
-00:00:29,000 --> 00:00:34,000
-Select several messages for transcription or read status.
-Carrier deletion retains a verified Saved copy.
-
-7
-00:00:34,000 --> 00:00:40,000
+00:00:21,333 --> 00:00:28,444
 Light, Dark, and true-black AMOLED.
 
-8
-00:00:40,000 --> 00:00:44,000
-Voice Mail 0.34. Android and Mint Mobile preview.
-Music: Origami by Scott Buckley (CC BY 4.0). Synthetic messages.
+7
+00:00:28,444 --> 00:00:32,000
+Voice Mail. Android preview. Sample messages shown.

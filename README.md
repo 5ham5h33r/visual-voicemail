@@ -108,7 +108,7 @@ The [version 0.34 onboarding/motion review](docs/ux-review-0.34.md) covers swipe
 - [Compact layout and back navigation](docs/compact-interface.md)
 - [First-use tutorial and replayable help](docs/tutorial.md)
 - [App icon and branding assets](docs/branding/README.md)
-- [Native product demo video and LinkedIn post assets](media/promo/README.md)
+- [Product launch preview and LinkedIn post assets](media/promo/README.md)
 - [New voicemail notifications and background-check limits](docs/notifications.md)
 - [On-device transcription, search, and validation](docs/transcription.md)
 - [Multilingual transcripts and English translation](docs/translation.md)

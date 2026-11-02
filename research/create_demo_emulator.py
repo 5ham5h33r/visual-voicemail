@@ -22,6 +22,8 @@ if config.exists():
     if values.get("AvdId") != NAME or values.get("hw.device.name") != "medium_phone":
         raise SystemExit("Existing AVD is not this demo profile; refusing to modify it.")
     print("The rectangular demo AVD already exists; its data and configuration were preserved.")
+elif avd.exists() or (avd_root / (NAME + ".ini")).exists():
+    raise SystemExit("Existing incomplete AVD profile; refusing to overwrite it.")
 else:
     values = {
         "AvdId": NAME,

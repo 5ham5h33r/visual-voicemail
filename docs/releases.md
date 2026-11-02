@@ -1,6 +1,6 @@
 # Signed APK releases
 
-[Download version 0.34](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.34) from GitHub Releases. This preview adds swipe navigation to the optional introduction, a 12 dp gap between its welcome actions, and display-frame playback progress. The engineering video uses direct emulator capture at 60 fps and a credited CC BY soundtrack. Version 0.34 validation is emulator-only. The repository is currently private, so access to its release assets requires repository access. Publishing an APK does not change repository visibility or establish Play Store/F-Droid availability.
+[Download version 0.34](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.34) from GitHub Releases. This preview adds swipe navigation to the optional introduction, a 12 dp gap between its welcome actions, and display-frame playback progress. The accompanying launch preview uses a rectangular emulator, focused UI crops, and a 32-second edit at 60 fps. Version 0.34 validation is emulator-only. The repository is currently private, so access to its release assets requires repository access. Publishing an APK does not change repository visibility or establish Play Store/F-Droid availability.
 
 The universal APK supports Android 8.0+ (API 26), arm64-v8a phones, and x86_64 emulators. It is signed and non-debuggable. Speech models download separately after explicit selection. `SHA256SUMS` verifies the downloaded APK bytes; `SIGNING-CERTIFICATE.txt` records public signing certificate information. Neither contains private keys.
 
