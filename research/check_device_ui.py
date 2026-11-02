@@ -16,7 +16,11 @@ parser.add_argument('--download-stage', choices=['pause','resume'], help='Explic
 parser.add_argument('--compile-only', action='store_true')
 parser.add_argument('--release-stage', choices=['before', 'after'], help='Explicit emulator-only signing-upgrade witness stage')
 parser.add_argument('--demo-scene', choices=['all', 'playback'], default='all', help='Optional isolated native demo recapture')
+parser.add_argument('--demo-capture-token', help='Host capture correlation token (32 lowercase hex characters)')
 args = parser.parse_args()
+if args.demo_capture_token and (args.test != 'product-demo' or len(args.demo_capture_token) != 32
+                               or any(c not in '0123456789abcdef' for c in args.demo_capture_token)):
+    parser.error('--demo-capture-token is only for an explicit product-demo host capture.')
 if args.test == 'release-upgrade' and not args.release_stage and not args.compile_only:
     parser.error('--test release-upgrade requires --release-stage before/after.')
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -91,6 +95,8 @@ try:
         extras = ['-e', 'release_stage', args.release_stage]
     if args.test == 'product-demo':
         extras = ['-e', 'demo_scene', args.demo_scene]
+        if args.demo_capture_token:
+            extras += ['-e', 'demo_capture_token', args.demo_capture_token]
     result = run(*device, 'shell', 'am', 'instrument', '-w', *extras, package + '/.' + name, capture=True).stdout
     print(result)
     if 'passed=true' not in result or 'INSTRUMENTATION_CODE: -1' not in result:

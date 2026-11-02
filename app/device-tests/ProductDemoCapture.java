@@ -24,7 +24,18 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
     final Map<String, String> names = new HashMap<>();
     boolean prepared;
     boolean playbackOnly;
+    String captureToken;
     int clips;
+    private volatile boolean drawing;
+    private final Choreographer.FrameCallback drawFrame =
+            new Choreographer.FrameCallback() {
+                @Override
+                public void doFrame(long time) {
+                    if (!drawing || screen == null) return;
+                    screen.getWindow().getDecorView().invalidate();
+                    Choreographer.getInstance().postFrameCallback(this);
+                }
+            };
 
     Object call(Object target, String name, Class<?>[] types, Object... args) throws Exception {
         Class<?> type = target instanceof Class ? (Class<?>) target : target.getClass();
@@ -41,7 +52,7 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
 
     void ui(Runnable action) {
         runOnMainSync(action);
-        waitForIdleSync();
+        if (!drawing) waitForIdleSync();
     }
 
     void invoke(String name) throws Exception {
@@ -215,19 +226,45 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
     }
 
     void record(String name, int seconds, Scene action) throws Exception {
-        ParcelFileDescriptor fd =
-                getUiAutomation()
-                        .executeShellCommand(
-                                "screenrecord --size 1080x2340 --bit-rate 10000000 --time-limit "
-                                        + seconds
-                                        + " /data/local/tmp/voice-mail-demo-"
-                                        + name
-                                        + ".mp4");
-        try (InputStream stream = new ParcelFileDescriptor.AutoCloseInputStream(fd)) {
-            Thread.sleep(800);
-            action.run();
-            byte[] bytes = new byte[1024];
-            while (stream.read(bytes) != -1) {}
+        ui(
+                () -> {
+                    drawing = true;
+                    Choreographer.getInstance().postFrameCallback(drawFrame);
+                });
+        try {
+            if (!captureToken.isEmpty()) {
+                long start = SystemClock.uptimeMillis();
+                android.util.Log.i(
+                        "VoiceMailDemo", captureToken + " START " + name + " " + seconds);
+                Thread.sleep(800);
+                action.run();
+                long remaining = seconds * 1000L - (SystemClock.uptimeMillis() - start);
+                if (remaining > 0) Thread.sleep(remaining);
+            } else {
+                ParcelFileDescriptor fd =
+                        getUiAutomation()
+                                .executeShellCommand(
+                                        "screenrecord --size 720x1560 --bit-rate 12000000"
+                                            + " --time-limit "
+                                                + seconds
+                                                + " /data/local/tmp/voice-mail-demo-"
+                                                + name
+                                                + ".mp4");
+                try (InputStream stream = new ParcelFileDescriptor.AutoCloseInputStream(fd)) {
+                    Thread.sleep(800);
+                    action.run();
+                    byte[] bytes = new byte[1024];
+                    while (stream.read(bytes) != -1) {}
+                }
+            }
+        } finally {
+            if (!captureToken.isEmpty())
+                android.util.Log.i("VoiceMailDemo", captureToken + " END " + name);
+            ui(
+                    () -> {
+                        drawing = false;
+                        Choreographer.getInstance().removeFrameCallback(drawFrame);
+                    });
         }
         clips++;
         sendStatus(0, new Bundle());
@@ -265,6 +302,9 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
     public void onCreate(Bundle args) {
         super.onCreate(args);
         playbackOnly = "playback".equals(args.getString("demo_scene", "all"));
+        captureToken = args.getString("demo_capture_token", "");
+        if (!captureToken.isEmpty() && !captureToken.matches("[a-f0-9]{32}"))
+            throw new IllegalArgumentException("Invalid local capture token");
         start();
     }
 
