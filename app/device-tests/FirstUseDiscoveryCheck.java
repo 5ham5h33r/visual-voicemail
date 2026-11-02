@@ -83,7 +83,7 @@ public final class FirstUseDiscoveryCheck extends DeviceCheckInstrumentation {
                                 new Handler(Looper.getMainLooper())));
         check(done.await(5, TimeUnit.SECONDS) && status[0] == PixelCopy.SUCCESS);
         try (OutputStream output =
-                new FileOutputStream(new File(getTargetContext().getCacheDir(), name + ".png"))) {
+                new FileOutputStream(new File(getTargetContext().getExternalFilesDir(null), name + ".png"))) {
             image.compress(Bitmap.CompressFormat.PNG, 100, output);
         } finally {
             image.recycle();
@@ -141,7 +141,12 @@ public final class FirstUseDiscoveryCheck extends DeviceCheckInstrumentation {
             Thread.sleep(300);
             View start = find(screen.getWindow().getDecorView(), "Get Started");
             check(start != null);
-            check(find(screen.getWindow().getDecorView(), "Show me around") != null);
+            View tour = find(screen.getWindow().getDecorView(), "Show me around");
+            check(tour != null);
+            float density = c.getResources().getDisplayMetrics().density;
+            check(start.getTop() - tour.getBottom() >= Math.round(12 * density));
+            check(start.getHeight() >= 48 * density && tour.getHeight() >= 48 * density);
+            capture("welcome-action-spacing");
             ActivityMonitor main = addMonitor("org.visualvoicemail.app.MainActivity", null, false);
             ui(() -> start.performClick());
             screen = waitForMonitorWithTimeout(main, 5000);

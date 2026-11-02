@@ -17,6 +17,9 @@ public final class TutorialActivity extends MotionActivity {
     private boolean replay;
     private LinearLayout root;
     private ScrollView scroll;
+    private LinearLayout nav, footer;
+    private InboxNavigation pager;
+    private final java.util.Map<Integer, ScrollView> pages = new java.util.HashMap<>();
     private static final String SEEN = "tutorial_seen", PAGE = "tutorial_page";
     private static final String[] TITLES = {
         "Your voicemail.\nA little clearer.",
@@ -93,17 +96,77 @@ public final class TutorialActivity extends MotionActivity {
                                 ui.dp(16) + insets.getSystemWindowInsetBottom());
                     return insets;
                 });
-        LinearLayout nav = ui.row();
-        if (page > 0)
-            nav.addView(ui.icon("back", "Previous introduction screen", false, this::back));
-        TextView brand = ui.label("VOICE MAIL", 12, ui.secondary, true);
-        brand.setLetterSpacing(.12f);
-        nav.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-        Button skip = ui.button(replay ? "Close" : "Skip", false, () -> complete(false));
-        skip.setBackgroundColor(0);
-        nav.addView(skip);
+        pages.clear();
+        nav = ui.row();
         root.addView(nav);
-        scroll = new ScrollView(this);
+        pager = new InboxNavigation(this);
+        scroll = pageView(page);
+        pager.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
+        pager.bind(
+                scroll,
+                null,
+                new InboxNavigation.Listener() {
+                    public int current() {
+                        return page;
+                    }
+
+                    public int last() {
+                        return 3;
+                    }
+
+                    public boolean fillViewport() {
+                        return true;
+                    }
+
+                    public boolean available() {
+                        return !isFinishing();
+                    }
+
+                    public void navigate(int target) {
+                        TutorialActivity.this.navigate(target);
+                    }
+
+                    public View prepare(int target) {
+                        return pageView(target);
+                    }
+                });
+        root.addView(pager, new LinearLayout.LayoutParams(-1, 0, 1));
+        footer = ui.column();
+        root.addView(footer);
+        chrome();
+        setContentView(root);
+    }
+
+    private ScrollView pageView(int target) {
+        ScrollView view = pages.get(target);
+        if (view == null) {
+            view = introduction(target);
+            pages.put(target, view);
+        }
+        return view;
+    }
+
+    private void navigate(int target) {
+        if (target < 0 || target > 3 || target == page) return;
+        int direction = target > page ? 1 : -1;
+        if (root.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL) direction = -direction;
+        ScrollView next = pageView(target);
+        page = target;
+        getSharedPreferences("settings", 0).edit().putInt(PAGE, page).apply();
+        pager.change(
+                direction,
+                next,
+                () -> {
+                    pager.removeAllViews();
+                    scroll = next;
+                    pager.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
+                    pager.messages(scroll);
+                    chrome();
+                });
+    }
+
+    private ScrollView introduction(int page) {
+        ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
         LinearLayout body = ui.column();
@@ -155,7 +218,9 @@ public final class TutorialActivity extends MotionActivity {
                             false,
                             () ->
                                     result.setText(
-                                            "Delete verifies a saved recording first, then removes the carrier copy. The recording stays in Saved. This sample changes nothing."));
+                                            "Delete verifies a saved recording first, then removes"
+                                                + " the carrier copy. The recording stays in Saved."
+                                                + " This sample changes nothing."));
             actions.addView(read, new LinearLayout.LayoutParams(-1, -2));
             ui.add(actions, mark, 10);
             ui.add(sample, actions, 18);
@@ -193,7 +258,10 @@ public final class TutorialActivity extends MotionActivity {
             ui.add(body, position, 20);
             TextView note =
                     ui.label(
-                            "Standard and Enhanced use English models (104–161 MB). Large v3 adds other languages and English translation (1.78 GB). Choose in the transcript or Settings. Audio stays on this phone. Words and phrase timing can be imperfect.",
+                            "Standard and Enhanced use English models (104–161 MB). Large v3 adds"
+                                + " other languages and English translation (1.78 GB). Choose in"
+                                + " the transcript or Settings. Audio stays on this phone. Words"
+                                + " and phrase timing can be imperfect.",
                             14,
                             ui.secondary,
                             false);
@@ -251,7 +319,26 @@ public final class TutorialActivity extends MotionActivity {
             ui.add(body, note, 24);
         }
         scroll.addView(body);
-        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        return scroll;
+    }
+
+    private LinearLayout.LayoutParams actionLayout(boolean gap) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.topMargin = ui.dp(gap ? 12 : 0);
+        return params;
+    }
+
+    private void chrome() {
+        footer.removeAllViews();
+        nav.removeAllViews();
+        if (page > 0)
+            nav.addView(ui.icon("back", "Previous introduction screen", false, this::back));
+        TextView brand = ui.label("VOICE MAIL", 12, ui.secondary, true);
+        brand.setLetterSpacing(.12f);
+        nav.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        Button skip = ui.button(replay ? "Close" : "Skip", false, () -> complete(false));
+        skip.setBackgroundColor(0);
+        nav.addView(skip);
         LinearLayout progress = ui.row();
         progress.setGravity(Gravity.CENTER);
         progress.setPadding(0, ui.dp(8), 0, ui.dp(16));
@@ -266,13 +353,16 @@ public final class TutorialActivity extends MotionActivity {
         progress.setContentDescription("Introduction " + (page + 1) + " of 4");
         boolean quickStart = page == 0 && !replay;
         if (quickStart) {
-            root.addView(ui.button("Show me around", false, () -> {
-                page = 1;
-                getSharedPreferences("settings", 0).edit().putInt(PAGE, page).apply();
-                build(true);
-            }), new LinearLayout.LayoutParams(-1, -2));
-        } else root.addView(progress);
-        root.addView(
+            footer.addView(
+                    ui.button(
+                            "Show me around",
+                            false,
+                            () -> {
+                                navigate(1);
+                            }),
+                    new LinearLayout.LayoutParams(-1, -2));
+        } else footer.addView(progress);
+        footer.addView(
                 ui.button(
                         quickStart || page == 3 ? "Get Started" : "Continue",
                         true,
@@ -280,17 +370,10 @@ public final class TutorialActivity extends MotionActivity {
                             if (quickStart) complete(false);
                             else if (page == 3) complete(true);
                             else {
-                                page++;
-                                getSharedPreferences("settings", 0)
-                                        .edit()
-                                        .putInt(PAGE, page)
-                                        .apply();
-                                build(true);
+                                navigate(page + 1);
                             }
                         }),
-                new LinearLayout.LayoutParams(-1, -2));
-        setContentView(root);
-        if (animate) ui.enter(body);
+                actionLayout(quickStart));
     }
 
     private void feature(LinearLayout body, String title, String detail, String icon) {
@@ -336,17 +419,17 @@ public final class TutorialActivity extends MotionActivity {
         if (page == 3)
             getSharedPreferences("settings", 0).edit().putBoolean("alerts_prompted", true).apply();
         getSharedPreferences("settings", 0).edit().putBoolean("guide_recording", guide).apply();
-        startActivity(new Intent(this, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("guide", guide));
+        startActivity(
+                new Intent(this, MainActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        .putExtra("guide", guide));
         setResult(RESULT_OK);
         finish();
     }
 
     private void back() {
         if (page > 0) {
-            page--;
-            build(true);
+            navigate(page - 1);
         } else complete(false);
     }
 

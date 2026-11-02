@@ -66,6 +66,51 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
         Thread.sleep(260);
     }
 
+    void swipe(float from, float to, boolean cancel, boolean vertical) throws Exception {
+        View pager = (View) get(a, "pager");
+        int[] at = new int[2];
+        runOnMainSync(() -> pager.getLocationOnScreen(at));
+        float x = at[0] + pager.getWidth() * from;
+        float y = at[1] + pager.getHeight() * .46f;
+        long down = SystemClock.uptimeMillis();
+        for (int i = 0; i <= 16; i++) {
+            float fraction = i / 16f;
+            float nextX = vertical ? x : at[0] + pager.getWidth() * (from + (to - from) * fraction);
+            float nextY = vertical ? y - pager.getHeight() * .30f * fraction : y;
+            MotionEvent event =
+                    MotionEvent.obtain(
+                            down,
+                            SystemClock.uptimeMillis(),
+                            i == 0 ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_MOVE,
+                            nextX,
+                            nextY,
+                            0);
+            sendPointerSync(event);
+            event.recycle();
+            Thread.sleep(16);
+        }
+        int target = (Integer) get(a, "page") + (to < from ? 1 : -1);
+        if (!vertical
+                && target >= 0
+                && target <= 3
+                && Math.abs(to - from) > .2f
+                && !prefs.getBoolean("reduce_motion", false)) {
+            View body = (View) get(a, "scroll");
+            check(Math.abs(body.getTranslationX()) > pager.getWidth() * .1f);
+        }
+        MotionEvent end =
+                MotionEvent.obtain(
+                        down,
+                        SystemClock.uptimeMillis(),
+                        cancel ? MotionEvent.ACTION_CANCEL : MotionEvent.ACTION_UP,
+                        vertical ? x : at[0] + pager.getWidth() * to,
+                        vertical ? y - pager.getHeight() * .30f : y,
+                        0);
+        sendPointerSync(end);
+        end.recycle();
+        Thread.sleep(220);
+    }
+
     @Override
     public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -87,6 +132,21 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             Thread.sleep(300);
             check((Integer) get(a, "page") == 0);
+            prefs.edit().putBoolean("reduce_motion", false).commit();
+            swipe(.20f, .80f, false, false);
+            check((Integer) get(a, "page") == 0);
+            swipe(.80f, .20f, false, false);
+            check((Integer) get(a, "page") == 1);
+            check(prefs.getInt("tutorial_page", -1) == 1);
+            swipe(.20f, .80f, false, false);
+            check((Integer) get(a, "page") == 0);
+            swipe(.80f, .20f, true, false);
+            check((Integer) get(a, "page") == 0);
+            check(((View) get(a, "scroll")).getTranslationX() == 0);
+            swipe(.80f, .74f, false, false);
+            check((Integer) get(a, "page") == 0);
+            swipe(.60f, .60f, false, true);
+            check((Integer) get(a, "page") == 0);
             tap("Continue");
             check((Integer) get(a, "page") == 1);
             tap("Try marking as read");
@@ -95,6 +155,14 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
             check((Integer) get(a, "page") == 2);
             tap("0:12");
             check(find(a.getWindow().getDecorView(), "0:12  ") != null);
+            prefs.edit().putBoolean("reduce_motion", true).commit();
+            swipe(.80f, .20f, false, false);
+            check((Integer) get(a, "page") == 3);
+            check(((View) get(a, "scroll")).getTranslationX() == 0);
+            swipe(.80f, .20f, false, false);
+            check((Integer) get(a, "page") == 3);
+            swipe(.20f, .80f, false, false);
+            check((Integer) get(a, "page") == 2);
             tap("Continue");
             check((Integer) get(a, "page") == 3);
             check(find(a.getWindow().getDecorView(), "Recognize your callers") != null);
@@ -177,12 +245,18 @@ public class OnboardingFlowCheck extends DeviceCheckInstrumentation {
             out.putBoolean("passed", true);
         } catch (Throwable e) {
             out.putString("failure_class", e.getClass().getSimpleName());
+            if (e.getMessage() != null && e.getMessage().startsWith("check "))
+                out.putString("failure", e.getMessage());
             out.putBoolean("passed", false);
         } finally {
             SharedPreferences.Editor edit = prefs.edit();
             for (String key :
                     new String[] {
-                        "tutorial_seen", "tutorial_page", "guide_recording", "alerts_prompted"
+                        "tutorial_seen",
+                        "tutorial_page",
+                        "guide_recording",
+                        "alerts_prompted",
+                        "reduce_motion"
                     }) {
                 Object v = before.get(key);
                 if (v instanceof Boolean) edit.putBoolean(key, (Boolean) v);

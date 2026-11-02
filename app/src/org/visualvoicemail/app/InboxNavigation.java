@@ -19,6 +19,14 @@ final class InboxNavigation extends FrameLayout {
     interface Listener {
         int current();
 
+        default int last() {
+            return 2;
+        }
+
+        default boolean fillViewport() {
+            return false;
+        }
+
         boolean available();
 
         void navigate(int page);
@@ -120,7 +128,9 @@ final class InboxNavigation extends FrameLayout {
         if (measure)
             view.measure(
                     MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+                    listener.fillViewport()
+                            ? MeasureSpec.makeMeasureSpec(getHeight(), MeasureSpec.EXACTLY)
+                            : MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
         int height = measure ? view.getMeasuredHeight() : view.getHeight();
         getOverlay().add(view);
         view.layout(0, top, getWidth(), top + height);
@@ -219,7 +229,7 @@ final class InboxNavigation extends FrameLayout {
         if (getLayoutDirection() == LAYOUT_DIRECTION_RTL) delta = -delta;
         int target = listener.current() + delta;
         if (!motion()) return;
-        if (target < 0 || target > 2) {
+        if (target < 0 || target > listener.last()) {
             removePreview();
             messages.setTranslationX(dx * .16f);
             return;
@@ -255,7 +265,7 @@ final class InboxNavigation extends FrameLayout {
             tracking =
                     listener != null
                             && listener.available()
-                            && downY >= Math.max(0, childAt[1] - hostAt[1])
+                            && downY >= (filters == null ? 0 : Math.max(0, childAt[1] - hostAt[1]))
                             && downX > dp(16)
                             && downX < getWidth() - dp(16);
             if (tracking) {
@@ -301,7 +311,7 @@ final class InboxNavigation extends FrameLayout {
                     action == MotionEvent.ACTION_UP
                             && listener.available()
                             && target >= 0
-                            && target <= 2
+                            && target <= listener.last()
                             && (Math.abs(dx) > getWidth() * .20f
                                     || Math.abs(dx) > slop * 2
                                             && Math.abs(speed) > dp(650)

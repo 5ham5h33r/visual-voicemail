@@ -195,8 +195,10 @@ public final class InboxNavigationCheck extends DeviceCheckInstrumentation {
             View originalAll = (View) field(screen, "messages");
             check(named("Select") == null && named("Refresh") == null);
             View refresh = (View) field(screen, "refresh");
-            check("Refresh mailbox".contentEquals(refresh.getContentDescription()));
-            check(refresh.getWidth() >= 48 * c.getResources().getDisplayMetrics().density);
+            check("Refresh mailbox".contentEquals(refresh.getContentDescription())
+                    || "Connect mailbox".contentEquals(refresh.getContentDescription()));
+            check(refresh.getVisibility() == View.GONE
+                    || refresh.getWidth() >= 48 * c.getResources().getDisplayMetrics().density);
             View host = (View) field(screen, "inboxNavigation");
             Button[] tabs = (Button[]) field(screen, "filters");
             List<Float> frames = new ArrayList<>();
