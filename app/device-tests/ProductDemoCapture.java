@@ -461,6 +461,7 @@ public final class ProductDemoCapture extends DeviceCheckInstrumentation {
                         click((View) lines.get(1));
                         Thread.sleep(1200);
                         invoke("pause");
+                        Thread.sleep(2000);
                         click((View) field(screen, "findControl"));
                         type((EditText) field(screen, "search"), "design");
                         EditText input = (EditText) field(screen, "search");

@@ -1,71 +1,65 @@
-# Voice Mail product demo
+# Voice Mail launch preview
 
-A 44-second engineering/product demo of version 0.34. Native app footage shows inbox swipes, contact/transcript search, phrase playback, transcription quality, and multi-selection. An animated diagram explains the carrier/private-storage/Whisper path, followed by Light/Dark/AMOLED captures. Focused crops keep the app readable in a LinkedIn feed.
+A 32-second product film for LinkedIn, using the version 0.34 app. The story moves from one sample message to phrase playback, transcript search, the existing mailbox, on-device transcription, and Light/Dark/AMOLED. See the [creative brief and shot list](../../docs/product-launch-brief.md).
 
 ## Deliverables
 
-- [Product demo MP4](exports/voice-mail-product-demo.mp4): 1080x1350, 4:5, 60 fps, H.264 and stereo AAC, with fast-start metadata.
-- [Cover image](exports/voice-mail-product-demo-cover.png).
-- [Optional captions](exports/voice-mail-product-demo.srt). Main titles also appear in the picture.
-- [Editable LinkedIn post](linkedin-post.md), including the required music credit.
-- [Music source, credit, and license](MUSIC-CREDITS.md).
+- [Launch MP4](exports/voice-mail-product-demo.mp4): 1080x1350, 4:5, 60 fps, H.264/AAC, with fast-start metadata.
+- [Cover](exports/voice-mail-product-demo-cover.png).
+- [Optional captions](exports/voice-mail-product-demo.srt).
+- [Posting copy](linkedin-post.md).
+- [Internal soundtrack license record](MUSIC-LICENSE.md).
+- [File and capture verification](exports/voice-mail-product-demo-verification.json).
 
-<img src="exports/voice-mail-product-demo-cover.png" width="360" alt="Voice Mail product demo cover with the current native inbox and original app icon">
+<img src="exports/voice-mail-product-demo-cover.png" width="360" alt="Voice Mail launch cover with one sample message on a flat charcoal canvas">
 
-The video labels its messages as synthetic. Filming uses eight reserved sample numbers, fictional names, and manually scripted text on the S24-shaped API 36 emulator. The displayed transcript text illustrates the interface; it is not recognition output from the public playback fixture. Voicemail audio is muted and excluded from the edit. The soundtrack is Origami by Scott Buckley, licensed under CC BY 4.0. No personal phone data, real contacts, credentials, or proprietary app footage are used.
+The film shows real native app controls and their own card shapes. It includes no device border, physical rounded screen corners, camera cutout, or phone mockup. The new generic rectangular AVD retains the S24 Ultra's 384x832 dp app proportions. Editing crops to the relevant controls instead of shrinking full device screens. Native UI, type, and camera movement stay at 60 fps. No motion interpolation or generated intermediate text is used.
 
-The emulator has no Mint entitlement. Its demo label represents the tested carrier; real carrier compatibility comes from earlier, separate S24 Ultra checks. Version 0.34 work is emulator-only. The diagram distinguishes app-private audio from encrypted metadata. It makes no promise of instant carrier push or guaranteed transcription accuracy. The repository remains private, and the video makes no public download/availability claim.
+Eight fictional callers, reserved sample numbers, and scripted text supply the demo. The public playback fixture is muted and absent from the edit. The opening and ending label the preview/sample content. The film does not imply that scripted sample text is recognition output. All work on this edit used the emulator; the physical phone was not connected.
 
-## Motion and capture
+The emulator has no Mint entitlement. Previous phone checks establish the separately tested carrier path. The video does not promise independent carrier push, instant speech recognition, or public store availability. This repository remains private.
 
-The earlier guest-side screenrecord path captured roughly 15 frames per second, even with host GPU acceleration. Repeating those frames in a 60 fps export would retain the stutter. The replacement reads the emulator's native screenshot stream through its token-protected loopback gRPC interface and encodes on the host with NVIDIA NVENC. The active GLES renderer identifies the NVIDIA GeForce RTX 5070 Ti Laptop GPU. The stream preserves actual action timing; it uses no optical-flow interpolation or generated intermediate text.
-
-Filming uses a 720x1560 framebuffer at 300 dpi: the same 384x832 dp app viewport as 1440x3120 at 600 dpi. This reduces transfer cost while retaining the S24 Ultra layout. Pixel-specific emulated camera/corner overlays are temporarily disabled for clean filming, then restored. This is not Samsung One UI or a hardware-performance benchmark. Continuous redraw is a temporary test-harness behavior, absent from the release app.
-
-The release app separately updates playback progress on display frames. Text/status updates keep their slower timer; dragging, pending seeks, pause, and background behavior retain native control. The video renderer uses fractional camera transforms, anti-aliased panel masks, eased entrances, and short cross-dissolves. Diagram particles fade at their endpoints rather than visibly snapping to their starting positions.
-
-## Capture and rebuild
-
-Prepare an unauthenticated emulator with the [public sample inbox](../../docs/emulator-testing.md). Use the signed app on an emulator that already adopted the release signer; the temporary check APK uses the authorized instrumentation signing lineage. Never uninstall a personal installation to switch signing keys.
-
-Launch the existing AVD with host rendering and local token authentication, for example:
+## Rectangular emulator
 
 ```sh
-emulator -avd Pixel_9 -port 5554 -gpu host -grpc 8554 -grpc-use-token -skin 720x1560 -dpi-device 300 -no-window -no-snapshot-load -no-snapshot-save -no-audio
+python research/create_demo_emulator.py
+```
+
+This creates a separate generic AVD in ignored research/analysis/rectangular-avd. It never copies another emulator's user data or overwrites an existing unrelated profile. Install the API 36 Google Play x86_64 system image first. Set ANDROID_AVD_HOME to that directory and start Voicemail_Rectangular after stopping the previous emulator:
+
+```sh
+emulator -avd Voicemail_Rectangular -port 5554 -gpu host -grpc 8554 -grpc-use-token -skin 720x1560 -no-window -no-snapshot-load -no-snapshot-save -no-audio
 adb -s emulator-5554 shell wm size 720x1560
 adb -s emulator-5554 shell wm density 300
 ```
 
-Use only emulator-5554. Install grpcio==1.76.0 and grpcio-tools==1.76.0 into ignored research/tools/grpc. Copy emulator/lib/emulator_controller.proto from the installed SDK there and generate its Python/grpc bindings using grpc_tools.protoc (including grpc_tools/_proto for Google's Empty message). The protocol comes from the [Android SDK's public emulator interface](https://android.googlesource.com/platform/prebuilts/android-emulator/+/master/linux-x86_64/lib/emulator_controller.proto). Bindings, authorization tokens, and local discovery files are never committed.
+Authorize debugging on the fresh emulator. Its 720x1560/300 dpi capture has the same logical layout as the normal 1440x3120/600 dpi preview. The generic hardware profile avoids Pixel camera and rounded-corner overlays. Use only emulator-5554, verify its active GLES renderer, and install the signed app. Seed it with the [public sample inbox](../../docs/emulator-testing.md).
+
+## Capture and render
+
+Install grpcio==1.76.0 and grpcio-tools==1.76.0 into ignored research/tools/grpc. Copy emulator/lib/emulator_controller.proto from the SDK and generate Python/grpc bindings with grpc_tools.protoc, including grpc_tools/_proto. The bindings use the [public Android emulator screenshot interface](https://android.googlesource.com/platform/prebuilts/android-emulator/+/master/linux-x86_64/lib/emulator_controller.proto). No authorization token or local discovery file is committed.
 
 ```sh
 python media/promo/capture_stream.py
-# Or repeat only playback:
+# Optional isolated retake:
 python media/promo/capture_stream.py --scene playback
-```
-
-ProductDemoCapture refuses real hardware, carrier sessions, non-sample IDs, unexpected sample counts, and numbers outside the reserved fixture range. Only after these guards pass does it emit a random per-run scene marker that starts host capture. The host reads only that dedicated log tag. The helper temporarily replaces sample metadata/text, supplies fictional names in memory, and hides reserved number lines. It neither calls carrier mutation endpoints nor places a call. It restores the sample inbox/transcripts and touched preferences in finally and reports restoration errors. This helper runs only in a temporary test APK, never the app release.
-
-The host saves work/{inbox,search,playback,quality,selection}-stream.mp4 and per-scene capture timing reports. Copy demo-theme-{1,2,3}.png from the app external files directory to work/theme-{1,2,3}.png. Raw footage, detailed timing, and review frames stay ignored. Inspect them before rendering. The fallback research/check_device_ui.py --test product-demo --serial emulator-5554 retains the slower guest recorder for diagnostics; the final renderer requires the host-stream clips.
-
-With Python, Pillow, NumPy, FFmpeg, and the verified soundtrack:
-
-```sh
 python media/promo/fetch_music.py
 python media/promo/product_demo.py --preview
 python media/promo/product_demo.py
 ```
 
-Fonts come from the local system (Segoe UI with a DejaVu fallback); no font files are redistributed. Keep the composer's attribution in the video and published post. The MP3 stays ignored. The repository MIT license does not replace the soundtrack's CC BY license.
+The temporary native filming helper refuses real hardware, carrier sessions, unexpected IDs/counts, and numbers outside its reserved fixture range. A random per-run scene marker starts authenticated loopback capture only after the guards pass. The host reads only that dedicated log tag, records the native screenshot stream, and uses host NVENC encoding. No carrier mutation or call occurs. The helper restores synthetic inbox/transcripts and touched preferences in finally and reports restoration errors. It never ships in the app APK.
 
-The older render.py and voice-mail-linkedin.* exports are the historical version 0.11 screenshot preview. They remain in Git for reference and are superseded by this product demo.
+The playback take includes a two-second pause before opening search, giving the edit a clean reading hold. Copy demo-theme-{1,2,3}.png from the app external files directory to work/theme-{1,2,3}.png. Raw clips, detailed timing, music, and review frames remain ignored. Restore the normal emulator override to 1440x3120/600 dpi after filming.
 
-## Verification
+The guest-side screenrecord fallback remains available for diagnostics; it was too slow for the final film. The current renderer requires host-stream clips. System fonts come from Segoe UI or a DejaVu fallback; font files are not redistributed.
 
-The [verification report](exports/voice-mail-product-demo-verification.json) records the final file's dimensions, frame count, cadence, loudness, full-decode result, byte size, and SHA-256. It also summarizes source capture counts. Native near-60 fps capture and a constant 60 fps edit address different parts of the recording pipeline; neither establishes performance on every Android device.
+The replacement soundtrack allows social-media advertising without public attribution. The film, cover, captions, MP4 description, and post copy contain no artist credit. Keep the internal license record for traceability. The original MP3 is not a standalone repository asset, and its license is separate from the code's MIT license.
 
-The complete native capture passed its emulator/data guards and restoration path. CI compiles the native helpers and media Python sources; it does not film or judge the rendered video. Reviewed encoded frames must include both moving pages and the final transcript-search state after the keyboard is dismissed.
+## Verification and posting
 
-## Posting
+The verification report records dimensions, exact frame count, timing, full-decode result, soundtrack loudness, file SHA-256, and source cadence. Review the actual encoded movie's opening, phrase jump, final search state, moving pages, three themes, and end card. Capture throughput and constant-rate output measure different parts of the pipeline; they do not establish Android performance on every device.
 
-Upload the product demo as a native LinkedIn video with its optional cover and SRT. Review/edit the post copy and retain the music credit and links. The format fits LinkedIn's [published video requirements](https://www.linkedin.com/help/linkedin/answer/a7494039). This task creates files without posting to LinkedIn.
+The complete rectangular-emulator capture passed its sample-data guards and restoration path. CI compiles the original Python sources and native helper; it does not film or judge the result. No app behavior changed in this media revision.
+
+Upload the MP4 as a native LinkedIn video with the optional cover and SRT. Review the post copy before publication. This task creates deliverables without posting to LinkedIn. The historical 44-second engineering edit and older screenshot slideshow remain in Git history.

@@ -77,3 +77,10 @@ adb -s emulator-5554 shell dumpsys SurfaceFlinger | Select-String 'GLES:'
 ```
 
 Version 0.34 capture reported NVIDIA GeForce RTX 5070 Ti Laptop GPU as its active renderer. Guest-side screenrecord was still a bottleneck, so the [demo workflow](../media/promo/README.md) uses token-protected local screenshot streaming and host NVENC encoding. A 720x1560/300 dpi capture retains the same 384x832 dp layout as the normal 1440x3120/600 dpi preview. The normal display override and emulator-only overlays were restored after filming. No physical phone was used.
+
+
+## Rectangular launch-film device
+
+The current demo uses a separate Generic/medium_phone AVD named Voicemail_Rectangular, created by research/create_demo_emulator.py. It has no Pixel hardware overlays, camera cutout, or rounded physical display mask. Its default 1440x3120/600 dpi configuration preserves the S24 Ultra app viewport; 720x1560/300 dpi capture preserves the same proportions. The original Pixel AVD and its data remain unchanged.
+
+The fresh device contains only the signed app and eight public sample messages. Filming uses the verified RTX 5070 Ti host renderer and authenticated local screenshot streaming. The native cards retain their app styling; a device frame is not added in editing. See the [launch brief](product-launch-brief.md).

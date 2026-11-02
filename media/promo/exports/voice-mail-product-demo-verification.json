@@ -1,37 +1,55 @@
 {
   "file": "voice-mail-product-demo.mp4",
-  "bytes": 4247969,
-  "sha256": "149fa992c74e7c0130337335c0c0d4b147bb7601ee50bd908b11ffe6ea9046e2",
-  "duration_seconds": 44.0,
+  "bytes": 2241922,
+  "sha256": "9278707f953cc9fee647e838d6b14ea0a3a44455912a5fb44d233928694bb042",
+  "duration_seconds": 32.0,
   "video": {
     "codec": "h264",
     "width": 1080,
     "height": 1350,
-    "frames": 2640,
+    "frames": 1920,
     "fps": 60,
-    "constant_frame_timing": "passed"
+    "constant_frame_timing": "passed",
+    "encoded_theme_background_rgb": {
+      "light": [
+        242,
+        243,
+        246
+      ],
+      "dark": [
+        15,
+        16,
+        19
+      ],
+      "amoled": [
+        0,
+        0,
+        0
+      ]
+    }
   },
   "audio": {
     "codec": "aac",
     "sample_rate": 48000,
     "channels": 2,
-    "integrated_loudness_lufs": -17.4,
-    "true_peak_dbfs": -2.76
+    "integrated_loudness_lufs": -17.16,
+    "true_peak_dbfs": -4.49
   },
   "full_decode": "passed",
   "fast_start": true,
   "music": {
-    "title": "Origami",
-    "artist": "Scott Buckley",
-    "license": "CC BY 4.0",
-    "source": "https://www.scottbuckley.com.au/library/origami/",
-    "license_url": "https://creativecommons.org/licenses/by/4.0/",
-    "source_sha256": "8b8edd81ee2110a62169b48e3233e1556c0f9de10003b21f41a28e5b4bcbfe14",
-    "changes": "Opening 44 seconds; fades and level adjustment",
-    "credits": "End card, MP4 comment, SRT, LinkedIn post copy, MUSIC-CREDITS.md"
+    "catalog_item": 102,
+    "license": "Mixkit Stock Music Free License",
+    "source": "https://assets.mixkit.co/music/102/102.mp3",
+    "license_url": "https://mixkit.co/license/modal/musicFree/",
+    "source_sha256": "a0307e929eb60ed10488eacfdf8b3fddc893cf9b8680f5a55b65fb51b7075fdc",
+    "changes": "Opening 32 seconds; fades and level adjustment",
+    "public_attribution_required": false,
+    "public_artist_credits": false,
+    "license_record": "MUSIC-LICENSE.md"
   },
   "capture": {
-    "device": "Unauthenticated S24-shaped API 36 emulator",
+    "device": "Fresh generic rectangular API 36 emulator",
     "logical_viewport_dp": "384x832",
     "framebuffer_pixels": "720x1560 at 300 dpi",
     "active_gpu": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
@@ -39,48 +57,74 @@
     "motion_interpolation": false,
     "fixture_restoration": "passed",
     "physical_phone_used": false,
+    "device_border_in_edit": false,
+    "rounded_physical_corners": false,
+    "camera_cutout": false,
     "scenes": [
       {
         "scene": "inbox",
         "duration_seconds": 12,
-        "native_frames": 718,
-        "median_frame_interval_ms": 16.577,
-        "p95_frame_interval_ms": 18.975,
-        "p99_frame_interval_ms": 20.059
+        "native_frames": 717,
+        "median_frame_interval_ms": 16.618,
+        "p95_frame_interval_ms": 18.854,
+        "p99_frame_interval_ms": 19.961
       },
       {
         "scene": "search",
         "duration_seconds": 10,
-        "native_frames": 591,
-        "median_frame_interval_ms": 16.602,
-        "p95_frame_interval_ms": 18.946,
-        "p99_frame_interval_ms": 20.07
+        "native_frames": 589,
+        "median_frame_interval_ms": 16.549,
+        "p95_frame_interval_ms": 18.904,
+        "p99_frame_interval_ms": 19.918
       },
       {
         "scene": "playback",
         "duration_seconds": 12,
-        "native_frames": 715,
-        "median_frame_interval_ms": 16.553,
-        "p95_frame_interval_ms": 18.829,
-        "p99_frame_interval_ms": 20.0
+        "native_frames": 695,
+        "median_frame_interval_ms": 16.632,
+        "p95_frame_interval_ms": 19.932,
+        "p99_frame_interval_ms": 35.746
       },
       {
         "scene": "quality",
         "duration_seconds": 9,
-        "native_frames": 539,
-        "median_frame_interval_ms": 16.52,
-        "p95_frame_interval_ms": 18.953,
-        "p99_frame_interval_ms": 20.073
+        "native_frames": 537,
+        "median_frame_interval_ms": 16.694,
+        "p95_frame_interval_ms": 18.786,
+        "p99_frame_interval_ms": 19.983
       },
       {
         "scene": "selection",
         "duration_seconds": 10,
-        "native_frames": 598,
-        "median_frame_interval_ms": 16.57,
-        "p95_frame_interval_ms": 19.052,
-        "p99_frame_interval_ms": 20.789
+        "native_frames": 595,
+        "median_frame_interval_ms": 16.642,
+        "p95_frame_interval_ms": 18.972,
+        "p99_frame_interval_ms": 20.395
       }
-    ]
+    ],
+    "native_corner_rgb": [
+      [
+        15,
+        16,
+        19
+      ],
+      [
+        15,
+        16,
+        19
+      ],
+      [
+        15,
+        16,
+        19
+      ],
+      [
+        15,
+        16,
+        19
+      ]
+    ],
+    "rectangular_raw_frame_check": "passed"
   },
   "content": "Fictional callers, reserved sample numbers, scripted sample transcripts. Voicemail fixture audio muted and excluded."
 }

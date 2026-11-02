@@ -24,3 +24,5 @@
 - Selection changes update retained row/checkbox views in place so native checkmark transitions can finish. Keep state/actions immediate, cancel/retarget interrupted animations, and settle selection drawables/colors with Reduce motion.
 
 - Standalone body actions must have a visible contained button shape. Keep secondary actions compact with soft filled tint and 48 dp touch targets; avoid accent outlines and avoid stripping their backgrounds into ambiguous text. Flat toolbar/skip controls may retain their familiar contextual treatment. Group related transcription settings into title/value rows with chevrons, and show quality selection with radio indicators. Put detailed model explanations behind About rather than repeating paragraphs in every card.
+
+- Film on the separate Generic Voicemail_Rectangular emulator profile, with a rectangular display and no camera cutout or device frame. Retain the S24 Ultra 384x832 dp viewport, verify the RTX 5070 Ti host renderer, and target emulator-5554 explicitly. See docs/product-launch-brief.md and research/create_demo_emulator.py.
