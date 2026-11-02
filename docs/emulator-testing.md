@@ -66,3 +66,14 @@ python research/check_device_ui.py --test download-recovery --download-stage res
 These two actions transfer the public 104 MB Tiny model. They require an unconnected sample emulator, preserve retained bytes across process termination, and verify all four pinned files. Do not run them as an incidental UI test or substitute Large on a memory-constrained emulator.
 
 Version 0.31 passed 419 TalkBack/focus assertions (135 focus operations), a final 471 adaptive-layout assertions (125 control observations including the compact Update state), 42 recovery assertions including a simulated incoming call, 11 real local-inference assertions, 35 selection assertions, 33 guided-onboarding assertions, 41 first-use/discovery assertions, and 38 quality/motion assertions. The earlier matched-quality layout passed 480 assertions/128 observations; counts depend on visible content. Host checks passed 223 behavior assertions plus contrast in 24 combinations. See the [final review](ux-final-review.md) for the distinction between these checks and remaining human/carrier validation.
+
+
+## Host GPU and demo capture
+
+Use -gpu host when starting the AVD. Confirm the renderer rather than assuming GPU selection from the flag alone:
+
+```powershell
+adb -s emulator-5554 shell dumpsys SurfaceFlinger | Select-String 'GLES:'
+```
+
+Version 0.34 capture reported NVIDIA GeForce RTX 5070 Ti Laptop GPU as its active renderer. Guest-side screenrecord was still a bottleneck, so the [demo workflow](../media/promo/README.md) uses token-protected local screenshot streaming and host NVENC encoding. A 720x1560/300 dpi capture retains the same 384x832 dp layout as the normal 1440x3120/600 dpi preview. The normal display override and emulator-only overlays were restored after filming. No physical phone was used.

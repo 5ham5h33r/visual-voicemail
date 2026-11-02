@@ -52,3 +52,14 @@ Selection transitions the retained card's entire text layout. Transcript preview
 Inbox action menus use matching rounded surfaces, 15 sp labels, mint selection feedback, and at least 48 dp rows. Message/bulk dialog lists use the same type scale and colors; native checked positions are preserved when styling list adapters.
 
 Validation: 293 phone checks passed on the S24 Ultra: 34 inbox-navigation, 39 header, 30 Settings, 32 onboarding, 33 navigation, 28 quality/motion, 35 selection (including rounded-glyph pixels and preview alignment), 19 transition, and 43 bulk-action checks. Actual gestures verified direct finger tracking and a 60-physical-pixel page gap at this phone's density. All 108 host behavior checks and theme contrast checks passed. Personal carrier data and app preferences were preserved. Broader TalkBack, large-font/narrow-window and interruption coverage remains open.
+
+
+## Onboarding and playback in version 0.34
+
+The optional introduction now shares the inbox's native, finger-tracking page motion. Swipe left/right or use Continue/Back. Vertical scrolling and sample taps remain native. A cancelled or short drag returns to the current page; the first/last page never wraps or completes permission setup. Reduce motion keeps navigation immediate without translating views. Pages retain their scroll position and interactive sample state when revisited. Forward and backward navigation both persist the current page.
+
+The welcome screen separates Show me around from Get Started by 12 dp. Both keep their filled shape and at least 48 dp touch height. Get Started still opens the inbox directly; the control spotlight tour remains optional.
+
+Playback now updates the seek indicator on display frames while playing, rather than only on the 250 ms status timer. The status timer still handles text and transcription updates. Dragging and pending seeks retain control, and frame callbacks stop on pause, background, or player release.
+
+Emulator-only validation: 48 onboarding, 44 first-use/spacing, and 36 inbox-navigation checks passed on the 384 x 832 dp S24-shaped viewport. The active emulator GLES renderer identifies the NVIDIA GeForce RTX 5070 Ti Laptop GPU. Native gesture samples verified the inbox's retained page gap and direct tracking after sharing the pager with onboarding. The narrow/large-text sweep passed 480 assertions across 127 controls. A separate playback-cadence check passed 22 assertions, and the recording-flow regression passed 47. These are functional checks, not a 60 fps hardware-performance claim. No physical phone was connected for version 0.34 work.

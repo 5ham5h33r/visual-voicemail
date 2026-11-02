@@ -6,11 +6,11 @@ An investigation and prototype for a free, open-source Android visual voicemail 
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-[Download the signed v0.33 preview APK](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.33). The release includes a checksum and public signing-certificate report. Repository access is required while this project is private. See [release builds and upgrade notes](docs/releases.md).
+[Download the signed v0.34 preview APK](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.34). The release includes a checksum and public signing-certificate report. Repository access is required while this project is private. See [release builds and upgrade notes](docs/releases.md).
 
 Version 0.31 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
 
-Get Started opens the inbox directly; the interactive introduction and control tour remain optional. Model downloads support verified Pause/Resume. Cached playback, sharing, export, and transcription remain available during slow carrier work. Settings offers an optional mark-as-read-on-play policy, off by default. TalkBack focus, large-text selection controls, and export/interruption recovery have native emulator coverage; the [final UX review](docs/ux-final-review.md) records the remaining human and carrier validation limits.
+Get Started opens the inbox directly; the interactive introduction and control tour remain optional. Swipe in either direction through the introduction, or use its navigation buttons. Model downloads support verified Pause/Resume. Cached playback, sharing, export, and transcription remain available during slow carrier work. Settings offers an optional mark-as-read-on-play policy, off by default. TalkBack focus, large-text selection controls, and export/interruption recovery have native emulator coverage; the [final UX review](docs/ux-final-review.md) records the remaining human and carrier validation limits.
 
 Transcription runs on the phone with Standard (Whisper Tiny), Enhanced (Whisper Base), or Highest quality (full Whisper Large v3). Tiny and Base are English-only; Large v3 adds automatic/manual language selection and a separate English translation. Original and translated text are both searchable. The recording page includes Call and Share actions for text or audio. Settings also includes personal greeting setup with local recording/import, preview, and an explicit carrier-save confirmation. Large needs a 1.78 GB download and much more memory and processing time. Existing transcripts stay until explicitly updated. Settings has local search by name or feature. Phrase-based tap-to-play, transcript search, a guided introduction, consistent tap feedback, and reduced-motion support are included.
 
@@ -91,7 +91,7 @@ Recording screenshots show version 0.25 with smaller icons and balanced player s
 
 The [event-driven notification investigation](docs/event-driven-notifications.md) explains current SMS/push eligibility and limits.
 
-The [version 0.33 five-question review](docs/ux-review-0.33.md) covers the latest transcript card and controls. The earlier [app-wide review](docs/ux-final-review.md) and [implementation evidence](docs/ux-improvements.md) record the broader follow-up work and validation limits.
+The [version 0.34 onboarding/motion review](docs/ux-review-0.34.md) covers swipe navigation, spacing, and the demo capture pipeline. The [version 0.33 five-question review](docs/ux-review-0.33.md) covers the latest transcript card and controls. The earlier [app-wide review](docs/ux-final-review.md) and [implementation evidence](docs/ux-improvements.md) record the broader follow-up work and validation limits.
 
 - [Carrier protocol and device findings](docs/carrier-research.md)
 - [Independent probe results and limits](docs/independent-probe.md)

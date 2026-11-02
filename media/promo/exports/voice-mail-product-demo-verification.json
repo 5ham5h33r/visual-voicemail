@@ -1,23 +1,86 @@
 {
   "file": "voice-mail-product-demo.mp4",
-  "bytes": 2897917,
-  "sha256": "4e7af1de418c818e6b1db6bb5a3d2763826152c71e9aac08db88de7ce719c740",
+  "bytes": 4247969,
+  "sha256": "149fa992c74e7c0130337335c0c0d4b147bb7601ee50bd908b11ffe6ea9046e2",
   "duration_seconds": 44.0,
   "video": {
     "codec": "h264",
     "width": 1080,
     "height": 1350,
-    "frames": 1320,
-    "fps": 30
+    "frames": 2640,
+    "fps": 60,
+    "constant_frame_timing": "passed"
   },
   "audio": {
     "codec": "aac",
     "sample_rate": 48000,
     "channels": 2,
-    "integrated_loudness_lufs": -18.0,
-    "true_peak_dbfs": -6.9
+    "integrated_loudness_lufs": -17.4,
+    "true_peak_dbfs": -2.76
   },
   "full_decode": "passed",
   "fast_start": true,
-  "content": "Fictional callers, reserved sample numbers, scripted sample transcripts; original synthesized soundtrack"
+  "music": {
+    "title": "Origami",
+    "artist": "Scott Buckley",
+    "license": "CC BY 4.0",
+    "source": "https://www.scottbuckley.com.au/library/origami/",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "source_sha256": "8b8edd81ee2110a62169b48e3233e1556c0f9de10003b21f41a28e5b4bcbfe14",
+    "changes": "Opening 44 seconds; fades and level adjustment",
+    "credits": "End card, MP4 comment, SRT, LinkedIn post copy, MUSIC-CREDITS.md"
+  },
+  "capture": {
+    "device": "Unauthenticated S24-shaped API 36 emulator",
+    "logical_viewport_dp": "384x832",
+    "framebuffer_pixels": "720x1560 at 300 dpi",
+    "active_gpu": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+    "method": "Authenticated loopback native screenshot streaming with host NVENC encoding",
+    "motion_interpolation": false,
+    "fixture_restoration": "passed",
+    "physical_phone_used": false,
+    "scenes": [
+      {
+        "scene": "inbox",
+        "duration_seconds": 12,
+        "native_frames": 718,
+        "median_frame_interval_ms": 16.577,
+        "p95_frame_interval_ms": 18.975,
+        "p99_frame_interval_ms": 20.059
+      },
+      {
+        "scene": "search",
+        "duration_seconds": 10,
+        "native_frames": 591,
+        "median_frame_interval_ms": 16.602,
+        "p95_frame_interval_ms": 18.946,
+        "p99_frame_interval_ms": 20.07
+      },
+      {
+        "scene": "playback",
+        "duration_seconds": 12,
+        "native_frames": 715,
+        "median_frame_interval_ms": 16.553,
+        "p95_frame_interval_ms": 18.829,
+        "p99_frame_interval_ms": 20.0
+      },
+      {
+        "scene": "quality",
+        "duration_seconds": 9,
+        "native_frames": 539,
+        "median_frame_interval_ms": 16.52,
+        "p95_frame_interval_ms": 18.953,
+        "p99_frame_interval_ms": 20.073
+      },
+      {
+        "scene": "selection",
+        "duration_seconds": 10,
+        "native_frames": 598,
+        "median_frame_interval_ms": 16.57,
+        "p95_frame_interval_ms": 19.052,
+        "p99_frame_interval_ms": 20.789
+      }
+    ]
+  },
+  "content": "Fictional callers, reserved sample numbers, scripted sample transcripts. Voicemail fixture audio muted and excluded."
 }

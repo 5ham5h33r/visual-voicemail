@@ -7,7 +7,7 @@ import subprocess
 import zipfile
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation', 'notification-eligibility', 'saved-mailbox', 'multilingual', 'share', 'greeting', 'layout', 'emulator-setup', 'local-actions', 'download-recovery', 'first-use', 'accessibility', 'resilience', 'public-speech', 'release-upgrade', 'transcription-controls', 'selection-frames', 'product-demo'], default='recording')
+parser.add_argument('--test', choices=['recording', 'onboarding', 'quality', 'navigation', 'bulk', 'header', 'settings', 'selection', 'transition', 'inbox-navigation', 'notification-eligibility', 'saved-mailbox', 'multilingual', 'share', 'greeting', 'layout', 'emulator-setup', 'local-actions', 'download-recovery', 'first-use', 'accessibility', 'resilience', 'public-speech', 'release-upgrade', 'transcription-controls', 'selection-frames', 'product-demo', 'playback-cadence'], default='recording')
 parser.add_argument('--serial', help='ADB device serial; omit only with one connected device')
 parser.add_argument('--speech-fixture', help='Public 16 kHz PCM WAV for isolated audio checks or emulator setup')
 parser.add_argument('--language-fixtures', help='Directory of public multilingual WAV fixtures')
@@ -16,7 +16,11 @@ parser.add_argument('--download-stage', choices=['pause','resume'], help='Explic
 parser.add_argument('--compile-only', action='store_true')
 parser.add_argument('--release-stage', choices=['before', 'after'], help='Explicit emulator-only signing-upgrade witness stage')
 parser.add_argument('--demo-scene', choices=['all', 'playback'], default='all', help='Optional isolated native demo recapture')
+parser.add_argument('--demo-capture-token', help='Host capture correlation token (32 lowercase hex characters)')
 args = parser.parse_args()
+if args.demo_capture_token and (args.test != 'product-demo' or len(args.demo_capture_token) != 32
+                               or any(c not in '0123456789abcdef' for c in args.demo_capture_token)):
+    parser.error('--demo-capture-token is only for an explicit product-demo host capture.')
 if args.test == 'release-upgrade' and not args.release_stage and not args.compile_only:
     parser.error('--test release-upgrade requires --release-stage before/after.')
 root = pathlib.Path(__file__).resolve().parent.parent
@@ -25,7 +29,7 @@ bt = tools / 'build-tools/android-16'
 java = next((tools / 'jre21').glob('*/bin/java.exe'), None) or shutil.which('java')
 if not java:
     raise SystemExit('Install Java 17+ and build the app first.')
-name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck', 'notification-eligibility': 'NotificationEligibilityCheck', 'saved-mailbox': 'SavedMailboxCheck', 'multilingual': 'MultilingualFlowCheck', 'share': 'ShareFlowCheck', 'greeting': 'GreetingFlowCheck', 'layout': 'LayoutAccessibilityCheck', 'emulator-setup': 'EmulatorMailboxSetup', 'local-actions': 'LocalActionsCheck', 'download-recovery': 'DownloadRecoveryCheck', 'first-use': 'FirstUseDiscoveryCheck', 'accessibility': 'AccessibilityWalkthroughCheck', 'resilience': 'ResilienceCheck', 'public-speech': 'PublicSpeechCheck', 'release-upgrade': 'ReleaseUpgradeCheck', 'transcription-controls': 'TranscriptionControlsCheck', 'selection-frames': 'SelectionFrameCheck', 'product-demo': 'ProductDemoCapture'}[args.test]
+name = {'recording': 'RecordingFlowCheck', 'onboarding': 'OnboardingFlowCheck', 'quality': 'QualityMotionCheck', 'navigation': 'NavigationCheck', 'bulk': 'BulkFlowCheck', 'header': 'InboxHeaderCheck', 'settings': 'SettingsSearchCheck', 'selection': 'SelectionMotionCheck', 'transition': 'SelectionTransitionCheck', 'inbox-navigation': 'InboxNavigationCheck', 'notification-eligibility': 'NotificationEligibilityCheck', 'saved-mailbox': 'SavedMailboxCheck', 'multilingual': 'MultilingualFlowCheck', 'share': 'ShareFlowCheck', 'greeting': 'GreetingFlowCheck', 'layout': 'LayoutAccessibilityCheck', 'emulator-setup': 'EmulatorMailboxSetup', 'local-actions': 'LocalActionsCheck', 'download-recovery': 'DownloadRecoveryCheck', 'first-use': 'FirstUseDiscoveryCheck', 'accessibility': 'AccessibilityWalkthroughCheck', 'resilience': 'ResilienceCheck', 'public-speech': 'PublicSpeechCheck', 'release-upgrade': 'ReleaseUpgradeCheck', 'transcription-controls': 'TranscriptionControlsCheck', 'selection-frames': 'SelectionFrameCheck', 'product-demo': 'ProductDemoCapture', 'playback-cadence': 'PlaybackCadenceCheck'}[args.test]
 output = root / 'app/build' / ('device-' + args.test)
 classes, dex = output / 'classes', output / 'dex'
 classes.mkdir(parents=True, exist_ok=True)
@@ -91,6 +95,8 @@ try:
         extras = ['-e', 'release_stage', args.release_stage]
     if args.test == 'product-demo':
         extras = ['-e', 'demo_scene', args.demo_scene]
+        if args.demo_capture_token:
+            extras += ['-e', 'demo_capture_token', args.demo_capture_token]
     result = run(*device, 'shell', 'am', 'instrument', '-w', *extras, package + '/.' + name, capture=True).stdout
     print(result)
     if 'passed=true' not in result or 'INSTRUMENTATION_CODE: -1' not in result:
