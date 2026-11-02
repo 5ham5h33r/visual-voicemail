@@ -10,8 +10,8 @@ The composer permits free use in commercial projects with attribution. The sound
 
 The demo synchronizes the opening 44 seconds with the app footage, with an entry fade, an ending fade, and level normalization. The video end card, MP4 comment metadata, and LinkedIn post copy credit the artist. Keep the following credit and links in the published post:
 
-> Music: 'Origami' by Scott Buckley - released under CC BY 4.0. https://www.scottbuckley.com.au/library/origami/  
-> License: https://creativecommons.org/licenses/by/4.0/  
+> Music: 'Origami' by Scott Buckley - released under CC BY 4.0. https://www.scottbuckley.com.au/library/origami/
+> License: https://creativecommons.org/licenses/by/4.0/
 > Music excerpt trimmed, faded, and level-adjusted for this demo.
 
 The original MP3 stays in ignored `work/music/`; it is not distributed as a standalone recording in this repository. `fetch_music.py` downloads the composer's official full-mix link and verifies SHA-256:
