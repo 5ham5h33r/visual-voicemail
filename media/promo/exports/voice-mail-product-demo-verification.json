@@ -1,7 +1,7 @@
 {
   "file": "voice-mail-product-demo.mp4",
-  "bytes": 2241922,
-  "sha256": "9278707f953cc9fee647e838d6b14ea0a3a44455912a5fb44d233928694bb042",
+  "bytes": 2219863,
+  "sha256": "fcfc12a10f7ace6454d60f0770fa6c9cb8768e013778ff3eb93f979c8f88b384",
   "duration_seconds": 32.0,
   "video": {
     "codec": "h264",
@@ -26,27 +26,30 @@
         0,
         0
       ]
-    }
+    },
+    "encoded_stream_sha256": "416a2af234834ef4405920dae4ac712d3852c1b9bed072b4c588c6d040718f6f",
+    "unchanged_picture_packets_and_timestamps": "passed"
   },
   "audio": {
     "codec": "aac",
     "sample_rate": 48000,
     "channels": 2,
-    "integrated_loudness_lufs": -17.16,
-    "true_peak_dbfs": -4.49
+    "integrated_loudness_lufs": -18.72,
+    "true_peak_dbfs": -2.75
   },
   "full_decode": "passed",
   "fast_start": true,
   "music": {
-    "catalog_item": 102,
+    "catalog_item": 1168,
     "license": "Mixkit Stock Music Free License",
-    "source": "https://assets.mixkit.co/music/102/102.mp3",
+    "source": "https://assets.mixkit.co/music/1168/1168.mp3",
     "license_url": "https://mixkit.co/license/modal/musicFree/",
-    "source_sha256": "a0307e929eb60ed10488eacfdf8b3fddc893cf9b8680f5a55b65fb51b7075fdc",
-    "changes": "Opening 32 seconds; fades and level adjustment",
+    "source_sha256": "af5eb4518d456b997e322a1f89bd65a9a88134f5149d503a30735ec79b3bcf96",
+    "changes": "Continuous excerpt from 12 to 44 seconds; entry and ending fades; level adjustment",
     "public_attribution_required": false,
     "public_artist_credits": false,
-    "license_record": "MUSIC-LICENSE.md"
+    "license_record": "MUSIC-LICENSE.md",
+    "looped": false
   },
   "capture": {
     "device": "Fresh generic rectangular API 36 emulator",

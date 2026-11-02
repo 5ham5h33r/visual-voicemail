@@ -3,9 +3,9 @@ from pathlib import Path
 import hashlib
 import subprocess
 
-DESTINATION = Path(__file__).resolve().parent / "work/music/stylz.mp3"
-URL = "https://assets.mixkit.co/music/102/102.mp3"
-SHA256 = "a0307e929eb60ed10488eacfdf8b3fddc893cf9b8680f5a55b65fb51b7075fdc"
+DESTINATION = Path(__file__).resolve().parent / "work/music/coffee-or-tea.mp3"
+URL = "https://assets.mixkit.co/music/1168/1168.mp3"
+SHA256 = "af5eb4518d456b997e322a1f89bd65a9a88134f5149d503a30735ec79b3bcf96"
 
 if DESTINATION.exists():
     if hashlib.sha256(DESTINATION.read_bytes()).hexdigest() != SHA256:
