@@ -24,7 +24,7 @@ The opening and ending identify the preview and sample messages. The film carrie
 | 21.33-28.44 s | Make it yours. | The same player/transcript content in Light, Dark, and AMOLED |
 | 28.44-32 s | Voice Mail | Brand, Android/Mint context, development-preview status |
 
-The cut grid follows four-beat bars at approximately 135 BPM. Native footage keeps its original timing. The title entrances use short ease-outs; the transcript focus move and theme changes use smooth easing. Typography is rasterized at double size, and fractional placement avoids whole-pixel snapping during slow moves. Transitions never invent app functionality. Saved sample text is scripted demonstration content, not recognition output from the muted public playback fixture.
+The cut grid stays fixed across soundtrack revisions. A quieter electronic bed supports the interactions without changing picture timing. Native footage keeps its original timing. The title entrances use short ease-outs; the transcript focus move and theme changes use smooth easing. Typography is rasterized at double size, and fractional placement avoids whole-pixel snapping during slow moves. Transitions never invent app functionality. Saved sample text is scripted demonstration content, not recognition output from the muted public playback fixture.
 
 ## Evidence and review
 

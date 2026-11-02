@@ -17,14 +17,14 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 WORK, EXPORTS = HERE / 'work', HERE / 'exports'
 WIDTH, HEIGHT, FPS, DURATION = 1080, 1350, 60, 32
-# 135 BPM, four beats per bar. Holds give each native interaction time to read.
+# Preserve the established cut grid when replacing background music.
 BAR = 16 / 9
 CUTS = tuple(b * BAR for b in (0, 2, 5, 7, 10, 12, 16, 18))
 BG = (16, 17, 20)
 WHITE, MINT, MUTED = (242, 245, 247), (152, 226, 195), (165, 173, 182)
 FFMPEG = shutil.which('ffmpeg')
-MUSIC = WORK / 'music/stylz.mp3'
-MUSIC_SHA256 = 'a0307e929eb60ed10488eacfdf8b3fddc893cf9b8680f5a55b65fb51b7075fdc'
+MUSIC = WORK / 'music/coffee-or-tea.mp3'
+MUSIC_SHA256 = 'af5eb4518d456b997e322a1f89bd65a9a88134f5149d503a30735ec79b3bcf96'
 ICON = Image.open(ROOT / 'docs/branding/app-icon.png').convert('RGBA')
 
 
@@ -257,12 +257,44 @@ def stamp(seconds):
     return f'00:{ms // 60000:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}'
 
 
+def soundtrack_filter():
+    return ('atrim=start=12:duration=32,asetpts=PTS-STARTPTS,'
+            'afade=t=in:st=0:d=0.45,afade=t=out:st=30.2:d=1.8,'
+            'loudnorm=I=-19:TP=-2:LRA=7')
+
+
+def replace_music():
+    if not MUSIC.is_file() or hashlib.sha256(MUSIC.read_bytes()).hexdigest() != MUSIC_SHA256:
+        raise RuntimeError('Run media/promo/fetch_music.py for the verified soundtrack')
+    target = EXPORTS / 'voice-mail-product-demo.mp4'
+    if not target.is_file():
+        raise RuntimeError('Render the video before replacing its soundtrack')
+    temporary = WORK / 'soundtrack-replacement.mp4'
+    subprocess.run([
+        FFMPEG, '-y', '-v', 'error', '-i', str(target), '-i', str(MUSIC),
+        '-map', '0:v:0', '-map', '1:a:0', '-map_metadata', '-1',
+        '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
+        '-af', soundtrack_filter(), '-t', str(DURATION), '-movflags', '+faststart',
+        '-metadata', 'title=Voice Mail - product launch preview',
+        '-metadata', 'comment=Synthetic demo messages. Android development preview.',
+        str(temporary)], check=True)
+    temporary.replace(target)
+    print('Replaced soundtrack; copied the existing video stream without re-encoding.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--preview', action='store_true')
+    parser.add_argument('--replace-music', action='store_true',
+                        help='Replace audio while preserving the existing encoded video')
     args = parser.parse_args()
     if not FFMPEG:
         raise RuntimeError('FFmpeg is required')
+    if args.replace_music:
+        if args.preview:
+            parser.error('--replace-music and --preview are separate operations')
+        replace_music()
+        return
     prepare()
     EXPORTS.mkdir(exist_ok=True)
     captions = [
@@ -299,8 +331,7 @@ def main():
             '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
             '-color_range', 'tv', '-profile:v', 'high', '-level:v', '4.2',
             '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
-            '-af', 'atrim=0:32,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.18,'
-                   'afade=t=out:st=30.65:d=1.35,loudnorm=I=-18:TP=-2:LRA=7',
+            '-af', soundtrack_filter(),
             '-movflags', '+faststart', '-shortest',
             '-metadata', 'title=Voice Mail - product launch preview',
             '-metadata', 'comment=Synthetic demo messages. Android development preview.', str(target),

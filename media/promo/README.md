@@ -46,6 +46,8 @@ python media/promo/capture_stream.py --scene playback
 python media/promo/fetch_music.py
 python media/promo/product_demo.py --preview
 python media/promo/product_demo.py
+# Soundtrack-only update, preserving the existing encoded picture:
+python media/promo/product_demo.py --replace-music
 ```
 
 The temporary native filming helper refuses real hardware, carrier sessions, unexpected IDs/counts, and numbers outside its reserved fixture range. A random per-run scene marker starts authenticated loopback capture only after the guards pass. The host reads only that dedicated log tag, records the native screenshot stream, and uses host NVENC encoding. No carrier mutation or call occurs. The helper restores synthetic inbox/transcripts and touched preferences in finally and reports restoration errors. It never ships in the app APK.
