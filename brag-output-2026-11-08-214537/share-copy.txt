@@ -1,0 +1,1 @@
+I built an Android voicemail app with on-device transcripts, search, and phrase playback, using my existing Mint mailbox and chosen dialer. This is a private preview with sample messages. Design feedback is welcome.

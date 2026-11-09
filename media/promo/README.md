@@ -1,5 +1,7 @@
 # Voice Mail launch preview
 
+A separate [22-second Hyperframes edit](../../brag-output-2026-11-08-214537/README.md) is also available, with editable scenes, a selected poster, share copy, and encoded verification. It preserves the 32-second film below.
+
 A 32-second product film for LinkedIn, using the version 0.34 app. The story moves from one sample message to phrase playback, transcript search, the existing mailbox, on-device transcription, and Light/Dark/AMOLED. See the [creative brief and shot list](../../docs/product-launch-brief.md).
 
 ## Deliverables

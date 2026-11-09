@@ -8,3 +8,16 @@ probe/local/
 app/build/
 app/local/
 media/promo/work/
+
+# Local Hyperframes runtime, validation scratch, and synchronized soundtrack excerpts.
+brag-output*/composition/node_modules/
+brag-output*/composition/.hyperframes/
+brag-output*/composition/.thumbnails/
+brag-output*/composition/.waveform-cache/
+brag-output*/composition/assets/music/
+brag-output*/composition/assets/audio-data.json
+brag-output*/composition/assets/audio-data.js
+brag-output*/composition/beats/
+brag-output*/work/
+brag-output*/check.json
+brag-output*/render.log

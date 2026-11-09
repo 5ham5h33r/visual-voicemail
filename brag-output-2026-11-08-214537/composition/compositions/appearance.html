@@ -1,0 +1,22 @@
+<template><style>#root{position:absolute;inset:0;background:var(--color-ground,#101214);color:var(--color-ink,#F3F5F7);font-family:var(--font-display,Roboto)}
+    .brand{position:absolute;left:108px;top:92px;display:flex;align-items:center;gap:14px;font-size:28px;font-weight:700;letter-spacing:2px}
+    .brand img{width:40px;height:40px}.heading{position:absolute;left:108px;top:178px;font-size:68px;font-weight:700;line-height:1.1;letter-spacing:-2px;width:864px}
+    .note{position:absolute;left:108px;bottom:70px;font-size:28px;color:#AEB7C2}.viewport{position:absolute;left:98px;top:325px;width:884px;height:930px;overflow:hidden}
+    .native{position:absolute;left:0;top:0;width:884px;height:1178px;object-fit:contain;object-position:top}
+
+    #root{background:#F3F4F6;color:#161C24}.theme{position:absolute;inset:0}
+    .theme img{position:absolute;left:98px;top:325px;width:884px;height:895px}.theme-name{position:absolute;left:108px;top:270px;font-size:30px}
+    #appearance-dark{background:#101214;color:#F3F5F7}#appearance-black{background:#000;color:#F3F5F7}
+    </style><div id="root" data-composition-id="appearance" data-width="1080" data-height="1350">
+    <div id="appearance-light" class="theme"><img src="assets/native/theme-1.png" alt="Light appearance"></div>
+    <div id="appearance-dark" class="theme"><img src="assets/native/theme-2.png" alt="Dark appearance"></div>
+    <div id="appearance-black" class="theme"><img src="assets/native/theme-3.png" alt="AMOLED appearance"></div>
+    <p id="appearance-label-light" class="clip theme-name" data-start="0" data-duration="1.15" data-track-index="4">Light</p>
+    <p id="appearance-label-dark" class="clip theme-name" style="color:#F3F5F7" data-start="1.55" data-duration="1" data-track-index="4">Dark</p>
+    <p id="appearance-label-black" class="clip theme-name" style="color:#F3F5F7" data-start="2.95" data-duration="1.05" data-track-index="4">AMOLED</p>
+    <div id="appearance-ink"><div class="brand"><img src="assets/app-icon.png" alt=""><span>VOICE MAIL</span></div><h1 id="appearance-title" class="heading">Make it yours.</h1></div>
+    </div><script>const tl=gsap.timeline({paused:true});
+    tl.fromTo('#appearance-dark',{opacity:0},{opacity:1,duration:.4,ease:'power2.inOut'},1.15);
+    tl.fromTo('#appearance-black',{opacity:0},{opacity:1,duration:.4,ease:'power2.inOut'},2.55);
+    tl.fromTo('#appearance-ink',{color:'#161C24'},{color:'#F3F5F7',duration:.4,ease:'power2.inOut'},1.15);
+    window.__timelines.appearance=tl;</script></template>
