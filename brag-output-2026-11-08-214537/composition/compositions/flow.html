@@ -1,0 +1,30 @@
+<template><style>#root{position:absolute;inset:0;background:var(--color-ground,#101214);color:var(--color-ink,#F3F5F7);font-family:var(--font-display,Roboto)}
+    .brand{position:absolute;left:108px;top:92px;display:flex;align-items:center;gap:14px;font-size:28px;font-weight:700;letter-spacing:2px}
+    .brand img{width:40px;height:40px}.heading{position:absolute;left:108px;top:178px;font-size:68px;font-weight:700;line-height:1.1;letter-spacing:-2px;width:864px}
+    .note{position:absolute;left:108px;bottom:70px;font-size:28px;color:#AEB7C2}.viewport{position:absolute;left:98px;top:325px;width:884px;height:930px;overflow:hidden}
+    .native{position:absolute;left:0;top:0;width:884px;height:1178px;object-fit:contain;object-position:top}
+
+    #flow-hook{font-size:66px}.subcopy{position:absolute;left:108px;top:260px;font-size:30px;color:#AEB7C2}
+    </style><div id="root" data-composition-id="flow" data-width="1080" data-height="1350">
+    <div class="brand"><img src="assets/app-icon.png" alt=""><span>VOICE MAIL</span></div>
+    <div id="flow-hook-clip" class="clip" data-start="0" data-duration="4" data-track-index="1" data-hold="true"><h1 id="flow-hook" class="heading" data-var-text="hook">Read it. Tap it. Hear it.</h1></div>
+    <div id="flow-phrase-clip" class="clip" data-start="4" data-duration="7" data-track-index="2"><h1 id="flow-phrase" class="heading">Tap a phrase.</h1><p id="flow-phrase-sub" class="subcopy">Hear that moment.</p></div>
+    <div id="flow-find-clip" class="clip" data-start="11" data-duration="4" data-track-index="3"><h1 id="flow-find" class="heading">Find the detail.</h1><p id="flow-find-sub" class="subcopy">Search inside the transcript.</p></div>
+    <div class="viewport" data-layout-allow-overflow="true">
+      <div id="flow-panel"><img id="flow-still" class="clip native" data-start="0" data-duration="4" data-track-index="4" src="assets/native/recording.png" alt="Sample voicemail player and transcript">
+      <video id="flow-native-video" class="clip native" data-start="4" data-duration="11" data-track-index="5" src="assets/native/recording.mp4" muted playsinline></video></div>
+    </div>
+    <p class="note">Android preview · Sample message</p>
+    </div><script>
+    const tl=gsap.timeline({paused:true});
+    // Adapted from the registry soft-blur-in primitive, without a CSS transform conflict.
+    tl.fromTo('#flow-hook',{opacity:0,filter:'blur(6px)'},{opacity:1,filter:'blur(0px)',duration:.45,ease:'power4.out'},0);
+    tl.fromTo('#flow-panel',{y:28,opacity:.85},{y:0,opacity:1,duration:.55,ease:'power4.out'},0);
+    tl.fromTo('#flow-phrase',{opacity:0,filter:'blur(6px)'},{opacity:1,filter:'blur(0px)',duration:.35,ease:'power3.out'},4);
+    tl.fromTo('#flow-phrase-sub',{opacity:0},{opacity:1,duration:.3},4.15);
+    // Carry the same real transcript into focus as its native search controls open.
+    tl.to('#flow-panel',{y:-405,duration:.65,ease:'power2.inOut'},10.85);
+    tl.fromTo('#flow-find',{opacity:0,filter:'blur(6px)'},{opacity:1,filter:'blur(0px)',duration:.35,ease:'power3.out'},11);
+    tl.fromTo('#flow-find-sub',{opacity:0},{opacity:1,duration:.3},11.1);
+    window.__timelines.flow=tl;
+    </script></template>

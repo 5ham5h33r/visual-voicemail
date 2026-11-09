@@ -1,0 +1,18 @@
+<template><style>#root{position:absolute;inset:0;background:var(--color-ground,#101214);color:var(--color-ink,#F3F5F7);font-family:var(--font-display,Roboto)}
+    .brand{position:absolute;left:108px;top:92px;display:flex;align-items:center;gap:14px;font-size:28px;font-weight:700;letter-spacing:2px}
+    .brand img{width:40px;height:40px}.heading{position:absolute;left:108px;top:178px;font-size:68px;font-weight:700;line-height:1.1;letter-spacing:-2px;width:864px}
+    .note{position:absolute;left:108px;bottom:70px;font-size:28px;color:#AEB7C2}.viewport{position:absolute;left:98px;top:325px;width:884px;height:930px;overflow:hidden}
+    .native{position:absolute;left:0;top:0;width:884px;height:1178px;object-fit:contain;object-position:top}
+
+    #outro-content{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px}
+    #outro-logo{width:144px;height:144px}#outro-name{font-size:104px;letter-spacing:-3px;font-weight:700}
+    #outro-line{font-size:32px;color:#AEB7C2}#outro-preview{font-size:28px;color:#93E2C0;margin-top:68px}
+    </style><div id="root" data-composition-id="outro" data-width="1080" data-height="1350">
+    <div id="outro-content" data-hold="true"><img id="outro-logo" src="assets/app-icon.png" alt="Voice Mail icon"><h1 id="outro-name" data-var-text="product-name">Voice Mail</h1><p id="outro-line">On-device transcripts. Your chosen dialer.</p><p id="outro-preview">Android / Mint preview</p></div>
+    <p class="note">Sample messages · Design feedback welcome</p>
+    </div><script>const tl=gsap.timeline({paused:true});
+    tl.fromTo('#outro-content',{y:22,opacity:0},{y:0,opacity:1,duration:.55,ease:'power4.out'},0);
+    // Build-time audio modulation affects only the brand icon, never readable text.
+    const audio=window.LAUNCH_AUDIO;
+    if(audio&&audio.frames){for(let i=0;i<180;i+=6){const frame=audio.frames[1140+i];const bands=frame?.bands||[];const bass=Math.max(bands[0]||0,bands[1]||0);tl.to('#outro-logo',{opacity:.96+.04*bass,duration:.1,ease:'none'},i/60);}}
+    window.__timelines.outro=tl;</script></template>
