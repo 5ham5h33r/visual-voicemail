@@ -29,6 +29,12 @@ jobs:
         run: python3 probe/bootstrap.py
       - name: Build and verify APK
         run: python3 probe/build.py --module ${{ matrix.module }}
+      - name: Verify committed preview APK
+        if: matrix.module == 'app'
+        working-directory: releases/v0.34
+        run: |
+          sha256sum --check SHA256SUMS
+          java -jar ../../research/tools/build-tools/android-16/lib/apksigner.jar verify --verbose visual-voice-mail-0.34.apk
       # Release keys stay outside CI. Compile the non-debuggable package without signing.
       - name: Validate release packaging without private keys
         if: matrix.module == 'app'

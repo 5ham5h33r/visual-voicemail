@@ -2,13 +2,15 @@
 
 # Visual Voice Mail
 
-An investigation and prototype for a free, open-source Android visual voicemail client for Mint Mobile, starting with the Samsung Galaxy S24 Ultra.
+A free, open-source Android visual voicemail client for Mint Mobile, starting with the Samsung Galaxy S24 Ultra. The original app code is available under the [MIT license](LICENSE).
 
 The app uses the existing carrier mailbox, works alongside the user's chosen dialer, and adds a clear inbox and on-device transcription.
 
-[Download the signed v0.34 preview APK](https://github.com/5ham5h33r/visual-voicemail/releases/tag/v0.34). The release includes a checksum and public signing-certificate report. Repository access is required while this project is private. See [release builds and upgrade notes](docs/releases.md).
+[Download the signed v0.34 preview APK](https://github.com/5ham5h33r/visual-voicemail/releases/download/v0.34/visual-voice-mail-0.34.apk). The same APK is [included in this repository](releases/v0.34/visual-voice-mail-0.34.apk), alongside its [SHA-256 checksum](releases/v0.34/SHA256SUMS) and [public signing-certificate report](releases/v0.34/SIGNING-CERTIFICATE.txt). See [installation](releases/README.md) and [release builds and upgrade notes](docs/releases.md).
 
-Version 0.31 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
+This is a development preview tested with Mint; other carriers are not validated. Initial setup needs Mint cellular data. Direct carrier push and live greeting replacement remain unverified; see the [validation limits](docs/ux-final-review.md). The app keeps your chosen dialer and uses the existing mailbox without call forwarding.
+
+Version 0.34 authenticates to Mint's existing voicemail service, loads the mailbox, and downloads and plays recordings without carrier privileges or a default-dialer role. The inbox header condenses as you scroll, leaving a compact toolbar with search, filters, and Settings. Swipe or tap between All, Unread, and Saved, with clear empty states for each view. Select messages from Inbox actions or by long-press. The inbox supports contact and transcript search, multi-selection, queued transcripts, read/unread updates, and carrier removal with verified local copies retained in Saved.
 
 Get Started opens the inbox directly; the interactive introduction and control tour remain optional. Swipe in either direction through the introduction, or use its navigation buttons. Model downloads support verified Pause/Resume. Cached playback, sharing, export, and transcription remain available during slow carrier work. Settings offers an optional mark-as-read-on-play policy, off by default. TalkBack focus, large-text selection controls, and export/interruption recovery have native emulator coverage; the [final UX review](docs/ux-final-review.md) records the remaining human and carrier validation limits.
 
@@ -122,4 +124,4 @@ The [version 0.34 onboarding/motion review](docs/ux-review-0.34.md) covers swipe
 
 Use `feature/` feature branches, commit each coherent change, and merge changes to `main` through a reviewed pull request with relevant validation.
 
-Downloaded APKs, decompiled proprietary application code, local tools, signing keys, and private device captures are excluded from version control. Original implementation, research tooling, findings, and reviewed app screenshots with personal details removed belong in this repository.
+Downloaded carrier APKs, decompiled proprietary application code, local tools, signing keys, and private device captures are excluded from version control. The project's own signed preview APK is included under `releases/`. Original implementation, research tooling, findings, and reviewed app screenshots with personal details removed belong in this repository.

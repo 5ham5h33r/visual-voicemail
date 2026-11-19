@@ -1,0 +1,17 @@
+Voice Mail 0.34 public signing-certificate report
+
+Android 8-12L original signing identity:
+Signer #1 certificate DN: CN=Visual Voice Mail Research Debug
+Signer #1 certificate SHA-256 digest: 85ba12b0bbb98cb63fb6e2427c9216f02cdae8c814f1d47b0b2a2fcee8332fab
+Signer #1 certificate SHA-1 digest: 282b43b641d8e5d7f12e6fb611cf636bec3b1938
+Signer #1 certificate MD5 digest: 4254cce09441d4cf733c82183b51f168
+
+Android 13+ release signing identity:
+Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate DN: CN=Voice Mail Release, O=Visual Voice Mail
+Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: f3b3f3ceb54f59f5a505163d1039a71068d20babb994514bd1940e9a907f02b8
+Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-1 digest: d631a6323b35d98445a41b81e71ea8580bbc55da
+Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate MD5 digest: 96419548b9f27d2164b88d7729d32e9f
+Signer (minSdkVersion=24, maxSdkVersion=32) certificate DN: CN=Visual Voice Mail Research Debug
+Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-256 digest: 85ba12b0bbb98cb63fb6e2427c9216f02cdae8c814f1d47b0b2a2fcee8332fab
+Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-1 digest: 282b43b641d8e5d7f12e6fb611cf636bec3b1938
+Signer (minSdkVersion=24, maxSdkVersion=32) certificate MD5 digest: 4254cce09441d4cf733c82183b51f168
